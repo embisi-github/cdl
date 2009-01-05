@@ -1,0 +1,44 @@
+#a Copyright
+#  
+#  This file 'recursive_subs.hwex' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+option_int "depth" 3
+module recursive_subs rs
+
+option_string "clock" system_clock
+option_string "inputs" "result[32]"
+option_string "outputs" "test_reset in[32]"
+option_string "filename" rs_test_harness.th
+module se_test_harness th
+
+clock system_clock 0 1 1
+drive th.system_clock system_clock
+drive rs.main_clock system_clock
+
+wire in[32] result[32] reset
+
+drive reset th.test_reset
+
+drive rs.data_in in
+drive in th.in
+
+drive result rs.sum
+drive th.result result
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

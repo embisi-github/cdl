@@ -1,0 +1,133 @@
+#a Copyright
+#  
+#  This file 'test_harness.th' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+int reason
+int where
+int expected_value
+int last_expected_value
+
+signal__test_reset.reset 1
+
+bfm_wait 1
+
+set where 0
+set expected_value 0
+set last_expected_value 0
+
+gosub test_values
+
+
+bfm_wait 1
+
+gosub test_values
+
+bfm_wait 1
+
+gosub test_values
+
+printf "%d0%:%d1%:Releasing async reset" global_cycle() bfm_cycle()
+signal__test_reset.drive 0
+
+set where 100
+set last_expected_value 0
+set expected_value 1
+
+for i 1 10 1
+bfm_wait 1
+
+gosub test_values
+set last_expected_value expected_value
+xor expected_value expected_value 1
+
+next i
+
+pass 0 "Test succeeded"
+
+end
+
+test_fail:
+printf "Test failed, where %d0%, reason %d1%" where reason
+fail where "**************************************************************************** Test failed"
+end
+
+
+
+test_values:
+
+#printf "Cycle %d0%, testing values" global_cycle()
+printf "Cycle %d0%, testing values %x1% %d2% %d3% %d4% %d5%" global_cycle() signal__constants_out.value() last_expected_value where expected_value last_expected_value
+add where where 1
+
+set reason signal__high_0.value()
+bne reason 1 test_fail
+
+add where where 1
+set reason signal__high_1.value()
+bne reason 1 test_fail
+
+add where where 1
+set reason signal__low_0.value()
+bne reason 0 test_fail
+
+add where where 1
+set reason signal__toggle_0.value()
+bne reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_0.value()
+beq reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_chain_0.value()
+beq reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_chain_2.value()
+beq reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_chain_4.value()
+beq reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_chain_6.value()
+beq reason expected_value test_fail
+
+
+add where where 1
+set reason signal__invert_chain_1.value()
+bne reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_chain_3.value()
+bne reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_chain_5.value()
+bne reason expected_value test_fail
+
+add where where 1
+set reason signal__invert_chain_7.value()
+bne reason expected_value test_fail
+
+
+add where where 1
+set reason signal__constants_out.value()
+beq last_expected_value 0 last_0
+bne reason 8191 test_fail
+goto last_1
+last_0:
+bne reason 0 test_fail
+last_1:
+
+return

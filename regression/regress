@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+
+#a Copyright
+#  
+#  This file 'regress' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+#a Variables
+$os = "linux";
+if ($ENV{"OSTYPE"} eq "darwin") {
+    $os = "osx";
+}
+
+$bin_directory = "build/$os";
+$test_dirs = "simple vector instantiation memory event bugs clock_gate";
+$debug_level = 0;
+
+#a Run tests
+$tests = "";
+foreach $i (split(/ /,$test_dirs)) {
+    $tests = "$tests tests/$i test.batch";
+}
+system( "../scripts/regress -b $bin_directory -d $debug_level -n 1 $tests" );
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: perl ***
+# outline-regexp: "#[a!]\\\|#[	 ]*[b-z][	 ]" ***
+# End: ***
+

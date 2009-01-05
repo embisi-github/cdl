@@ -1,0 +1,480 @@
+\Cyclicity CDL Language Specification
+Gavin J Stark
+v0.01, April14th 2004
+
+
+1Overview
+This document specifies the Cyliclty cycle design language (CDL).
+It has an initial section on the lexical analysis flow for the language. It then continues with the basic grammar of the language, which is a useful reference and for the very technical a method of understanding its structure and purpose. Then there follows a more detailed discussion of what the language does.
+2Lexical analysis
+There are a few basic lexical features of CDL
+Single line comments start with '//'; all text to a newline following a '//' token will not be used in further analysis.
+Multiline comments start with '/*' and end with '*/'; all text between a '/*' token and the next '*/' token will not be used in further analysis.
+White space is ignored
+Files, after comments are ignored, are broken lexically into tokens. Tokens may then be numbers, strings, symbols, reserved keywords, or user symbols.
+Strings are of the form text of the string, i.e. data enclosed in pairs of quotation marks. Note that comments will NOT be stripped within a string; also, the backslash character may be used to quote a quotation mark within a string such as: string with a \ quotation \ in it.
+Symbols are non-alphanumerics, either singly or paired. The complete list is: , . ~ & | ^ ! * + - / % && || ^^ => <- = == != < > <= >= ( ) ; : 
+Numbers always start with a digit, and they may be sized or unsized numbers. Sized numbers are of the form '<n><b|B|h|H><value>'; the initial 'n' gives the size in the number of bits of the number, the base is then presented, then the value is given. The value may contain '_'s, which will be ignored. The value may also contain 'x' or 'X' characters, which indicate the number has an associated mask, so that masked comparisons may be expressed in the language. The following, then, are valid numbers: '123', '871232', '0', '16b1111_0000_11111_0000', '8HaF', '6b10xx01'.
+Reserved keywords are all lower case, and are keywords that are used within the language. The complete set is: constant struct fsm one_hot one_cold schematic symbol port line fill oval option preclock register assert include typedef string bit integer enum extern module input output parameter timing to from bundle default clock rising falling reset active_low active_high clocked comb net for if elsif else full_switch part_switch priority case break sizeof print assert
+User symbols start with alphabetical characters and contain alphanumerics plus '_'.
+File inclusion is supported through use of the 'include' token. After lexical analysis of a file, if an 'include' token is found at any point immediately followed by a string, then at that point in file another files will be included, and the file shall be derived from the string.
+3Basic language structure and grammar
+CDL is a language that, at the top level, specifies four things:
+1.Type definitions
+2.Constant declarations
+3.Module prototypes and timing specifications
+4.Module definitions
+The lexical order of the first two of these in a file is important; constant evaluations and type definitions are performed in lexical order, so that a type that utilizes a constant value as a bit width, for example, must not precede the declaration of that constant value.
+However, module definitions may refer to modules that have not been defined or prototyped; there is no lexical order requirement between module definitions and prototypes.
+3.1Scoping
+Constants have their own scope. Enumerations are explicitly typed, and so are within their own type's scope.
+
+3.2Grammatical building blocks
+Basic building blocks for the grammar are:
+1.User symbol lists
+2.Type specifications
+3.Lvar
+4.Expressions
+5.Nested assignments
+user symbol list:
+	<user symbol> [ ',' [ <user symbol list> ] ]
+type specifier:
+	<user symbol>
+	<base type>
+	<type specifier> '[' <expression> ']'
+base type:
+	signed bit | unsigned bit | bit | integer | string
+lvar:
+	<user symbol>
+	<lvar> '.' <user symbol>
+	<lvar> '[' <expression> ']'
+	<lvar> '[' <expression> ';' <expression> ']'
+expression:
+	<integer>
+	<lvar>
+	sizeof '(' <expression> ')'
+	bundle '(' <expression list> ')'
+	<expression> '?' <expression> ':' <expression>
+	<expression> ( '+' | '-' | '*' | '/' | '%' ) <expression>
+	<expression> ( '&' | '|' | '^' | '&&' | '||' | '^^' ) <expression>
+	<expression> ( '<' | '<=' | '>' | '>=' | '==' | '!=' ) <expression>
+	<expression> ( '<<' | '>>' ) <expression>
+	( '!' | '-' | '~' ) <expression>
+	'(' <expression> ')'
+expression list:
+	<expression> [ ',' [ <expression list> ] ]
+A type specifier of a bit is essentially a bit vector of size 1. Strings must not be used in type specifiers; they are for parameter passing only, and there use is not well defined at present. A type specifier of an array of bit vectors of size 1 is defined to be a bit vector of the specified size, but arrays of bit vectors larger than 1.
+Lvars specify use of signals or state, or a subset thereof. A double subscript seperated with ';' indicates subscripting a bit vector with a length (the expression prior to the ';') and the lowest bit number (the expression after the ';'). This supports build-time type checking, where the length must be a constant to define the type of the lvar.
+Expression operator precedence is as in 'C', with the addition of the '^^' operator which has the same precedence as '||'.
+
+3.3Type definitions
+type definition:
+	typedef <user symbol> <user symbol> ';'
+	typedef enum '[' [ <expression> ] ']' '{' <enumerations> '}' <user symbol> ';'
+	typedef struct '{' <structure element>* '}' <user symbol> ';'
+	typedef [ one_hot | one_cold ] fsm '{' <fsm state>* '}'  <user symbol> ';'
+enumerations:
+	<user symbol> [ '=' <expression> ] [ ',' [ <enumerations> ] ]
+structure element:
+	<type specifier> <user symbol> [ <documentation string> ] ';'
+fsm state:
+	<user symbol> [ '{' <user symbol list> '}' [ '{' <user symbol list> '}' ] ]
+		 [ '=' <expression> ] [ <documentation string> ] ';'
+A type reference should only refer to a previously defined type.
+A type enumeration is given a bit width, and can specify precise values for none, some or all of the enumerated elements; if the first is not specified, it is given the value 0; if others are not specified they take the previous value, and add 1. Enumerated element names should not be duplicated within the enumerated type; they may duplicate other names, as they will be resolved from context.
+A type structure should not duplicate element names.
+An FSM that is not explicitly identified as one_hot or one_cold will be enumerated. FSM states may specify a set of preceding states (the first symbol list) and also a set of succeeding states (the second symbol list). If any FSM states are assigned values then all states must be assigned values.
+Documentation strings should be utilized; the documentation will be available to GUI tools which interpret the code, or which utilize output from CDL tools.
+3.4Constant declarations
+constant declaration:
+	constant <type specifier> <user symbol> = <expression>
+					 [ <optional documentation> ] ';'
+A constant may only be of a bit vector type, sized or unsized; they may not be structures.
+3.5Module prototypes and timing specifications
+Module prototypes provide a mechanism for declaring a module's ports and the timing of those ports. The module may also be defined later in the file. A module prototype may also contain details of how the module may be drawn in a schematic, and its documentation should describe the overal functionality of the module.
+module prototype:
+	extern module <user symbol> '(' <port list> ')' 
+		 [ <documentation> ] '{' <prototype body>* '}'
+port list:
+	<port> [ ',' [ <port list> ] ]
+port:
+	clock <user symbol> [ <documentation> ]
+	( input | output ) <type specifier> <user symbol> [ <documentation> ]
+	parameter <type specifier> <user symbol> [ <documentation> ]
+prototype body:
+	<timing specification>
+timing specification:
+	timing ( to | from ) [ rising | falling ] <user symbol>
+		 <user symbol list> [ <documentation> ] ';'
+	timing comb ( input | output ) <user symbol list> [ <documentation> ] ';'
+Schematic symbol specification is not yet defined in the language.
+Actual values for timing specification are not yet defined in the language.
+The language does force limitations on module prototypes combinatorial timing; it will be difficult to specify two different times for paths between combinatorial pins. However, for now this is sufficient, and it may enforce good design practice (clocked logic is easier to specify, comprehend, and build, so combinatorial through paths are in general deprecated in modern design practice). 
+All types must be determinable at build time, currently. This means parameters must not be used to specify the widths of bit vectors, for example; this would require run-time checks. (Er, not quite true, but parameters in types are certainly tricky at the moment... but there are workarounds with constants and module naming)
+3.6Module definitions
+Module definitions define the contents of a module. This may include a schematic of the module itself, which is relatable to the code inside the module due to the structuring of the CDL language; however, schemataics are not in any sense required.
+The documentation of the module should describe the design details of the module; if figures are required for such documentation, they should be referenced from here.
+module definition:
+	module <user symbol> '(' <port list> ')' 
+		 [ <documentation> ] '{' <module body>* '}'
+module body:
+	<clock definition>
+	<reset definition>
+	<clocked variable>
+	<comb variable>
+	<net variable>
+	<labelled code>
+clock definition:
+	default <clock specification> [ <documentation> ] ';'
+reset definition:
+	default <reset specification> [ <documentation> ] ';'
+clocked variable:
+	clocked [ <clock specification> ] [ <reset specification> ]
+		<type specifier> <user symbol> '=' <nested assignment list>
+		[ <documentation> ] ';'
+comb variable:
+	comb <type specifier> <user symbol>
+			[ '=' <nested assignment list> ]
+			[ <documentation> ] ';'
+net variable:
+	net <type specifier> <user symbol> [ <documentation> ] ';'
+clock specification:
+	clock [ rising | falling ] <user symbol> 
+reset specification:
+	reset [ active_low | active_high ] <user symbol>
+labelled code:
+	<user symbol> [ <documentation> ] ':' '{' <statement>* '}'
+Statements are defined below.
+Schematic specification is not yet defined in the language.
+Clocked variables take the last (lexically) default reset and/or default clock specification, if they are not provided one in the definition. Clocked varaibles must have reset values specified for their whole state. Clocked variables are assigned to in labelled code segments using clocked assignment statements.
+Combinatorial variables may have be fully defined on their declaration line, or defined fully within labelled code segments; they may not be partially defined on their declaration line (as this leads to obfuscation). Combinatorial varaibles are assigned to in labelled code segments using combinatorial assignment statements. They must be assigned to in all branches of a labelled code segment that assigns to them at all; they may not be assigned to in more than one labelled code segment.(Is this true for structures, where multiple elements may be assigned in different code segments?)
+Net variables must be driven by the outputs of module instantiations; they cannot be assigned to by assignment statements. Each bit must be driven by precisely one module output.
+
+
+statement:
+	<for statement>
+	<assignment statement>
+	<if statement>
+	<switch statement>
+	<print statement>
+	<assertion statement>
+	<sequence definition>
+	<instantiation>
+for statement:
+	for '(' <user symbol> ';' <expression> ')'
+		[ '(' <expression> ';' <expression> ';' <expression> ')' ]
+		'{' <statement>* '}'
+assignment statement:
+	<lvar> ( '=' | '<=' ) <nested assignment> ';'
+if statement:
+	if '(' <expression> ')' '{' <statement>* '}'
+		( elsif '(' <expression> ')' '{' <statement>* '}' )*
+		[ else '{' <statement>* '}' ]
+switch statement:
+	( full_switch | part_switch | priority ) '(' <expression> ')' 
+		'{' <case entries> '}'
+case entries:
+	( default | (case <expression list> ) ) ':'
+		[ '{' <statement>* '}' ]
+print statement:
+	print [<clock specification>] [<reset specification>] '(' <string> ')' ';'
+assert statement:
+	assert [<clock specification>] [<reset specification>]
+		 '(' <expression> ',' <string> ')' ';'
+	assert [<clock specification>] [<reset specification>]
+		 '(' <expression> ',' <user symbol> ',' <string> ')' ';'
+sequence definition:
+	sequence '{' <sequence item>* '}' <user symbol> ';'
+sequence item:
+	delay <unsized integer> [ to <unsized integer> ]
+	<sequence expression>
+sequence expression:
+	<user symbol>
+	'(' <expression> ')'
+	<sequence_expression> ( '&&' | '||' | '^^' ) <sequence_expression>
+	not <sequence expression>
+instantiation:
+	<user symbol> <user symbol> [ '[' <expression< ']' ]
+		'(' [<port map list> ] ')' ';'
+port map list:
+	<port map> [ ',' [ <port map list> ] ]
+port map:
+	<user symbol> '<-' <user symbol>
+	<user symbol> '=' <expression>
+	<user symbol> '<=' <expression>
+	<user symbol> '=>' <lvar>
+Note that braces are required inside building blocks, and are not optional as they are in C. This removes problems such as the dangling-else, and requires cleaner code; this is especially important for hardware design.
+For statements are compile-time, not run-time. They are supplied to support multiple instantiations of hardware with single statements, where each piece of hardware may be parametrized in some fashion. It encompasses the capability of a 'generate' statement and the more generic 'for' statement in most HDLs; note that as CDL is a hardware design description language, implementing the 'for' statement at compile time mirrors what synthesis must do, so there is no loss of capability.
+Instantiations allow for setting of paramters from expressions, driving of clocks from clock ports, driving of inputs with expressions, and driving of outputs (which must be nets or components of nets).
+
+4Language discussion
+This section moves on from the detailed grammar description to talk in more human terms about the concepts and capabilities of the elements of the language.
+4.1Types
+This section looks at Cyclicity CDL's types from a more human perspective.
+CDL types are a tool for abstracting from simple bit vectors or collections of bit vectors to a higher level. They are a basic tenet of all modern languages, and certainly an assist even for hardware description languages; VHDL and SystemVerilog support them, for example.
+The types in CDL have a range of abilities and restrictions:
+1.CDL's types are defined to be fully known at compile-time, to allow for compile-time type checking.
+2.CDL's types are basically driven from some very simple basic types, and CDL does not support the plethora of types that, for example, SystemVerilog does; CDL's basic types are focussed on producing working hardware descriptions, not on testbench code.
+3.CDL supports structures, which are collections of other types. These allow, for example, a single variable to contain a set of flags and data, without requiring individual variables for each.
+4.CDL supports enumerations; these 
+5Language details
+This section contains more focussed points on particular aspects of the language, their semantics, and their purpose and use.
+5.1Types
+This section discusses issues to do with types in the language
+5.1.1Supported types
+The language supports some basic types, and then supports derived types also. The basic types are described in the next section; the derived types are examined here in overview.
+The derived types may be one of:
+1.an enumeration of a sized bit vector
+2.a finite state machine (with defined encoding, or unspecified encoding, or specified as one hot, one cold)
+3.a structure consisting of one or more named elements, each of which can be any defined type
+4.an array of types
+5.a type reference
+Enumerations require a size of bit vector to be specified, and then items of that enumeration will all have that bit vector size.
+Finite state machine types are again sized bit vectors, basically. They are defined as a set of states, whose assignments to bit vector values may be given explicitly. Alternatively they may be assigned bit vector values automatically, and this may be done in a simple incrementing fashion, or one hot or one cold. Furthermore, each state can have documentation with it, which should be used to document the design of the state machine, and each state may also define potential 'predecessor' states and 'successor' states, which the language implementers may check statically or dynamically for correctness.
+Structures are very similar to C structures. They contain a number of elements, each of which is assigned a name, and each of which may be of any defined type. Structures are very important inside CDL; they are a very good mechanism for writing code that is clear in intent.
+Arrays of types are supported as in C, with one vital exception. Multidimensional arrays are not supported. The basic type of the bit vector is not an array as such, and so arrays of bit vectors are supported. But no array may resolve down to an array of array of bit vectors.
+Type references are transparent type references provided for code clarity only; they are not tightly defining. For example, one could define 'short' to be a bit vector of size 16, and declare a combinatorial variable to be of type 'short'. This will actually make that variable a bit vector of size 16 internally; the type reference is just transparent.
+5.1.2Basic types: sized and unsized bit vectors and strings
+The language supports three basic types for expressions:
+1.Sized bit vectors; these are effectively arrays of bits of length 1 upwards.
+2.Unsized bit vectors; these are arrays of bits of a compile-defined maximum length, which can be implicity converted to any size of sized bit vector.
+3.Strings.
+Strings are hardly used as yet.
+The fundamental difference between unsized and sized bit vectors is in casting: sized bit vectors cannot be implicitly cast to be a bit vector of another size, that cast would have to be done explicitly by bundling or bit extraction; unsized bit vectors may be implicitly cast to a bit vector of any size.
+As an explicit example: 5+8, 3+4h2, and 6b110011+6h0f are valid expressions, as the types all match or may be implicitly cast. But 4h2+3h5 is not a valid expression, as the types of the two operands are both sized bit vectors, but of different size.
+5.1.3Enumerations
+Enumerations are a type, and unlike in C they are only available as a type. This means that a signal may be given an enumeration type, and it may then only be assigned values within that enumeration type.
+As an example, if there is an enumeration:
+typedef enum [2] { one=1, two=2 } small;
+And if there is a combinatorial variable:
+comb small my_small;
+Then the only two valid assignments to my_small are one and two:
+my_small = one; or  my_small = two;
+To implement this the language imposes type scoping on every expression; see the discussion of expressions below.
+5.2Expressions
+This section discusses issues to do with expressions in the language
+5.2.1Casting
+Implicit casting is performed to convert the type of an expression to that requried by its context. Each expression in the language has a type context which can be determined from the position of the expression in the code.
+Explicit casting is not currently possible; it will be, when a syntax for that has been derived.
+5.3Lvars
+This section discusses issues to do with lvars in the language
+5.3.1Subscripting
+When a bit vector is subscripted in Cyclicity CDL it must produce another bit vector of a compile-time size. This means that when subscripting is used to generate a sized bit vector, the size must be a compile time constant. So the following is valid:
+foo <= bar[ 5; jim ]; // This is valid
+wherease the following is not
+comb bit[2] joe;
+foo <= bar[ joe; 0 ]; // This is NEVER valid
+
+5.3.2Bundles
+Unlike in Verilog, where a bundle may be used as an lvar, lvars in Cyclicity CDL cannot be bundles. Where a bundle would be used in Verilog an additional combinatorial value may be required. For example, in verilog:
+{carry, result} = a+b;
+(where carry is assumed to be a single bit, and result is 30 bits, and 'a' and 'b' are 31 bits), would require something like:
+comb bit[31] a_b_sum = a+b;
+carry=a_b_sum[30];
+result=a_b_sum[30;0];
+This makes the language simpler to interpret from a compiler perspective, but it can also improve the comprehensibility of code; in the CDL code it is much easier to see that the signals are of the correct width, and what the code is actually doing.
+6Example code
+Some example designs are included here, with notes on their use.
+All the code here may be used under the Lesser GNU public license, version 2.1.
+6.1Simple code examples
+6.1.1Simple register
+The following code is a simple D flip-flop, with and active high reset, and reset low value.
+module reg( clock int_clock, input bit int_reset, input bit D, output bit Q )
+{
+    clocked rising int_clock active_high int_reset bit Q = 0;
+    main_code "Main code":
+        {
+            Q <= D;
+        }
+}
+6.1.2Simple adder
+The following code is a simple arbitrary width adder; the width is given by a constant. A tool that 
+constant integer width=16;
+typedef bit[width] value;
+module adder( input value A, input value B, output value Z )
+{
+    main_code "Main code":
+        {
+            Z = A+B;
+        }
+}
+6.1.3Simple clocked adder
+This code uses the simple adder module above, and registers the result. 
+constant integer width=16;
+typedef bit[width] value;
+extern module adder( input value A, input value B, output value Z )
+{
+    timing comb input A, B;
+    timing comb output Z;
+}
+module clocked_adder( clock int_clock,
+                      input bit int_reset,
+                      input value A,
+                      input value B,
+                      output value clocked_result,
+                     )
+{
+    net value result;
+    clocked rising int_clock active_high int_reset value clocked_result = 0;
+
+    instances "Adder instance":
+        {
+            adder add1( A<=A, B<=B, Z=>result );
+        }
+    registers "Register the result from the adder instance":
+        {
+            clocked_result <= result;
+        }
+}
+
+6.2CPU code examples
+This section includes some potential implementations for a CPU core.
+These are more realistic coding examples than those described previously, and they are included to show the real nature of the language and the readability that it supplies.
+By convention types are all prefixed 't_', constants 'c_'. This is again for readability; it is not required by the Cyclicity CDL language.
+6.2.1Headers
+A few header files are required to define the types and such for the core.
+constant integer c_cpu_word_width=32;
+typedef bit[c_cpu_word_width] t_cpu_word;
+typedef enum[4]
+{
+	alu_op_shift_rotate=0,
+	alu_op_add=1,
+	alu_op_sub=2,
+	alu_op_add_with_carry=3,
+	alu_op_and=4,
+	alu_op_or=5,
+	alu_op_xor=6,
+	alu_op_not=7,
+	alu_op_mov=8,
+} t_cpu_alu_op;
+typedef enum[2]
+{
+	shift_op_shift_left=0,
+	shift_op_shift_right=1,
+	shift_op_rotate_right=2,
+} t_cpu_shift_op;
+
+6.2.2ALU
+This section supplies an ALU that performs the operations required by an ALU in a simple CPU core. It consists of a barrel shifter, an adder with preconditioning logic, and a result multiplexor with additional logic for the ALU logical operations.
+typedef bit[c_cpu_word_width+1] t_cpu_word_extended;
+module cpu_alu(
+	input t_cpu_word a			First operand input to the ALU,
+	input t_cpu_word b			Second operand input to the ALU,
+	input bit carry_in			Carry in to the ALU; used by add_with_carry only,
+	input t_cpu_alu_op alu_op		ALU operation to perform, including 'use shifter',
+	input t_cpu_shift_op shift_op		Operation for the barrel shifter to perform,
+	output t_cpu_word result		Result of the ALU/shift operation, given by alu_op and the operands,
+	output bit carry_out			Carry out of an arithmetic operation, if alu_op specified one,
+	output bit result_is_zero		Indicates that the result is zero; useful for comparisons and tests
+	)
+
+This module implements the arithmeritc, logical, shift, and compare operations for a cpu core
+The module is purely combinatorial.
+It consists of:
+ an adder, whose inputs are preconditioned to perform subtract as well as add, with arbitrary carry.
+ a barrel shifter, which can do shift left, right, and rotate right, by an amount specified by an input
+ a result mux (with the ALU logic operation gates) which takes the adder or shifter result or a logical
+  combination of the inputs, and produces the final results.
+
+{
+	comb bit adder_carry_in                Carry in for the adder;
+	comb t_cpu_word_extended adder_input_a First input to the adder, extended by one bit to provide a carry out;
+	comb t_cpu_word_extended adder_input_b Second input to the adder, extended by one bit to provide a carry out;
+	comb t_cpu_word_extended adder_result  Full result of the adder, including carry out in the top bit;
+
+	comb t_cpu_word shifter_result Result from the shifer;
+
+	adder_code Adder inputs and the adder itself; generates the adder_result:
+	{
+		adder_input_a[ c_cpu_word_width; 0] = a;
+		adder_input_a[ c_cpu_word_width ] = 0;
+		adder_carry_in = 0;
+		full_switch( alu_op )
+		{
+		case alu_op_sub:
+			{
+				adder_input_b[ c_cpu_word_width; 0] = ~b;
+				adder_input_b[ c_cpu_word_width ] = 0;
+				adder_carry_in = 1;
+			}
+		case alu_op_add_with_carry:
+			{
+				adder_input_b[ c_cpu_word_width; 0] = b;
+				adder_input_b[ c_cpu_word_width ] = 0;
+				adder_carry_in = carry_in;
+			}
+		default:
+			{
+				adder_input_b[ c_cpu_word_width; 0] = b;
+				adder_input_b[ c_cpu_word_width ] = 0;
+				adder_carry_in = 0;
+			}
+		}
+		adder_result = adder_input_a + adder_input_b;
+		if (adder_carry_in)
+		{
+			adder_result = adder_result + 1;
+		}
+	}
+		
+	shifter_code Simple shifter, produces the shifter_result:
+	{
+		shifter_result = 0;
+		part_switch (shift_op)
+		{
+		case shift_op_shift_left:
+			{
+				shifter_result = a << b[5;0];
+			}
+		case shift_op_shift_right:
+			{
+				shifter_result = a >> b[5;0];
+			}
+		case shift_op_rotate_right:
+			{
+				shifter_result = (a >> b[5;0]) | (a<<(32-b[5;0]));
+			}
+		}
+	}
+
+	result_code Generate the final outputs from the intermediate results:
+	{
+		carry_out = 0;
+		full_switch ( t_cpu_alu_op )
+		{
+		case alu_op_shift_rotate:
+			{
+				result = shifter_result;
+			}
+		case alu_op_add,
+			alu_op_sub,
+			alu_op_add_with_carry:
+			{
+				result = adder_result[32;0];
+				carry_out = adder_result[32];
+			}
+		case alu_op_and:
+			{
+				result = a & b;
+			}
+		case alu_op_or:
+			{
+				result = a | b;
+			}
+		case alu_op_xor:
+			{
+				result = a ^ b;
+			}
+		case alu_op_not:
+			{
+				result = ~b;
+			}
+		case alu_op_mov:
+			{
+				result = b;
+			}
+		}
+		result_is_zero = (result==0);
+	}
+}
+

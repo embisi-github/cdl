@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+<html>
+<head>
+  <title>Simulation Engine Signal Additions</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="GENERATOR" content="Quanta Plus">
+</head>
+<body>
+
+<h1>Simulation Engine Signal Additions</h1>
+
+<p>
+
+The simulation engine basically is a framework for cycle simulation, with the ability to
+interconnect multiple module instantiations. Additionally the simulation engine provides access to data and signals within those
+module instantiations, and within the interconnect. This access is exposed in some
+exec files, and that access is describe here.
+
+</p>
+
+<h1>Exec file enhancements</h1>
+
+<p>
+
+The simulation environment has some exec file additions to support interrogation of state accessible to
+the simulation engine, and to support events and other inter-thread communication mechanisms when
+state changes. The 'state' may be a global signal or data made availabl by a module instance.
+
+
+<dl>
+
+<dt>global_monitor_display( string global, string format, arguments) </dt>
+<dd>Set up a monitor of some global state, such that when that state changes
+the specified string is displayed. The text displayed comed from a standard
+exec file printf-like statement, with format and argments. The arguments are evaluated
+<i>at the time the string is generated</i>, not when the monitor is created.
+</dd>
+
+<dt>global_monitor_eventy( string global, event event_name) </dt>
+<dd>
+Set up a monitor of some global state, such that when that state changes the specified event is fired.
+The event may be used to trigger some exec file thread to schedule, for example.
+</dd>
+
+<dt>integer global_cycle() </dt>
+
+<dd>This function returns the current cycle number of the simulation, starting from 0 at reset</dd>
+
+<dt>integer global_signal_value( string global_signal )</dt>
+
+<dd>This function returns the integer value of a signal at the current simulation time</dd>
+
+<dt>string global_signal_value_string( string global_signal )</dt>
+
+<dd>This function returns a textual form of the value of a signal at the current simulation time.
+This may be the name of an FSM state, or an enumeration, or it may be digits or a hexdecimal
+represenation of a bus value; it works for any size signal (even beyond 32 bits wide)
+</dd>
+
+</dl>
+
+</body>
+</html>
+

@@ -1,0 +1,80 @@
+#a Copyright
+#  
+#  This file 'Makefile' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+#a Global variables
+#CYCLICITY := /cygdrive/d/cycl_cvs
+CYCLICITY := $(CYCLICITY_ROOT)
+PREREQS = SEHi
+include ${CYCLICITY}/scripts/makefile_hdr
+
+SUPPORT_COMMAND_OBJS := ${HARNESS_BATCH_OBJECTS} ${CYCLICITY_OBJS}
+SUPPORT_PYTHON_OBJS  := ${HARNESS_GUI_OBJECTS}   ${CYCLICITY_OBJS}
+SUPPORT_VPI_OBJS     := ${HARNESS_VPI_OBJECTS}   ${CYCLICITY_OBJS}
+
+CMDLINE_PROG := ${TARGET_DIR}/sim
+PYTHON_LIB := 
+VPI_LIB :=
+ifneq ($(BUILD_PYTHON),no)
+PYTHON_LIB := ${TARGET_DIR}/py_engine.so
+endif
+ifneq ($(BUILD_VPI),no)
+VPI_LIB := ${TARGET_DIR}/libvpi.so
+endif
+
+ALL2: ALL
+
+include models.make
+
+ALL: $(CMDLINE_PROG) ${PYTHON_LIB} ${VPI_LIB}
+
+${CMDLINE_PROG}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${ENGINE_OBJECTS}
+	@echo "Building command line simulation ${CMDLINE_PROG}"
+	${Q}${LINKASBIN} ${CMDLINE_PROG} $(C_MODEL_OBJS) $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${MODEL_LIBS} ${LD_LIBS}
+
+${PYTHON_LIB}: ${C_MODEL_OBJS}  $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS}
+	@echo "Building Python simulation library for GUI sims ${PYTHON_LIB}"
+	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${CYCLICITY_LIBS}
+
+${VPI_LIB}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${ENGINE_OBJECTS}
+	@echo "Building VPI library for verilog simulation ${VPI_LIB}"
+	${Q}${LINKDYNLIB} $@  ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_VPI_OBJS} ${MODEL_LIBS} ${CYCLICITY_LIBS}
+
+$(TARGET_DIR)/derived_model_list.o: Makefile models.make
+	@echo "Creating derived_mode_list source"
+	@echo "#include <stdlib.h>" > ${TARGET_DIR}/derived_model_list.cpp
+	@echo "#include <stdio.h>" >> ${TARGET_DIR}/derived_model_list.cpp
+	@echo "typedef void (*t_python_init_fn)(void);" >> ${TARGET_DIR}/derived_model_list.cpp
+	@echo "$(foreach a,${MODELS},extern void $a__init( void );)" >> ${TARGET_DIR}/derived_model_list.cpp
+	@echo "t_python_init_fn model_init_fns[] = {" >> ${TARGET_DIR}/derived_model_list.cpp
+	@echo "$(foreach a,${MODELS},$a__init,)" >> ${TARGET_DIR}/derived_model_list.cpp
+	@echo "NULL" >> ${TARGET_DIR}/derived_model_list.cpp
+	@echo "};" >> ${TARGET_DIR}/derived_model_list.cpp
+	$(Q)$(CC) $(CXXFLAGS) -c -o ${TARGET_DIR}/derived_model_list.o ${TARGET_DIR}/derived_model_list.cpp
+	$(Q)rm ${TARGET_DIR}/derived_model_list.cpp
+
+models.make: ${CREATE_MAKE} ${MODEL_LIST}
+	@echo "Creating models.make"
+	$(Q)${CREATE_MAKE} -f ${MODEL_LIST} -m ${MODELS_MAKE}
+
+clean:
+	rm -f ${TARGET_DIR}/*cpp ${TARGET_DIR}/*o ${TARGET_DIR}/*v ${TARGET_DIR}/*map ${TARGET_DIR}/coverage.map ${CMDLINE_PROG} models.make
+
+backup:
+	tar zcvf backups/backup_`date +%y%m%d%H%M`.tgz Makefile ${SRCS} ${HDRS}
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: Makefile ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

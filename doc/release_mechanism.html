@@ -1,0 +1,39 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>How to release Cyclicity CDL tarball</title>
+</head>
+
+<body>
+<h1>Releasing the tarball</h1>
+
+<ol>
+  <li> Update include/cdl_version.h
+  <li> Ensure your SVN tree is up-to-date: svn update .
+  <li> Ensure your SVN tree builds
+  <li> Ensure your changes are in: svn commit .
+  <li> Go to a new directory (in /tmp will do)
+  <li> Export the tree: svn export --quiet https://cyclicity-cdl.svn.sourceforge.net/svnroot/cyclicity-cdl/trunk cyclicity-<version>
+  <li> Create a tar file: tar zcf cyclicity-<version>.tgz cyclicity-<version>
+  <li> Ensure the directory builds: Go to scripts, ln -s makefile.config.<os> makefile.config, and go to bin and 'make'
+  <li> Upload the tarball: ftp upload.sourceforge.net, user anonymous, password empty; cd incoming; put cyclicity-<version>.tgz
+  <li> Log in on SF as cdlsf
+  <li> Admin -> File Releases
+  <li> Add a file release of cyclicity-cdl; Release name is <version>
+  <li> Select the file cyclicity-<version>.tgz, and add file to the release
+  <li> Processor Any, File type source .gz, and update
+  </ol>
+
+  Process complete - the file should be visible from Download->Browse All Files
+
+<hr>
+<address></address>
+<!--
+
+pushd /tmp
+svn export --quiet https://cyclicity-cdl.svn.sourceforge.net/svnroot/cyclicity-cdl/trunk cyclicity-1.0.22
+tar zcf cyclicity-1.0.22.tgz cyclicity-1.0.22
+scp cyclicity-1.0.22.tgz gstark@ocarina:/data/yd/hw/tools/Packages
+
+-->
+<!-- Hhmts start --> Last modified: Thu Oct 23 18:23:12 EDT 2008 <!-- hhmts end -->
+</body> </html>

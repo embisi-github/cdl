@@ -1,0 +1,35 @@
+/*a Copyright
+  
+  This file 'toggle.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+module toggle( clock io_clock,
+                 input bit io_reset,
+                 output bit toggle )
+    "This module toggles its output on every clock"
+{
+    default clock io_clock;
+    default reset io_reset;
+    clocked bit toggle = 1b0;
+
+    toggle_code:
+    {
+        toggle <= ~toggle;
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

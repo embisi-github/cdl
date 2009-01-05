@@ -1,0 +1,85 @@
+#a Copyright
+#  
+#  This file 'model_list' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+c_model tests/log   c_log_toggle
+
+cdl tests/simple tie_high
+cdl tests/simple tie_both
+cdl tests/simple toggle
+cdl tests/simple invert
+cdl tests/simple and
+cdl tests/simple invert_chain
+cdl tests/simple constants
+cdl tests/simple mux
+cdl tests/simple alu
+cdl tests/simple mux_array
+
+cdl tests/struct copy_bits
+cdl tests/struct nested_structures
+#cdl tests/struct nested_structures_2 This does not work as arrays of structures are not correctly indexed yet
+cdl tests/struct nested_structures_3
+cdl tests/struct nested_structures_4
+
+cdl tests/enum enum_cycle
+
+cdl tests/fsm fsm_cycle
+cdl tests/fsm fsm_machine
+
+cdl tests/vector vector_toggle dc:width=16 model:vector_toggle__width_16 rmn:vector_toggle=vector_toggle__width_16
+cdl tests/vector vector_toggle dc:width=18 model:vector_toggle__width_18 rmn:vector_toggle=vector_toggle__width_18
+cdl tests/vector vector_add dc:width=4 model:vector_add__width_4 rmn:vector_add=vector_add__width_4
+cdl tests/vector vector_add dc:width=8 model:vector_add__width_8 rmn:vector_add=vector_add__width_8
+cdl tests/vector vector_mult_by_11 dc:width=8 model:vector_mult_by_11__width_8 rmn:vector_mult_by_11=vector_mult_by_11__width_8
+cdl tests/vector vector_reverse dc:width=8 model:vector_reverse__width_8 rmn:vector_reverse=vector_reverse__width_8
+cdl tests/vector vector_nest dc:width=8 model:vector_nest__width_8 rmn:vector_nest=vector_nest__width_8
+cdl tests/vector vector_sum dc:width=4 model:vector_sum__width_4 rmn:vector_sum=vector_sum__width_4
+cdl tests/vector vector_sum dc:width=8 model:vector_sum__width_8 rmn:vector_sum=vector_sum__width_8
+cdl tests/vector vector_op_1
+cdl tests/vector vector_op_2
+cdl tests/vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_sum_2=vector_sum_2__width_4
+
+cdl tests/instantiation hierarchy_reg
+cdl tests/instantiation hierarchy_and
+cdl tests/instantiation hierarchy inc:tests/instantiation
+cdl tests/instantiation hierarchy_test_harness inc:tests/instantiation
+cdl tests/instantiation hierarchy_struct inc:tests/instantiation
+cdl tests/instantiation hierarchy_struct_test_harness inc:tests/instantiation
+cdl tests/instantiation failure_0
+
+cdl tests/bugs empty_case_statements
+cdl tests/bugs check_64bits
+cdl tests/bugs bundle_width
+cdl tests/bugs operator_precedence
+#cdl tests/bugs single_entry_arrays
+cdl tests/bugs case_expression_lists
+cdl tests/bugs for_case
+cdl tests/bugs partial_ports
+
+# uncomment the following to check errors do not cause bus errors
+#cdl tests/bugs type_errors
+#cdl tests/bugs constant_errors
+#cdl tests/bugs prototype_errors
+#cdl tests/bugs module_errors
+
+cdl tests/cdl_examples reg
+cdl tests/cdl_examples adder
+cdl tests/cdl_examples clocked_adder
+
+cdl tests/clock_gate gc_simple 
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[	 ]*[b-z][	 ]" ***
+# End: ***
+

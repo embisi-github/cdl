@@ -1,0 +1,209 @@
+To map the ports, combs and state to instances which we will use for the backend:
+
+A real (fully dereferenced) type can be either a structure, an array, or a bit vector (of size 1 for bits)
+
+Assume an array of bits is always a bit vector
+
+
+
+The 'resolved typed value instance'...
+
+A bit vector is then:
+
+instance_type = bit vector
+length = 1
+type id = bit vector
+sublength = length of bit vector
+reset value = reference to expression
+
+An array of bit vectors is then:
+
+instance_type = array
+length = length of array
+type id = bit vector
+sublength = length of bit vector
+reset value array of length 'length' of references to expression
+
+A structure of bit vectors is then:
+
+instance_type = structure
+length = number of elements
+type id = structure
+sub length =
+array of pairs:
+  symbol of structure name
+  resolved type value instance
+
+
+
+
+Examples:
+
+clocked bit a=1;
+{
+    instance_type = bit vector
+    length     = 1;
+    type id    = bit_vector;
+    sublength  = 1;
+    model_name = "a"
+    reset_values = { 1 };
+}
+
+clocked bit[8] a=0x23;
+{
+    instance_type = bit vector
+    length     = 1;
+    type id    = bit_vector;
+    sublength  = 8;
+    model_name = "a"
+    reset_values = { 0x23 };
+}
+
+clocked bit[8][4] a={0x01, 0x23, 0x45, 0x67};
+{
+    instance_type = array
+    length     = 4;
+    type id    = bit_vector;
+    sublength  = 8;
+    model_name = "a"
+    reset_values = {0x01, 0x23, 0x45, 0x67};
+}
+
+typedef struct { bit flag; bit[4] pc;} thread
+thread a = { flag=>1, pc=>0x03 }
+{
+    instance_type = struct
+    length     = 2;
+    type id    = 
+    sublength  = 
+    pairs =
+    {
+        {
+            type_instance =
+            {
+                instance_type = bit vector
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "a.flag"
+                reset_values = { 1 };
+            }
+            name = "flag"
+        }
+        {
+            type_instance =
+            {
+                instance_type = bit vector
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 4;
+                model_name = "a.pc"
+                reset_values = { 0x3 };
+            }
+            name = "pc"
+        }
+    }
+}
+
+thread[4] thrds = { flag[]=>0, flag[0]=>1, pc[]=>0, pc[0]=>0x03 }
+{
+    instance_type = struct
+    length     = 2;
+    type id    = 
+    sublength  = 
+    pairs =
+    {
+        {
+            type_instance =
+            {
+                instance_type = array
+                length     = 4;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "a.flag"
+                reset_values = { 1, 0, 0, 0 };
+            }
+            name = "flag"
+        }
+        {
+            type_instance =
+            {
+                instance_type = array
+                length     = 4;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "a.pc"
+                reset_values = { 0x3, 0, 0, 0 };
+            }
+            name = "pc"
+        }
+    }
+}
+
+typedef struct all_state { thread[4] thrds; bit running; bit debug }
+all_state state = { thrds.flag[]=>0, thrds.flag[0]=>1, thrds.pc[]=>0, thrds.pc[0]=>0x03, running=0, debug=1 };
+{
+    instance_type = struct
+    length     = 3;
+    type id    = 
+    sublength  = 
+    pairs =
+    {
+        {
+            type_instance =
+            {
+                instance_type = struct
+                {
+                    type_instance =
+                    {
+                        instance_type = array
+                        length     = 4;
+                        type id    = bit_vector;
+                        sublength  = 1;
+                        reset_values = { 1, 0, 0, 0 };
+                        model_name = "state.thrds.flag"
+                    }
+                    name = "flag"
+                }
+                {
+                    type_instance =
+                    {
+                        instance_type = array
+                        length     = 4;
+                        type id    = bit_vector;
+                        sublength  = 1;
+                        reset_values = { 1, 0, 0, 0 };
+                        model_name = "state.thrds.pc"
+                    }
+                    name = "pc"
+                }
+            }
+            name = "thrds"
+        }
+        {
+            type_instance =
+            {
+                instance_type = bit_vector;
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "state.running"
+                reset_values = { 0 }
+            }
+            name = "running"
+        }
+        {
+            type_instance =
+            {
+                instance_type = bit_vector;
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "state.debug"
+                reset_values = { 1 }
+            }
+            name = "debug"
+        }
+    }
+}
+

@@ -1,0 +1,43 @@
+/*a Copyright
+  
+  This file 'vector_sum.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+constant integer width=16;
+typedef bit[width] value;
+
+module vector_sum( clock io_clock,
+                     input bit io_reset,
+                     input value vector_input_0,
+                     input value vector_input_1,
+                     output value vector_output_0,
+                     output value vector_output_1 )
+    "This module sums its two vector inputs to its vector output on every clock"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked value vector_output_0 = 0;
+    clocked value vector_output_1 = 0;
+
+sum_code:
+    {
+    vector_output_0 <= vector_input_0 + vector_input_1;
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

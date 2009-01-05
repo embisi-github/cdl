@@ -1,0 +1,171 @@
+#a Copyright
+#  
+#  This file 'timer.ef' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+module toplevel
+
+clock apb_clock
+input reset 1
+input select 1
+input enable 1
+input read_not_write 1
+input write_data 32
+input address 16
+output read_data 32
+output interrupt 1
+
+comb interrupt 1
+comb write_reg 1
+comb write_counter 1
+comb write_comparator 1
+comb read_counter 1
+
+state counter    32 apb_clock 1 reset 1 0
+state comparator 32 apb_clock 1 reset 1 0
+state passed      1 apb_clock 1 reset 1 0
+
+state read_data  32 apb_clock 1 reset 1 0
+
+
+comb read_data_mux 32
+
+
+code decode_controls
+
+// write_reg = select & enable &~read_not_write
+push_var select
+push_var enable
+expr and
+push_var read_not_write
+expr not
+expr and
+lvar write_reg
+assign_comb
+add_code 1 decode_controls
+
+
+// write_counter=0
+// if address[10:8]==0 then write_counter=write_reg
+push_int 1 0
+lvar write_counter
+assign_comb
+
+lvar address
+lvar_range 3 8
+push_lvar
+push_int 3 0
+expr eq
+push_var write_reg
+lvar write_counter
+assign_comb
+if
+add_code 2 decode_controls
+
+// write_comparator=0
+// if address[10:8]==1 then write_comparator=write_reg
+push_int 1 0
+lvar write_comparator
+assign_comb
+
+lvar address
+lvar_range 3 8
+push_lvar
+push_int 3 1
+expr eq
+push_var write_reg
+lvar write_comparator
+assign_comb
+if
+add_code 2 decode_controls
+
+
+
+code comparator
+// if (write_comparator) comparator <= write_data
+push_var write_comparator
+push_var write_data
+lvar comparator
+assign_state
+if
+add_code 1 comparator
+
+
+code counter_and_passed
+// if (write_counter) {counter <= write_data; passed=0}
+// if (counter==comparator) passed=1
+push_var write_counter
+push_var write_data
+lvar counter
+assign_state
+push_int 1 0
+lvar passed
+assign_state
+group 2
+if
+push_var counter
+push_var comparator
+expr eq
+push_int 1 1
+lvar passed
+assign_state
+if
+
+add_code 2 counter_and_passed
+
+
+code read_mux
+// switch (address[10:8])
+//  case 0: read_data_mux = counter;
+//  case 1: read_data_mux = comparator;
+//  case 2: read_data_mux = {31'b0, passed}
+// if (select) read_data <= read_data_mux
+// else read_data <= 0
+push_var counter
+lvar read_data_mux
+assign_comb
+case 3 0
+push_var comparator
+lvar read_data_mux
+assign_comb
+case 3 1
+lvar address
+push_int 32 8
+lvar_range 3
+push_lvar
+switch 2
+
+push_var read_data_mux
+lvar read_data
+assign_state
+push_int 32 0
+lvar read_data
+assign_state
+push_var select
+ifelse
+
+add_code 2 read_mux
+
+
+code interrupt
+push_var passed
+lvar interrupt
+assign_comb
+add_code 1 interrupt
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

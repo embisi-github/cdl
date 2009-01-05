@@ -1,0 +1,60 @@
+/*a Copyright
+  
+  This file 'vector_op_2.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+constant integer width=16;
+typedef bit[width] value;
+
+module vector_op_2( clock io_clock,
+                     input bit io_reset,
+                     input value vector_input_0,
+                     input value vector_input_1,
+                     output value vector_output_0,
+                     output value vector_output_1 )
+    "This module bit reverses its input vector 0 to output vector 0"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked value vector_output_0 = 0;
+    clocked value vector_output_1 = 0;
+
+reverse_input:
+    {
+    vector_output_0[ 0] <= vector_input_0[15];
+    vector_output_0[ 1] <= vector_input_0[14];
+    vector_output_0[ 2] <= vector_input_0[13];
+    vector_output_0[ 3] <= vector_input_0[12];
+    vector_output_0[ 4] <= vector_input_0[11];
+    vector_output_0[ 5] <= vector_input_0[10];
+    vector_output_0[ 6] <= vector_input_0[ 9];
+    vector_output_0[ 7] <= vector_input_0[ 8];
+    vector_output_0[ 8] <= vector_input_0[ 7];
+    vector_output_0[ 9] <= vector_input_0[ 6];
+    vector_output_0[10] <= vector_input_0[ 5];
+    vector_output_0[11] <= vector_input_0[ 4];
+    vector_output_0[12] <= vector_input_0[ 3];
+    vector_output_0[13] <= vector_input_0[ 2];
+    vector_output_0[14] <= vector_input_0[ 1];
+    vector_output_0[15] <= vector_input_0[ 0];
+
+    assert( io_reset || (vector_output_0 != vector_input_0), "Unexpected match of input and output; must be palindromes!" );
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

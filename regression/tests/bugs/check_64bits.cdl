@@ -1,0 +1,28 @@
+module check_64bits( clock clk,
+                     input bit rst,
+                     input bit[64] input_bus,
+                     input bit sum_enable,
+                     input bit[6] select,
+                     output bit[64] sum_out,
+                     output bit selected_bit,
+                     output bit[32] selected_bus )
+{
+    default clock clk;
+    default reset rst;
+    clocked bit[64] sum_out=0x76543210fedcba98;
+test_logic :
+    {
+        if (sum_enable && (input_bus==0))
+        {
+            sum_out[select] <= 0;
+            sum_out[16;select[4;0]] <= 0;
+        }
+        elsif (sum_enable)
+        {
+            sum_out <= sum_out+input_bus;
+        }
+
+        selected_bit = sum_out[select];
+        selected_bus = sum_out[32;select[5;0]];
+    }
+}

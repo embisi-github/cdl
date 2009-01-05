@@ -1,0 +1,18 @@
+typedef struct
+{
+    bit[4] a;
+    bit[4] b;
+} t_data;
+
+module fred_array( clock clk, input bit rst, input bit[4] a, output bit[4] b, input bit[2] c )
+{
+    default clock clk;
+    default reset rst;
+
+    clocked t_data[4] data = {{a=0, b=0}};
+    clocked bit[4] b=0;
+	body_code "Select appropriate bit of a":
+	{
+		b <= data[bundle(c[0], c[1])].a;
+	}
+}

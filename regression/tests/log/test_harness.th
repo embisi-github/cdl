@@ -1,0 +1,9 @@
+log_event toggle "toggle" "fred" "a"
+
+toggle.occurred 2 3
+bfm_wait 5
+
+toggle.occurred 5 6 7
+
+
+end

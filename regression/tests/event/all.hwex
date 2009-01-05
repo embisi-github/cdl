@@ -1,0 +1,18 @@
+option_string "clock" system_clock
+option_string "signal_object_prefix" "signal__"
+option_string "inputs" "toggle_0 toggle_1"
+option_string "outputs" "test"
+option_string "filename" "global_monitor_event.th"
+module "se_test_harness" "th"
+
+clock system_clock 0 1 1
+drive th.system_clock system_clock
+
+wire toggle_0 toggle_1
+assign toggle_0 1 100 0
+assign toggle_1 1 200 0
+
+drive th.toggle_0 toggle_0
+drive th.toggle_1 toggle_1
+
+end

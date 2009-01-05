@@ -1,0 +1,94 @@
+/*a Copyright
+  
+  This file 'fsm_machine.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+typedef fsm {
+    imp_fsm_idle "Idle state";
+    imp_fsm_next "Next state";
+    imp_fsm_last "Last state";
+} implicit_fsm;
+
+typedef fsm {
+    exp_fsm_idle=2b00 "Idle state";
+    exp_fsm_next=2b01 "Next state";
+    exp_fsm_last=2b11 "Last state";
+} explicit_fsm;
+
+typedef one_hot fsm {
+    one_hot_fsm_idle "Idle state";
+    one_hot_fsm_next "Next state";
+    one_hot_fsm_last "Last state";
+} one_hot_fsm;
+
+typedef one_cold fsm {
+    one_cold_fsm_idle "Idle state";
+    one_cold_fsm_next "Next state";
+    one_cold_fsm_last "Last state";
+} one_cold_fsm;
+
+module fsm_machine( clock io_clock,
+                    input bit io_reset,
+                    output explicit_fsm expfsm,
+                    output implicit_fsm impfsm,
+                    output one_hot_fsm ohfsm,
+                    output one_cold_fsm ocfsm )
+    "This module runs its outputs through FSM states"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked explicit_fsm expfsm = exp_fsm_idle;
+    clocked implicit_fsm impfsm = imp_fsm_idle;
+    clocked one_hot_fsm  ohfsm  = one_hot_fsm_idle;
+    clocked one_cold_fsm ocfsm  = one_cold_fsm_idle;
+
+    clocked bit[3] x=0;
+    clocked bit[3] y=0;
+    comb bit[3] a;
+    comb bit[3] b;
+state_machine_code:
+    {
+        a=1;
+        a=2;
+        b=0;
+        if (a==2) {b=1;}
+        a=3;
+        y<=a;
+    full_switch (expfsm)
+        {
+        case exp_fsm_idle:
+        {
+            expfsm <= exp_fsm_next;
+        }
+        case exp_fsm_next:
+        {
+            expfsm <= exp_fsm_last;
+        }
+        case exp_fsm_last:
+        {
+            expfsm <= exp_fsm_idle;
+        }
+        }
+    impfsm <= imp_fsm_idle;
+        assert (x, "Value of x (%x0%) was not expected", x) (1, 2, 3);
+    }
+
+    
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

@@ -1,0 +1,100 @@
+#a Copyright
+#  
+#  This file 'test.batch' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+#a Tests
+# First this tests does sl_exec_file stuff - read, write, load, save, compare
+read_hw_file simple_memory.hwex
+reset
+step 50
+
+# This is the first single-port test: 1024x16, rnw, no additional enables
+setenv "bits_per_enable" 0
+setenv "mif_filename" "single_port_memory_in.mif"
+setenv "tv_filename" "single_port_memory.tv"
+read_hw_file single_port_memory_srw.hwex
+reset
+step 1000
+
+# This is the second single-port test: 1024x16, rnw, with write enable
+setenv "bits_per_enable" 16
+setenv "mif_filename" "single_port_memory_in.mif"
+setenv "tv_filename" "single_port_memory_1_be.tv"
+read_hw_file single_port_memory_srw.hwex
+reset
+step 1000
+
+# This is the third single-port test: 1024x16, rnw, with individaul byte write enables
+setenv "bits_per_enable" 8
+setenv "mif_filename" "single_port_memory_in.mif"
+setenv "tv_filename" "single_port_memory_2_be.tv"
+read_hw_file single_port_memory_srw.hwex
+reset
+step 1000
+
+# This is the first  single multi-port test: 1024x16, rnw, no additional enables
+setenv "bits_per_enable" 0
+setenv "mif_filename" "single_port_memory_in.mif"
+setenv "tv_filename" "single_port_memory.tv"
+read_hw_file single_port_memory.hwex
+reset
+step 1000
+
+# This is the second  single multi-port test: 1024x16, rnw, with write enable
+setenv "bits_per_enable" 16
+setenv "mif_filename" "single_port_memory_in.mif"
+setenv "tv_filename" "single_port_memory_1_be.tv"
+read_hw_file single_port_memory.hwex
+reset
+step 1000
+
+# This is the third  single multi-port test: 1024x16, rnw, with individaul byte write enables
+setenv "bits_per_enable" 8
+setenv "mif_filename" "single_port_memory_in.mif"
+setenv "tv_filename" "single_port_memory_2_be.tv"
+read_hw_file single_port_memory.hwex
+reset
+step 1000
+
+# This is the first dual-port test: 1024x16, rnw, no additional enables
+setenv "bits_per_enable" 0
+setenv "mif_filename" "dual_port_memory_in.mif"
+setenv "tv_filename" "dual_port_memory.tv"
+read_hw_file dual_port_memory.hwex
+reset
+step 1000
+
+# This is the second dual-port test: 1024x16, rnw, with write enable
+setenv "bits_per_enable" 16
+setenv "mif_filename" "dual_port_memory_in.mif"
+setenv "tv_filename" "dual_port_memory_1_be.tv"
+read_hw_file dual_port_memory.hwex
+reset
+step 1000
+
+# This is the third dual-port test: 1024x16, rnw, with individaul byte write enables
+setenv "bits_per_enable" 8
+setenv "mif_filename" "dual_port_memory_in.mif"
+setenv "tv_filename" "dual_port_memory_2_be.tv"
+read_hw_file dual_port_memory.hwex
+reset
+step 1000
+
+#a Done
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

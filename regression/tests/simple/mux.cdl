@@ -1,0 +1,7 @@
+module fred( input bit[4] a, output bit b, input bit[2] c )
+{
+	body_code "Select appropriate bit of a":
+	{
+		b = a[c];
+	}
+}

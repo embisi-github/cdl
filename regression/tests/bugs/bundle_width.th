@@ -1,0 +1,47 @@
+#a Copyright
+#  
+#  This file 'bundle_width.th' copyright Gavin J Stark 2003, 2004, 2008
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+int value
+int temp
+
+printf "Regression batch arg Running bundle width test to check for bugs in bundles reported Feb 6th 2008"
+
+in.reset 0
+set value 0
+
+bfm_wait 60
+
+for i 0 10 1
+add value value 1
+in.drive value
+bfm_wait 1
+next i
+
+for i 0 1000 1
+add value value 1
+in.drive value
+bfm_wait 1
+#printf "%d0% Input %d1% Value %d2%" global_cycle() out.value() value
+
+sub temp value 1
+beq out.value() temp bundle_passed
+printf "%d0% Expected input of value+1: got input %d1% Value %d2%" global_cycle() out.value() temp
+fail global_cycle() "**************************************************************************** Test failed"
+bundle_passed:
+
+next i
+
+pass global_cycle() "Test succeeded"
+end
+
+

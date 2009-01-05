@@ -1,0 +1,93 @@
+#a Copyright
+#  
+#  This file 'test.batch' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+setenv "width" 16
+setenv "module_name" vector_toggle__width_16
+setenv "module_mif_filename" "vector_toggle__width_16.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+setenv "width" 18
+setenv "module_name" vector_toggle__width_18
+setenv "module_mif_filename" "vector_toggle__width_18.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+setenv "width" 4
+setenv "module_name" vector_add__width_4
+setenv "module_mif_filename" "vector_add__width_4.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+setenv "width" 8
+setenv "module_name" vector_mult_by_11__width_8
+setenv "module_mif_filename" "vector_mult_by_11__width_8.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+setenv "width" 8
+setenv "module_name" vector_reverse__width_8
+setenv "module_mif_filename" "vector_reverse__width_8.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+# Run vector_nest with the vector_reverse file; the functionality is identical
+setenv "width" 8
+setenv "module_name" vector_nest__width_8
+setenv "module_mif_filename" "vector_reverse__width_8.mif"
+read_hw_file vector.hwex
+reset
+step 50
+coverage_save "fred.cov"
+
+setenv "width" 4
+setenv "module_name" vector_sum__width_4
+setenv "module_mif_filename" "vector_sum__width_4.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+setenv "width" 4
+setenv "module_name" vector_sum_2__width_4
+setenv "module_mif_filename" "vector_sum_2__width_4.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+setenv "width" 16
+setenv "module_name" vector_op_1
+setenv "module_mif_filename" "vector_op_1.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+setenv "width" 16
+setenv "module_name" vector_op_2
+setenv "module_mif_filename" "vector_op_2.mif"
+read_hw_file vector.hwex
+reset
+step 50
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

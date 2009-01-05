@@ -1,0 +1,97 @@
+#a Copyright
+#  
+#  This file 'vector_test_harness.th' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+memory test_vectors 2048 32
+
+int tv_addr
+int vector
+int addr_0
+int rnw_0
+int ben_0
+int data_0
+int last_rnw_0
+int last_data_0
+int failure
+
+set failure 0
+
+test_vectors.load env_string("test_vector_mif") 0
+
+set last_rnw_0 0
+set last_rnw_1 0
+
+test_reset.reset 1
+read_not_write_0.reset 1
+byte_enables_0.reset 0
+
+bfm_wait 1
+
+set tv_addr 0
+loop:
+
+set rnw_0 test_vectors.read(tv_addr)
+add tv_addr tv_addr 1
+set ben_0 test_vectors.read(tv_addr)
+add tv_addr tv_addr 1
+set addr_0 test_vectors.read(tv_addr)
+add tv_addr tv_addr 1
+set data_0 test_vectors.read(tv_addr)
+add tv_addr tv_addr 1
+
+bgt rnw_0 256 passed
+read_not_write_0.drive rnw_0
+byte_enables_0.drive   ben_0
+address_0.drive        addr_0
+
+write_data_0.drive     0xdeadbeef
+beq rnw_0 1 rd_port_0
+write_data_0.drive     data_0
+rd_port_0:
+
+bfm_wait 1
+
+beq last_rnw_0 0 rd_port_0_ok
+beq last_data_0 sram_rd_0.value() rd_port_0_ok
+div vector tv_addr 8
+printf "Got %x0% expected %x1% on read port 0 vector %d2%" sram_rd_0.value() last_data_0 vector
+printf "%d0% %d1% Mismatch" global_cycle() vector
+set failure 1
+rd_port_0_ok:
+
+set last_rnw_0 rnw_0
+set last_data_0 data_0
+
+goto loop
+
+
+
+passed:
+
+read_not_write_0.reset 1
+byte_enables_0.reset 0
+
+bne failure 0 test_fail
+
+pass global_cycle() "Test succeeded"
+
+end
+
+test_fail:
+fail global_cycle() "**************************************************************************** Test failed"
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: sh ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***

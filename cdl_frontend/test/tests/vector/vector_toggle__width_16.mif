@@ -1,0 +1,49 @@
+//a Copyright
+//  
+//  This file 'vector_toggle__width_16.mif' copyright Gavin J Stark 2003, 2004
+//  
+//  This program is free software; you can redistribute it and/or modify it under
+//  the terms of the GNU General Public License as published by the Free Software
+//  Foundation, version 2.0.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+//  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+//  for more details.
+
+// MIF file for vector tests
+// Each vector has 4 32-bit fields
+// The first two are the inputs for the next clock period (driven off the rising edge of the clock)
+// The last two are the expected output values at the end of this clock period (i.e. the rising edge that drives the input values)
+// Reset is asserted for the first three clock edges
+0000 0000 0000 ffff
+0000 0000 0000 ffff
+0000 0000 0000 ffff
+
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000
+0000 0000 0000 ffff
+0000 0000 ffff 0000

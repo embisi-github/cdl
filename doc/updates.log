@@ -1,0 +1,196 @@
+Overall to do
+ memories of non-byte size
+ typedef t_fred t_jim, and instance of t_jim don't have the relevant fields if t_fred is a structure
+ Need to support signals generated on both edges of the clocks (or possibly many clocks)
+ Need to add verilog support for cover statements
+ Need simulation memory read/writes from test harness
+ Need to add support for 'include's in sl_exec_file.cpp
+ Type structure including the type itself (recursive types) are illegal but not errored anywhere
+
+ Reset values (!) are of 32-bit width??? - not that I can see
+
+v1.0.22
+=======
+Simulation:   Added log handling
+Backend:      Added log output for C code
+Backend:      Fixed clock gate naming for registers
+Backend:      Fixed reset output in verilog for same clock different reset signal outputs
+Frontend:     Added log to CDL
+
+v1.0.21
+=======
+Backend:      Fixed assertions 'begin/end' stuff
+Backend:      Added pragma coverage on/off
+Frontend:     Fixed expression if (<vector>) which produced if (vector==1b0) to produce if (vector==<size>b0)
+
+v1.0.20
+=======
+Backend:      Added options to verilog to turn off assertions, coverage and display statements
+
+v1.0.19
+=======
+Simulation:   Prepared for faster CDL sims and parallelizing sims
+Backend:      Added some documentation for speeding up sims
+Scripts:      Added parallelizing of regression
+
+v1.0.18
+======
+Backend:      Added switches for verilog output for clock gate module instance name and ports
+
+v1.0.17
+======
+Backend:      Verilog output had incorrect documentation out (bus error) as state->documentation was not reset
+Support:      Removed 'Add object' debug
+
+v1.0.16
+======
+CDL frontend: Added gated clocks
+Backend:      Added gated clocks
+CDL frontend: Documentation handled better on statements etc
+Backend:      Verilog outputs assertions and prints
+Backend:      Verilog outputs documentation more cleanly
+
+v1.0.15
+======
+Backend:       Vmod output breaks up arrays if they are not dynamically indexed
+
+v1.0.14
+======
+Backend:       Added vmod option, and is almost vmod-clean
+Backend:       Changed signal not assigned to near-error
+Backend:       Reduced other verbosity
+All:           Folded in const char * changes most places
+
+v1.0.12
+======
+Backend:       Made verilog output only change CDL version number on code production
+Regress:       Error messages (and failure mode) improved for out-of-test pass/fail/args
+
+v1.0.11
+======
+Backend:       Made reset values of asserted signals NOT be put in the verilog
+Support libs:  Split exec file 'random' to sl_ef_lib_random and plain random
+
+v1.0.10
+======
+Simulation:    Reset forced_module_options when signals are deleted, so a new sim can have new forced options
+Backend:       Put CDL version number in each output file generated
+
+v1.0.9
+======
+Backend:        Fixed liveness analysis for if/elsif/else
+Backend:        Verilog processes have new name suffixes
+Backend:        Verilog full_case is not added if a switch statement has a default
+Backend:        Reset values and other expressions now push out 64 bits instead of 32
+
+v1.0.8
+======
+Backend:        Add warning on something never being assigned to
+Backend:        Add full path to module on assertions
+Backend:        Initial statements from verilog are not permitted - futz in a dummy signal? - no, produce error - no way round this!
+Backend:        Turned serious error printfs in to real errors
+Backend:        Verilg: Removed initial __var setting in comb blocks
+Backend:        Verilog statements should include //parallel_case and //full_case - but only //full_case if full
+Backend:        Partial_switch statements in verilog should have a default case, for no apparent reason other than hdlrun likes it like that
+Backend:        Verilog case statement expressions are now the width of the incoming expression
+Backend:        Verilog reset uses ==1b1 or ==1b0
+Backend:        Added verilog process name for clock blocks
+Backend:        Changed verilog output of a bus to use +:
+
+v1.0.7
+======
+Scripts:         Regress returns an error on >0 failures
+CDL frontend:    Fixed bundles in indices of lvars, where they were not getting pushed and sized
+Backend:         Verilog comb modules no longer use always @() for dependencies generated within a code block, as liveness testing enforces this
+CDL frontend:    Redefinition of a type generates an error
+
+v1.0.6
+======
+Backend:         Added liveness analysis to detect transparent latches
+Backend:         Added errors for use before last assignment to a signal within a block (comb only)
+Simulation:      Added VCD output of small arrays
+Support library: Added support for objects to declare state, and made FIFO signals visible in VCD output
+Backend:         Added support for assertion/cover registers in verilog to be translated off
+Support library: Added support for integers in an option list to be given a string value, so integers can now be passed from verilog to an exec file
+CDL frontend:    Added support for arguments to print statements
+Backend:         Added error on arrays of bit vectors in inputs and outputs in CDL
+Backend:         Added support for case statements without content, especially at end of code, to work correctly
+CDL frontend:    Added cover and assert clocked and comb variables
+CDL frontend:    Added cover, and assert (expression, string [, args] ) [ ( values ) ] [ { code } ] to grammar
+CDL frontend:    Fixed enumeration of fsm states which had 2^n states to use n bits, not n+1
+Support library: nearly_empty flag was broken - set watermark, not the flag, on each update
+Suppory library: fixed FIFOs to actually store data at the FIFO pointer
+Backend:         Fixed verilog generation of combinatorial arrays of vectors
+
+v1.0.5
+======
+CDL frontend:    Added support for documentation of enumerationsin the grammar
+CDL frontend:    Added failure on bit extraction of a non-signal; bit-extraction from a constant is not currently supported
+Simulation:      Bundle operator in hwex files was broken
+Instantiation:   Added module_force_option to allow for the instantiation to configure internal modules
+Support library: Added fclose() to MIF file writing, which was AWOL
+Support library: Added more capabilities to the sl_options
+Verilog output:  Changed always comb blocks to use 'or' not ','s , so that it is verilog 1995 compatible
+Verilog output:  Changed comb var setting so that arrays are copied with a for statement, so that it is verilog 1995 compatible
+Scripts:         Fixed the makefile creation for Verilog to create the correct .v files
+
+v1.0.4
+======
+VPI interface: Now supports 64-bit internals for the VPI
+VPI interface: Now reports errors and messages from a BFM (or other C model) after each clock edge
+CDL frontend:  Reports errors from the backend now
+CDL backend:   Verilog output now works with ncverilog cleanly - had to futz with combinatorial processes to clean them up
+CDL backend:   Verilog output of '?' operator now has brackets around the expression so it runs with verilog okay
+CDL backend:   C output produces errors now on cyclic dependencies, to catch bugs earlier
+CDL backend:   Check for undriven nets at reset and tie them off to dummies
+Waveforms:     Made waveforms not look at a signal with data of NULL - wires the signal to a dummy value with an error
+Simulation:    Made undriven inputs to errors, not warnings
+
+v1.0.3
+======
+CDL frontend:  Fixed numerous bus errors caused by the parser on error conditions
+CDL frontend:  Improved many syntax errors in the grammar
+
+v1.0.2
+======
+Simulation:    Added verbose command to batch mode to allow turning off of messages on step
+CDL frontend:  Check before SL_DEBUG of type_specifier->type_specifier to remove bus error in SL_DEBUG
+Support libraries: Added extra parameters to exec_file wait on callback
+CDL backend:   Clear all state (combs, inputs, state, next_state) to 0 in constructor
+CDL backend:   Check for untied inputs at reset, BARF LOUDLY, and then tie to some dummy value
+CDL backend:   Added WHERE_I_AM macro to defines section of the output C modules for ease of debug
+CDL frontend:  No code in a code block caused bus error
+CDL frontend:  Removed schematics from the grammar
+CDL frontend:   Made expressions be type checked if in a list, particularly for constants in a list of case entries
+
+v1.0.1
+=======
+Scripts:       Added support for assertions and coverage as options in create_make
+Support:       Change MIF file output to be 16-bits per line minimum
+Simulation:    Added loading of coverage files
+Backend:       Fixed propagate so that ALL modules generate such a function
+CDL:           Removed warnings on compile of cyclicity_grammar
+CDL:           Fixed line numbers in output
+
+v1.0.0
+======
+
+Waveform:      Made VCD reset clear enabled and values set and return VCD file to 
+Waveform:      Added VCD file capability to view clocks
+Waveform:      Added pause capability to VCD file output
+Simulation:    Added clock value setting at preclock/clock edge of simulation
+Interrogation: Added clocks to interrogation
+Build:         Added support for OS-X leopard
+General:       Added version numbers to the build
+Support:       Added sl_ef_lib_event
+Events:        Moved from sl_exec_file events into sl_ef_lib_event
+Exec file:     Added broadcast message, removed events from the exec file
+Exec file:     Added reset, free, checkpoint and restore methods to objects - now at API 1.0, API must be stable from here on
+Exec file:     Added function for objects to register state; this will be visible in simulations, and automatically checkpointed/restored by simulation
+Test harness:  Removed all now unnecesary code - its in the simulation exec file part of the engine for all BFM support - bfm_wait, cycle(), signals as objects, global_monitor_event
+Simulation:    Fixed simulation assist to set bits and bit ranges in 64-bit values correctly
+Waveform:      Fixed VCD file output of 64-bit values
+CDL:           Fixed bus error on sized_int error in lexical analyzer
+CDL:           Fixed integers in coercion to be 64-bit, and in reading values at the type for 0x... to be 64-bit
+CDL:           Overhauled expression type matching, coercion, and constant evaluation
+CDL:           Added documentation optionally for statements and code blocks to the grammar; no support in the rest yet

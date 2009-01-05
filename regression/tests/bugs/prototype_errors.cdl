@@ -1,0 +1,13 @@
+extern module a b c
+{
+}
+
+extern module a ( input b, input c, clock d, bit fred );
+
+extern module a ( input bit b, output bit c )
+    }
+
+extern module a ( input bit b, output bit c )
+{
+    fred a;
+ }

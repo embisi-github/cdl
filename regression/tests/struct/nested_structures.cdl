@@ -1,0 +1,117 @@
+/*a Copyright
+  
+  This file 'nested_structures.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Types
+ */
+/*t t_point
+ */
+typedef struct
+{
+    bit[4] x;
+    bit[4] y;
+} t_point;
+
+/*t t_color
+ */
+typedef struct
+{
+    bit[3] r;
+    bit[3] g;
+    bit[3] b;
+} t_color;
+
+/*t t_cline
+ */
+typedef struct
+{
+    t_point p_a;
+    t_point p_b;
+    t_color c;
+} t_cline;
+
+/*a Modules
+ */
+/*m nested_structures
+ */
+module nested_structures( clock io_clock,
+                          input bit io_reset,
+                          input bit[8] vector_input_0,
+                          input bit[8] vector_input_1,
+                          output bit[8] vector_output_0,
+                          output bit[8] vector_output_1 )
+    "This module utilizes nested structures to store points and clines"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked t_cline cline = { c = { r=0, g=0, b=0 }, p_a = {x=0, y=0}, p_b = {x=0, y=0} };
+
+    write_cline "Write to the cline":
+        {
+            if (vector_input_0[0])
+            {
+                cline.c.r <= vector_input_1[3;0];
+            }
+            if (vector_input_0[1])
+            {
+                cline.c.g <= vector_input_1[3;0];
+            }
+            if (vector_input_0[2])
+            {
+                cline.c.b <= vector_input_1[3;0];
+            }
+            if (vector_input_0[4])
+            {
+                cline.p_a.x <= vector_input_1[4;0];
+                cline.p_a.y <= vector_input_1[4;4];
+            }
+            if (vector_input_0[5])
+            {
+                cline.p_b.x <= vector_input_1[4;0];
+                cline.p_b.y <= vector_input_1[4;4];
+            }
+        }
+    read_cline "Read data from the cline":
+        {
+            vector_output_0 = 0;
+            vector_output_1 = 0;
+            if (vector_input_0[6])
+            {
+                vector_output_0[4;0] = cline.p_a.x;
+                vector_output_0[4;4] = cline.p_a.y;
+            }
+            else
+            {
+                vector_output_0[4;0] = cline.p_b.x;
+                vector_output_0[4;4] = cline.p_b.y;
+            }
+            if (vector_input_0[7])
+            {
+                vector_output_1[3;0] = cline.c.r;
+                vector_output_1[3;3] = cline.c.g;
+            }
+            else
+            {
+                vector_output_1[3;0] = cline.c.b;
+            }
+        }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

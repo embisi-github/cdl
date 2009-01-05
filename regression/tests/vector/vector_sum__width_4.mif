@@ -1,0 +1,41 @@
+//a Copyright
+//  
+//  This file 'vector_sum__width_4.mif' copyright Gavin J Stark 2003, 2004
+//  
+//  This program is free software; you can redistribute it and/or modify it under
+//  the terms of the GNU General Public License as published by the Free Software
+//  Foundation, version 2.0.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+//  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+//  for more details.
+
+// MIF file for vector tests
+// Each vector has 4 32-bit fields
+// The first two are the inputs for the next clock period (driven off the rising edge of the clock)
+// The last two are the expected output values at the end of this clock period (i.e. the rising edge that drives the input values)
+// Reset is asserted for the first three clock edges
+0 0 0 0
+0 0 0 0
+0 0 0 0
+
+0 1 0 0
+0 2 0 0
+0 3 1 0
+0 4 2 0
+0 5 3 0
+0 6 4 0
+0 7 5 0
+0 8 6 0
+0 9 7 0
+0 a 8 0
+0 b 9 0
+0 c a 0
+0 d b 0
+0 e c 0
+0 f d 0
+0 0 e 0
+0 1 f 0
+0 2 0 0
+0 3 1 0

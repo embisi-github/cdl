@@ -1,0 +1,85 @@
+event e1
+event e2
+event e3
+event e4
+
+int t0_value
+int t1_value
+int temp
+e1.reset
+e2.reset
+
+printf "Regression batch arg global monitor event - times, inputs, global signals"
+
+global_monitor_event "toggle_0" e1
+global_monitor_event "toggle_1" e2
+
+printf "%d0%:%d1%: Waiting for 10 cycles" global_cycle() bfm_cycle()
+bfm_wait 10
+printf "%d0%:%d1%: Finished waiting for 10 cycles" global_cycle() bfm_cycle()
+
+#list objs
+
+set t0_value signal__toggle_0.value()
+set t1_value signal__toggle_1.value()
+printf "Inputs %d0% %d1% %d2% %d3% %d4% %d5%" t0_value t1_value global_signal_value("toggle_0") global_signal_value("toggle_1") global_signal_value("th.toggle_0") global_signal_value("th.toggle_1") 
+bne t0_value 1 test_failed_t0
+bne t1_value 1 test_failed_t1
+bne t0_value global_signal_value("toggle_0") test_failed_t0
+bne t1_value global_signal_value("toggle_1") test_failed_t1
+bne t0_value global_signal_value("th.toggle_0") test_failed_t0
+bne t1_value global_signal_value("th.toggle_1") test_failed_t1
+
+lshr temp global_cycle() 1
+bne temp bfm_cycle() test_failed_cycle
+
+printf "%d0%:%d1%: Waiting for event on toggle_0" global_cycle() bfm_cycle()
+e1.wait
+e1.reset
+
+set t0_value signal__toggle_0.value()
+set t1_value signal__toggle_1.value()
+printf "Inputs %d0% %d1% %d2% %d3% %d4% %d5%" t0_value t1_value global_signal_value("toggle_0") global_signal_value("toggle_1") global_signal_value("th.toggle_0") global_signal_value("th.toggle_1") 
+bne t0_value 0 test_failed_t0
+bne t1_value 1 test_failed_t1
+bne t0_value global_signal_value("toggle_0") test_failed_t0
+bne t1_value global_signal_value("toggle_1") test_failed_t1
+bne t0_value global_signal_value("th.toggle_0") test_failed_t0
+bne t1_value global_signal_value("th.toggle_1") test_failed_t1
+
+lshr temp global_cycle() 1
+bne temp bfm_cycle() test_failed_cycle
+
+printf "%d0%:%d1%: Waiting for event on toggle_1" global_cycle() bfm_cycle()
+e2.wait
+
+set t0_value signal__toggle_0.value()
+set t1_value signal__toggle_1.value()
+printf "Inputs %d0% %d1% %d2% %d3% %d4% %d5%" t0_value t1_value global_signal_value("toggle_0") global_signal_value("toggle_1") global_signal_value("th.toggle_0") global_signal_value("th.toggle_1") 
+bne t0_value 0 test_failed_t0
+bne t1_value 0 test_failed_t1
+bne t0_value global_signal_value("toggle_0") test_failed_t0
+bne t1_value global_signal_value("toggle_1") test_failed_t1
+bne t0_value global_signal_value("th.toggle_0") test_failed_t0
+bne t1_value global_signal_value("th.toggle_1") test_failed_t1
+
+lshr temp global_cycle() 1
+bne temp bfm_cycle() test_failed_cycle
+
+printf "%d0%:%d1%: Events done" global_cycle() bfm_cycle()
+
+pass global_cycle() "Test succeeded"
+
+end
+
+test_failed_t0:
+printf "%d0%:%d1%: Input t0 unexpected value" global_cycle() bfm_cycle()
+fail 0 "Toggle0 mismatch"
+
+test_failed_t1:
+printf "%d0%:%d1%: Input t1 unexpected value" global_cycle() bfm_cycle()
+fail 0 "Toggle1 mismatch"
+
+test_failed_cycle:
+printf "%d0%:%d1%: Cycle mismatch" global_cycle() bfm_cycle()
+fail 0 "Cycle mismatch"

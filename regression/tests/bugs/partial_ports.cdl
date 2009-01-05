@@ -1,0 +1,65 @@
+module pp_bit_toggle( clock clk,
+                      input bit rst,
+                      input bit a,
+                      output bit b,
+                      input bit[4] cnt_in,
+                      output bit[4] cnt_out
+    )
+{
+    clocked clock clk reset rst bit b=0;
+    clocked clock clk reset rst bit[4] cnt_out=0;
+    logic:
+    {
+        b <= a;
+        cnt_out <= cnt_in+1;
+    }
+}
+
+typedef struct
+{
+    bit a;
+    bit b;
+} t_bit_pair;
+
+module pp_bit_pair_wire( input t_bit_pair in,
+                    output t_bit_pair out )
+{
+logic : {out = in;}
+}
+typedef bit[4] t_cnt;
+module partial_ports( clock clk, input bit rst,
+                      input bit in,
+                      output bit[2] out,
+                      output bit[4] cnt
+    )
+
+{
+    net bit[5] chain_out;
+    comb bit[5] chain_in;
+    net t_cnt[4] cnt_out;
+    net t_cnt cnt_out_4;
+    comb t_bit_pair[2] bit_pair_in_array;
+    comb t_bit_pair bit_pair_in;
+    net t_bit_pair[2] bit_pairs;
+
+chain_logic : {
+        chain_in[0] = in;
+        chain_in[4;1] = chain_out[4;0];
+        for (i; 4 )
+        {
+            pp_bit_toggle bt[i]( clk<-clk, rst<=rst, a<=chain_in[i], b=>chain_out[i], cnt_in<=cnt_out[0]+i, cnt_out=>cnt_out[i] );
+        }
+        pp_bit_toggle bt[4]( clk<-clk, rst<=rst, a<=chain_in[4], b=>chain_out[4], cnt_in<=cnt_out[0]+4, cnt_out=>cnt_out_4 );
+        bit_pair_in.a = chain_out[3];
+        bit_pair_in.b = chain_out[4];
+        bit_pair_in_array[0] = bit_pair_in;
+        bit_pair_in_array[1] = bit_pair_in;
+        for (i; 2)
+        {
+            pp_bit_pair_wire pw[i] ( in<=bit_pair_in, out=>bit_pairs[i] );
+            //pp_bit_pair_wire pw[i] ( in<=bit_pair_in[i], out=>bit_pairs[i] );
+        }
+        out = bundle( bit_pairs[0].b, bit_pairs[1].a );
+        cnt = cnt_out_4-cnt_out[3]+cnt_out[2]-cnt_out[1];
+    }
+}

@@ -1,0 +1,54 @@
+/*a Copyright
+  
+  This file 'empty_case_statements.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+typedef struct
+{
+    bit[2] bitv_2;
+} t_entry;
+
+module for_case( clock io_clock,
+                              input bit io_reset,
+                              input bit[2] select,
+                              input bit[4] bus,
+                              output bit out )
+{
+    default clock io_clock;
+    default reset io_reset;
+    clocked t_entry fred = {bitv_2=0};
+
+    toggle_code:
+    {
+        for (i; 2)
+        {
+            full_switch(fred.bitv_2[i])
+                {
+                case 0:
+                {
+                    out=1;
+                }
+                case 1:
+                {
+                    out=0;
+                }
+                }
+        }
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

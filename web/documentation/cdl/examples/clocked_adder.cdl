@@ -1,0 +1,26 @@
+constant integer width=16;
+typedef bit[width] t_value;
+extern module adder( input t_value A, input t_value B, output t_value Z )
+{
+    timing comb input A, B;
+    timing comb output Z;
+}
+module clocked_adder( clock int_clock,
+                      input bit int_reset,
+                      input t_value A,
+                      input t_value B,
+                      output t_value clocked_result,
+                     )
+{
+    net t_value result;
+    clocked rising int_clock active_high int_reset t_value clocked_result = 0;
+
+    instances "Adder instance":
+        {
+            adder add1( A<=A, B<=B, Z=>result );
+        }
+    registers "Register the result from the adder instance":
+        {
+            clocked_result <= result;
+        }
+}

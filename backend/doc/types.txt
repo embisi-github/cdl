@@ -1,0 +1,364 @@
+The backend maintains the simplest of values currently. It only knows
+about bit vectors.
+A bit vector is size 1 is a bit.
+An integer must have been converted to a bit vector before the backend
+sees it.
+So we don't actually support any types in the backend yet.
+
+We only need types to describe higher level constructs such as state
+and combinatorial values. The expectation is that we are not actually
+upgrading the value system, rather we are upgrading the signal/state
+system - each signal or state will have a type instance structure now,
+rather than just a string name and value. A type instance structure is actually
+a mirror of a type definition structure, with the caveat that if the
+state or signal is an array, then the array is actually pushed to the
+lowest level - an array of a structure of bit vectors becomes a
+structure of an array of bit vectors, at instantiation.
+
+
+
+Structures
+==========
+
+The type definitions structure is simply:
+
+next type definition in list of type definitions for the model
+parent type defintion (one that this is an element of, else NULL)
+int size (length of bit vector, length of array, number of elements in structure)
+t_type_definition_type type - bit vector, array of type definitions, structure, array of bit vectors
+list of union
+  pair string element name, type definition handle, for structure elements
+  type definition handle for array
+
+A type definition handle is a structure:
+type (bit vector, or structure)
+union
+  length of bit vector
+  type definition structure pointer
+
+A type instance structure has more:
+next type instance structure in module
+string name of instance used by model descriptor client
+output string name used by the output targetting systems
+type definition handle this is derived from
+int size (length of bit vector, number of array elements, number of
+  structure elements)
+t_type_definition_type type - bit vector, array of bit vectors, array of type definitions, structure
+list of union of length 'size' for structure
+  pair string element name, type instance handle, for structure elements
+  type instance handle for array of type structures
+  reset value for bit vector (not used in combinatorials, but used in state)
+
+
+
+Building type definitions
+=========================
+
+To build the definition of a structure, invoke first:
+type_definition_structure_create  - give the number of elements in the structure, returns a type definition handle for the type structure
+type_definition_structure_set_element - for each element, giving the local element name and a type definition handle for the element
+
+To build the definition of a bit vector, invoke:
+type_definition_bit_vector_create - give the size of the vector, returns a type structure handle for the element
+
+To build the definition of an array, invoke:
+type_definition_array_create - give the size of the array, a type definition handle that it is an array of, and returns a type definition handle
+
+
+
+To instantiate a bit vector as a signal/state (shortcut) -
+signal_add_input/output/combinatorial - give the name and width
+state_add - give the name and width and a t_md_signal_value for the reset value
+
+To instantiate any other type as a signal -
+define the type
+signal_add_input/output/combinatorial - give the name and a type definition handle this is an instance of
+
+To instantiate any other type as a statel -
+define the type
+state_add - give the name and width and a type definition handle this is an instance of
+state_set_reset_value - give the state, some indication of what this is a reset value for(!?!), and a t_md_signal_value
+
+
+
+Instantiating a type definition
+===============================
+
+Here we have to build the instance structure from the definition structure
+We require an argument that indicates whether we are building an array, or whether we are not - if we are building an array, then the number is positive non-zero.
+First say we are asked to instantiate a simple bit vector 'bit[4] fred'. We expect to build
+ name fred
+ output string ''
+ type definition handle for bit_vector[4]
+ size 1
+ type=bit_vector
+  1 reset value
+
+Now, say we are asked to instantiate simply a single instance 'my_pair' of the type 'struct pair {bit x[4]; bit y[6];};'
+We expect to build:
+ name 'my_pair'
+ output string '' (at instantiation time - analysis will fill this in)
+ type definition handle for the structure 'pair'
+ size=2
+ type=structure
+  pair 'x', ptr to instance of bit[4] with name 'my_pair.x'
+
+Then say we are asked to instantiate an array of size 3 'my_array' of the type 'struct pair {bit x[4]; bit y[6];};'
+We expect to build:
+ name 'my_array'
+ output string '' (at instantiation time - analysis will fill this in)
+ type definition handle for the structure 'pair'
+ size=2
+ type=structure
+  pair 'x', ptr to instance of bit[4][3]
+  pair 'y', ptr to instance of bit[6][3]
+ 
+ name 'my_array.x'
+ output string ''
+ type definition handle for bit vector[4]
+ size 3
+ type=bit vector array
+  reset value for my_array[0].x 
+  reset value for my_array[1].x 
+  reset value for my_array[2].x 
+
+ name 'my_array.y'
+ output string ''
+ type definition handle for bit vector[6]
+ size 3
+ type=bit vector array
+  reset value for my_array[0].y 
+  reset value for my_array[1].y 
+  reset value for my_array[2].y 
+
+So the instantiation process is:
+ instantiate( array_size, type ){name, sub_name} =>
+ instantiate( 0, bit_vector[x] ){name, sub_name} => instance( name=name(+"."sub_name), typedef=bit_vector[x], size=1, type=bit_vector, reset_values={_} )
+ instantiate( y, bit_vector[1] ){name, sub_name} => instantiate( 0, bit_vector[y] ) { name, sub_name }
+ instantiate( y, bit_vector[x] ){name, sub_name} => instance( name=name(+"."sub_name), typedef=bit_vector[x], size=y, type=array_of_bit_vectors, reset_values={_}*y )
+ instantiate( y, struct a{e}*z ){name, sub_name} => instance( name=name(+"."sub_name), typedef=struct a, size=z, type=struct,
+                                                       pairs={ ForAll(e) e.name, instantiate( y, e.type ){ name(+"."sub_name), e.name } )
+ instantiate( 0, array {struct e}*z ){name, sub_name}      => instantiate( z, e ){ name, sub_name }
+ instantiate( 0, array bit_vector[1]*z ){name, sub_name}   => instantiate( 0, bit_vector[z] ){ name, sub_name }
+ instantiate( 0, array bit_vector[x]*z ){name, sub_name}   => instantiate( z, e ){ name, sub_name }
+ instantiate( y, array {e}*z ){name, sub_name}   => error - 2 dimensional array
+
+
+
+
+
+A simple bit vector is:
+type_instance_bit_vector_create - give the width
+
+
+
+To map the ports, combs and state to instances which we will use for the backend:
+
+A real (fully dereferenced) type can be either a structure, an array, or a bit vector (of size 1 for bits)
+
+Assume an array of bits is always a bit vector
+
+
+
+The 'resolved typed value instance'...
+
+A bit vector is then:
+
+instance_type = bit vector
+length = 1
+type id = bit vector
+sublength = length of bit vector
+reset value = reference to expression
+
+An array of bit vectors is then:
+
+instance_type = array
+length = length of array
+type id = bit vector
+sublength = length of bit vector
+reset value array of length 'length' of references to expression
+
+A structure of bit vectors is then:
+
+instance_type = structure
+length = number of elements
+type id = structure
+sub length =
+array of pairs:
+  symbol of structure name
+  resolved type value instance
+
+
+
+
+Examples:
+
+clocked bit a=1;
+{
+    instance_type = bit vector
+    length     = 1;
+    type id    = bit_vector;
+    sublength  = 1;
+    model_name = "a"
+    reset_values = { 1 };
+}
+
+clocked bit[8] aa=0x23;
+{
+    instance_type = bit vector
+    length     = 1;
+    type id    = bit_vector;
+    sublength  = 8;
+    model_name = "aa"
+    reset_values = { 0x23 };
+}
+
+clocked bit[8][4] aaa={0x01, 0x23, 0x45, 0x67};
+{
+    instance_type = array
+    length     = 4;
+    type id    = bit_vector;
+    sublength  = 8;
+    model_name = "aaa"
+    reset_values = {0x01, 0x23, 0x45, 0x67};
+}
+
+typedef struct { bit flag; bit[4] pc;} thread
+thread thrd = { flag=>1, pc=>0x03 }
+{
+    instance_type = struct
+    length     = 2;
+    type id    = 
+    sublength  = 
+    pairs =
+    {
+        {
+            type_instance =
+            {
+                instance_type = bit vector
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "thrd.flag"
+                reset_values = { 1 };
+            }
+            name = "flag"
+        }
+        {
+            type_instance =
+            {
+                instance_type = bit vector
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 4;
+                model_name = "thrd.pc"
+                reset_values = { 0x3 };
+            }
+            name = "pc"
+        }
+    }
+}
+
+thread[4] thrds = { flag[]=>0, flag[0]=>1, pc[]=>0, pc[0]=>0x03 }
+{
+    instance_type = struct
+    length     = 2;
+    type id    = 
+    sublength  = 
+    pairs =
+    {
+        {
+            type_instance =
+            {
+                instance_type = array
+                length     = 4;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "a.flag"
+                reset_values = { 1, 0, 0, 0 };
+            }
+            name = "flag"
+        }
+        {
+            type_instance =
+            {
+                instance_type = array
+                length     = 4;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "a.pc"
+                reset_values = { 0x3, 0, 0, 0 };
+            }
+            name = "pc"
+        }
+    }
+}
+
+typedef struct all_state { thread[4] thrds; bit running; bit debug }
+all_state state = { thrds.flag[]=>0, thrds.flag[0]=>1, thrds.pc[]=>0, thrds.pc[0]=>0x03, running=0, debug=1 };
+{
+    instance_type = struct
+    name = state
+    length     = 3;
+    type id    = 
+    sublength  = 
+    pairs =
+    {
+        {
+            type_instance =
+            {
+                instance_type = struct
+                {
+                    type_instance =
+                    {
+                        instance_type = array
+                        length     = 4;
+                        type id    = bit_vector;
+                        sublength  = 1;
+                        reset_values = { 1, 0, 0, 0 };
+                        model_name = "state.thrds.flag"
+                    }
+                    name = "flag"
+                }
+                {
+                    type_instance =
+                    {
+                        instance_type = array
+                        length     = 4;
+                        type id    = bit_vector;
+                        sublength  = 1;
+                        reset_values = { 1, 0, 0, 0 };
+                        model_name = "state.thrds.pc"
+                    }
+                    name = "pc"
+                }
+            }
+            name = "thrds"
+        }
+        {
+            type_instance =
+            {
+                instance_type = bit_vector;
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "state.running"
+                reset_values = { 0 }
+            }
+            name = "running"
+        }
+        {
+            type_instance =
+            {
+                instance_type = bit_vector;
+                length     = 1;
+                type id    = bit_vector;
+                sublength  = 1;
+                model_name = "state.debug"
+                reset_values = { 1 }
+            }
+            name = "debug"
+        }
+    }
+}
+

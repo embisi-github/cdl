@@ -1,0 +1,25 @@
+#a Copyright
+#  
+#  This file 'model_list' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+#c_model recursive_subs
+#c_model register_file
+
+#c_model apb_target_sram
+#c_model apb_target_test
+#ef apb_target_timer
+#cdl gip_alu
+#c_model gip_prefetch inc:gip
+
+ef ef_models timer rmn:toplevel=aardvark
+ef ef_models modules
+ef ef_models types

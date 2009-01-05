@@ -1,0 +1,56 @@
+#a Copyright
+#  
+#  This file 'test.batch' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+vcd_file waves
+
+gosub partial_ports
+gosub bundle_width
+gosub check_64bits
+end
+
+
+partial_ports:
+read_hw_file partial_ports.hwex
+waves.reset
+waves.open "pp.vcd"
+waves.add_hierarchy pp th
+waves.enable
+reset
+step 5000
+return
+
+bundle_width:
+read_hw_file bundle_width.hwex
+waves.reset
+#waves.open "bw.vcd"
+waves.add_hierarchy bw th
+#waves.enable
+reset
+step 5000
+return
+
+check_64bits:
+read_hw_file check_64bits.hwex
+waves.reset
+waves.open "check_64bits.vcd"
+waves.add_hierarchy check_64bits th
+waves.enable
+reset
+step 5000
+return
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

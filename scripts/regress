@@ -1,0 +1,305 @@
+#!/usr/bin/perl
+
+#a Copyright
+#  
+#  This file 'regress' copyright Gavin J Stark 2003, 2004
+#  
+#  This is free software; you can redistribute it and/or modify it however you wish,
+#  with no obligations
+#  
+#  This software is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE.
+
+#a Main routine
+use FindBin;
+use lib "$FindBin::Bin";
+use threads;
+use threads::shared;
+use Thread::Queue;
+
+require "getopts.pl";
+
+#a Usage
+sub usage {
+    print <<END_USAGE;
+
+ Usage and notes:
+
+    regress [options] [<directory> <batch file>]*
+
+  Options:
+    -h                          Display this help file
+    -b <binary directory>       Where to find 'sim'
+    -d <debug_level>            Simulation debug level
+    -n <nthreads>               Parallelize execution over n threads
+
+END_USAGE
+
+exit;
+}
+
+$pwd = "$FindBin::Bin";
+
+usage() unless ($#ARGV>=1);
+
+#a Handle arguments
+$bin_directory = "";
+$debug_level = "";
+$nthreads=1;
+&Getopts ('hb:d:n:');
+
+$bin_directory = $opt_b if ($opt_b);
+$debug_level   = $opt_d if ($opt_d);
+$nthreads      = $opt_n if ($opt_n);
+print "Running with $nthreads threads binary directory '$opt_b' debug level '$opt_d'\n";
+$bin_directory = shift @ARGV unless ($opt_b ne '');
+$debug_level   = shift @ARGV unless ($opt_d ne '');
+for ($i=0; $i<$#ARGV; $i+=2) {
+    $directories[++$#directories] = @ARGV[$i];
+    $batches[++$#batches] = @ARGV[$i+1];
+    print "Dir $directories[$#directories] batch $batches[$#batches]\n";
+}
+
+$#test_results = 0;
+$last_test_source = "";
+$in_log_entry = 0;
+$sep = "@@@";
+my $work_queue;
+my $result_queue;
+
+#a Logging functions
+#f finish_log_entry
+sub finish_log_entry {
+    my ($result) = @_;
+    $test_results[$#test_results] = $result;
+    $#test_results++;
+    $in_log_entry = 0;
+}
+
+#f add_to_log
+sub add_to_log {
+    my ($reason, $arg) = @_;
+    if ($reason =~ /batch/) {
+        finish_log_entry( "timeout" ) if ($in_log_entry);
+        $last_test_source = $arg;
+        return;
+    }
+    if ($reason =~ /hwfile/) {
+        finish_log_entry( "timeout" ) if ($in_log_entry);
+        $test_file[$#test_results] = $arg;
+        $test_source[$#test_results] = $last_test_source;
+        $in_log_entry = 1;
+    }
+    if ($reason =~ /pass/) {
+        if (!$in_log_entry) {
+            $test_file[$#test_results] = "***WARNING*** - got pass message ($arg) not within a test";
+            $test_source[$#test_results] = $last_test_source;
+            $in_log_entry = 1;
+        }
+        finish_log_entry( "pass".$sep.$arg );
+    }
+    if ($reason =~ /fail/) {
+        if (!$in_log_entry) {
+            $test_file[$#test_results] = "***ERROR*** $arg - got fail message not within a test";
+            $test_source[$#test_results] = $last_test_source;
+            $in_log_entry = 1;
+        }
+        finish_log_entry( "fail".$sep.$arg );
+    }
+    if ($reason =~ /arg/) {
+        if ($in_log_entry) {
+            $test_args[$#test_results] .= $sep.$arg;
+        } else {
+            print "***WARNING*** - Got test argument ($arg) not within a test\n";
+        }
+    }
+}
+
+#f summarize_log
+sub summarize_log {
+    finish_log_entry( "timeout" ) if ($in_log_entry);
+    print "\n\n********************************************************************************\n";
+    print "Summary of tests\n";
+    print "********************************************************************************\n";
+    $#test_results;
+    $error_count = 0;
+    for ($i=0; $i<$#test_results; $i++) {
+        $file = $test_file[$i];
+        $file = "<unknown file>" if ($file =~ /^$/ );
+        $source = $test_source[$i];
+        $source = "<unknown source>" if ($file =~ /^$/ );
+        @args = split( /$sep/, $test_args[$i] );
+        @results = split( /$sep/, $test_results[$i] );
+        if ($results[0]=~/pass/) {
+            print "Pass $source : $file ($results[1]): ";
+            foreach $arg (@args) {
+                print "$arg ";
+            }
+            print "\n";
+        }
+        if ($results[0]=~/fail/) {
+            $error_count++;
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            print "Fail $source : $file ($results[1]): ";
+            foreach $arg (@args) {
+                print "$arg ";
+            }
+            print "\n";
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+        }
+        if ($results[0]=~/timeout/) {
+            $error_count++;
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+            print "Timed out $source : $file ($results[1]): ";
+            foreach $arg (@args) {
+                print "$arg ";
+            }
+            print "\n";
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
+        }
+    }
+    print "\n\n";
+}
+
+#a Execution functions
+#f exec_test_in_dir
+sub exec_test_in_dir {
+    my ($dir, $batch, $id) = @_;
+    my ($sim) = "$bin_directory/sim";
+    my ($i, $cmd);
+    my ($results);
+    $cmd = "";
+    unless ($dir eq "") {
+        $cmd = "cd $dir;";
+        foreach $i (split(/\//,$dir)) {
+            $sim="../$sim";
+        }
+    }
+    $#results=-1;
+    $results[++$#results] = "batch$sep"."$dir/$batch";
+    $cmd .= "$sim --sl_debug_level $debug_level $batch" if ($debug_level>=1);
+    $cmd .= "$sim $batch" if ($debug_level<1);
+    print "$dir:$cmd\n";
+    die "Failed to run tests at all - cmd '$cmd'" unless (open( LOG, "$cmd 2>&1 |" ));
+    while (<LOG>) {
+        print ">>>$id    $_";
+        chomp;
+        $line = $_;
+        if ($line =~ /^simulation_engine \(v.*\): Reading hw file '(\S+)'/) {
+            $results[++$#results] = "hwfile$sep".$1;
+            next;
+        }
+        if ($line =~ /Pass(.*):Test succeeded/) {
+            $results[++$#results] = "pass$sep".$1;
+            next;
+        }
+        if ($line =~ /Fail(.*):/) {
+            $results[++$#results] = "fail$sep".$1;
+            next;
+        }
+        if ($line =~ /batch arg (.*)/) {
+            $results[++$#results] = "arg$sep".$1;
+            next;
+        }
+    }
+    close(LOG );
+    return $results;
+}
+
+#f worker_thread
+sub worker_thread {
+    my ($id, $semaphore) = @_;
+    my ($running) = 1;
+    my ($work, $start_dir, $dir, $batch);
+    while ($running) {
+        #print "Worker $id ready\n";
+        $workers_ready->enqueue($id);
+        $work = $work_queue[$id]->dequeue();
+        #print "Worker $id got work $work\n";
+        if ($work eq "end") {
+            $running = 0;
+        } else {
+            ($start_dir, $dir, $batch) = split(/$sep/,$work);
+            chdir($start_dir);
+            print "Worker thread $id running test from dir '$start_dir' in dir '$dir' batch '$batch'\n";
+            $results = exec_test_in_dir( $dir, $batch, $id );
+            $results_string = "";
+            foreach $r (@results) {
+                $results_string .= $r.$sep.$sep;
+            }
+            #print "Enqueue results $results_string\n";
+            $result_queue->enqueue($results_string);
+        }
+    }
+}
+
+#f add_worker_thread
+sub add_worker_thread {
+    my ($id) = @_;
+    print "Add worker thread $id\n";
+    $work_queue[$id] = Thread::Queue->new;
+    $worker_threads[$id] = new threads \&worker_thread, $id, $work_queue[$id];
+}
+
+#f wait_for_worker_thread
+sub wait_for_worker_thread {
+    my ($id) = @_;
+    $worker_threads[$id]->join;
+}
+
+#f give_to_worker
+sub give_to_worker {
+    my ($worker, $start_dir, $dir, $batch ) = @_;
+    my $work = "$start_dir"."$sep"."$dir"."$sep"."$batch";
+    #print "Giving work $work to worker $worker\n";
+    $work_queue[$worker]->enqueue($work);
+}
+
+#f ask_worker_to_end
+sub ask_worker_to_end {
+    my ($worker) = @_;
+    $work_queue[$worker]->enqueue("end");
+}
+
+#a Toplevel
+
+$cwd = `pwd`;
+chomp($cwd);
+$start_dir = $cwd;
+print "Starting in directory $start_dir\n";
+
+$workers_ready = Thread::Queue->new;
+$result_queue  = Thread::Queue->new;
+for ($i=0; $i<$nthreads; $i++) {
+    add_worker_thread( $i );
+}
+
+for ($i=0; $i<=$#batches; $i++) {
+    $worker = $workers_ready->dequeue;
+    give_to_worker( $worker, $start_dir, $directories[$i], $batches[$i] );
+}
+for ($i=0; $i<$nthreads; $i++) {
+    ask_worker_to_end( $i );
+}
+for ($i=0; $i<$nthreads; $i++) {
+    wait_for_worker_thread( $i );
+}
+while ($result_string = $result_queue->dequeue_nb) {
+    foreach $i (split(/$sep$sep/,$result_string)) {
+        ($reason,$arg) = split(/$sep/,$i);
+        #print "$reason, $arg\n";
+        add_to_log($reason, $arg);
+    }
+}
+summarize_log();
+
+print "Exiting with Status $error_count\n";
+exit ($error_count) ;
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: perl ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

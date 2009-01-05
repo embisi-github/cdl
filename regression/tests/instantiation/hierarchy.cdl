@@ -1,0 +1,59 @@
+/*a Copyright
+  
+  This file 'hierarchy.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Includes
+ */
+include "hierarchy_reg.h"
+include "hierarchy_and.h"
+
+/*a Module prototypes
+ */
+module hierarchy( clock int_clock,
+                  input bit int_reset,
+                  input bit clear,
+                  input bit store,
+                  input bit data,
+                  output bit last_value,
+                  output bit value,
+                  output bit next_value
+                  )
+{
+    net bit last_value;
+    net bit value;
+    net bit next_value; // !clear & ((store & data) | (!store & value))
+    net bit new_data; // store & data
+    net bit old_data; // !store & value
+    comb bit next_value_if_not_cleared;
+
+    instances "Instances":
+        {
+            hierarchy_and and1( in_a<=store, in_b<=data, out=>new_data );
+            hierarchy_and and2( in_a<=!store, in_b<=value, out=>old_data );
+            hierarchy_and and3( in_a<=!clear, in_b<=next_value_if_not_cleared, out=>next_value );
+            hierarchy_reg reg1( int_clock<-int_clock, int_reset<=int_reset, in<=next_value, out=>value );
+            hierarchy_reg reg2( int_clock<-int_clock, int_reset<=int_reset, in<=value, out=>last_value );
+        }
+    main_code "Main code":
+        {
+            next_value_if_not_cleared = new_data | old_data;
+        }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

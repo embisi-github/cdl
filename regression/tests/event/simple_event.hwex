@@ -1,0 +1,45 @@
+#a Copyright
+#  
+#  This file 'vector.hwex' copyright Gavin J Stark 2003, 2004, 2008
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+event e1
+event e2
+
+printf "Regression batch arg simple event test - *SL_EXEC_FILE TEST*"
+
+spawn "thread" second_thread 10
+
+first_thread:
+printf "First thread start"
+e1.reset
+e1.fire
+e2.wait
+printf "First thread continues"
+
+
+pass 0 "Test succeeded"
+end
+
+second_thread:
+printf "Second thread start"
+e2.reset
+e1.wait
+printf "Second thread continues"
+e2.fire
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: sh ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***

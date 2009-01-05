@@ -1,0 +1,84 @@
+#a Copyright
+#  
+#  This file 'vector.hwex' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+string str
+
+printf "Regression batch arg mif:%s0%" env_string("mif_filename")
+printf "Regression batch arg bits_per_enable:%s0%" env_string("bits_per_enable")
+printf "Regression batch arg tv_file:%s0%" env_string("tv_filename")
+printf "Running dual port SRAM test on 1024x16 %d1% bits per enable mrw sram mif file %s0% test vector file %s2%" env_string("mif_filename") env_int("bits_per_enable") env_string("tv_filename")
+
+option_string "filename" env_string("mif_filename")
+option_int "num_ports" 2
+option_int "size" 1024
+option_int "width" 16
+option_int "bits_per_enable" env_int("bits_per_enable")
+option_int "verbose" 0
+module "se_sram_mrw" sram
+
+option_string "clock" system_clock
+option_string "inputs" "sram_rd_0[16] sram_rd_1[16]"
+beq env_int("bits_per_enable") 8 two_byte_enables
+option_string "outputs" "test_reset address_0[10] address_1[10] read_not_write_0 read_not_write_1 byte_enables_0 byte_enables_1 write_data_0[16] write_data_1[16]"
+wire byte_enables_0 byte_enables_1
+goto one_byte_enable
+two_byte_enables:
+option_string "outputs" "test_reset address_0[10] address_1[10] read_not_write_0 read_not_write_1 byte_enables_0[2] byte_enables_1[2] write_data_0[16] write_data_1[16]"
+wire byte_enables_0[2] byte_enables_1[2]
+one_byte_enable:
+option_string "filename" "dual_port_memory.th"
+option_string "test_vector_mif" env_string("tv_filename")
+module se_test_harness test_harness_0
+
+clock system_clock 0 1 1
+drive test_harness_0.system_clock system_clock
+drive sram.sram_clock_0 system_clock
+drive sram.sram_clock_1 system_clock
+
+wire test_reset
+wire sram_rd_0[16] sram_rd_1[16]"
+wire address_0[10] address_1[10] read_not_write_0 read_not_write_1 write_data_0[16] write_data_1[16]
+
+drive test_reset test_harness_0.test_reset
+
+drive sram.address_0        address_0
+drive sram.read_not_write_0 read_not_write_0
+drive sram.write_data_0     write_data_0
+drive sram_rd_0             sram.data_out_0
+drive sram.address_1        address_1
+drive sram.read_not_write_1 read_not_write_1
+drive sram.write_data_1     write_data_1
+drive sram_rd_1             sram.data_out_1
+beq env_int("bits_per_enable") 0 no_byte_enables
+drive sram.write_enable_0     byte_enables_0
+drive sram.write_enable_1     byte_enables_1
+drive byte_enables_0 test_harness_0.byte_enables_0
+drive byte_enables_1 test_harness_0.byte_enables_1
+no_byte_enables:
+
+drive address_0            test_harness_0.address_0
+drive read_not_write_0     test_harness_0.read_not_write_0
+drive write_data_0         test_harness_0.write_data_0
+drive test_harness_0.sram_rd_0  sram_rd_0 
+
+drive address_1            test_harness_0.address_1
+drive read_not_write_1     test_harness_0.read_not_write_1
+drive write_data_1         test_harness_0.write_data_1
+drive test_harness_0.sram_rd_1  sram_rd_1 
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: sh ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***

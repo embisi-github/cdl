@@ -1,0 +1,24 @@
+module bundle_width( clock clk, input bit rst,
+                      input bit[16] in,
+                      output bit[16] out
+    )
+
+{
+    clocked clock clk reset rst bit[16] out=0;
+
+bundle_logic : {
+        out <= 0;
+        out[0] <= in[0];
+        out[2;1] <= bundle( in[2], in[1] );
+        out[3;3] <= bundle( in[5], in[4], in[3] );
+        if (in[7])
+        {
+            out[3;6] <= bundle( in[8], 1b1, in[6] );
+        }
+        else
+        {
+            out[3;6] <= bundle( in[8], 1b0, in[6] );
+        }
+        out[7;9] <= bundle( in[2;14], in[13], in[2;11], in[2;9] );
+    }
+}

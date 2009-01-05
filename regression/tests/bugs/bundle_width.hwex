@@ -1,0 +1,34 @@
+#a Copyright
+#  
+#  This file 'bundle_width.hwex' copyright Gavin J Stark 2003, 2004, 2008
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+module bundle_width bw
+
+option_string "clock" "clk"
+option_string "inputs" "out[16]"
+option_string "outputs" "in[16]"
+option_string "filename" "bundle_width.th"
+module se_test_harness th
+
+wire rst in[16] out[16]
+clock system_clock 0 1 1
+drive bw.clk system_clock
+drive th.clk system_clock
+drive bw.rst rst
+drive bw.in in
+drive out bw.out
+
+assign rst 1 30 0
+drive in th.in
+drive th.out out
+
+end

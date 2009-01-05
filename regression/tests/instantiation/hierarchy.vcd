@@ -1,0 +1,10 @@
+$var wire 16 E vector_input_0 $end
+$var wire 16 D vector_input_1 $end
+$var wire 16 C vector_output_0 $end
+$var wire 16 B vector_output_1 $end
+$enddefinitions $end
+#0
+b0000000000000000 E
+b0000000000000000 D
+b0000000000000000 C
+b0000000000000000 B

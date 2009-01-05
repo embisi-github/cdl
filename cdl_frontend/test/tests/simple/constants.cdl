@@ -1,0 +1,62 @@
+/*a Copyright
+  
+  This file 'constants.cdl' copyright Gavin J Stark 2007
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+constant integer one=1;
+constant integer zero=one-one;
+constant integer two=one+one;
+constant integer four=two+two;
+constant integer eight=four+four;
+constant integer six=eight-two;
+constant integer twelve=six*two;
+constant integer seven=twelve/four+two+two/two*two;
+constant integer five=(seven*six-two)/eight;
+constant integer three=(twelve+one)/four;
+constant integer nine=three*two+one*three;
+constant integer ten=five*four-six*five/sizeof(five); // five == b101 requires 3 bits
+constant integer eleven=(seven*twelve-1)/seven;
+
+module constants( clock clk,
+                  input bit test_reset,
+                  input bit in,
+                  output bit[twelve+1] out )
+    "On each clock edge, copy in to out in every bit from the constants - it should set all bits"
+{
+    default clock clk;
+    default reset test_reset;
+    clocked bit[twelve+1] out=0;
+
+set_bits :
+    {
+        out[zero] <= in;
+        out[one] <= in;
+        out[two] <= in;
+        out[three] <= in;
+        out[four] <= in;
+        out[five] <= in;
+        out[six] <= in;
+        out[seven] <= in;
+        out[eight] <= in;
+        out[nine] <= in;
+        out[ten] <= in;
+        out[eleven] <= in;
+        out[twelve] <= in;
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

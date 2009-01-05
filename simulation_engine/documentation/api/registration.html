@@ -1,0 +1,24 @@
+A module instance should declare all its inputs and outputs.
+
+An input should be declared as 'used on a clock' if it is used to effect that clock edge. But this is not yet really necessary.
+
+An output should be declared as 'changing on clock' if it changes on the clock edge. If in doubt, say it is. This will cause evaluation of combinatorial functions for other modules unnecessarily at worst.
+
+An input should be declared as 'used combinatorially' if it may effect any of the outputs of the module combinatorially. The one caveat here is reset; it should be assumed for asynchronous reset that the reset signal is always removed just after a rising edge of the clock, and asserted just prior to the rising edge of the clock. Therefore it may be treated as a standard clocked input.
+
+An output should be declared as 'created combinatorially' if it is effected by any input combinatorially.
+
+A module instance may then only have one combinatorial function; all its combinatorial outputs are deemed valid at the end of execution of that function, and all its combinatorial inputs must be valid before it will be called.
+
+
+
+For submodule instantiations the scheduling and invocation of combinatorial, preclock and clock functions is the province of the main module instantiation functions. The submodules are, of course, registered with the simulation engine, but are instantiated explicitly by their parent as submodules through the main engine.
+
+The parent module is expected to invoke
+submodule_get_handle( submodule )
+submodule_get_clock_handle( submodule, clockname, &handle )
+if (has_edge(handle, posedge/negedge))
+call_submodule_clock( handle, posedge/negedge )
+call_submodule_comb( submodule_handle )
+t_sl_error_level drive_submodule_input( submodule_handle, output, int*, size )
+int *get_submodule_output_driver( submodule_handle, output, int**, size )

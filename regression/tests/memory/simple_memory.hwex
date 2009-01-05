@@ -1,0 +1,57 @@
+#a Copyright
+#  
+#  This file 'vector.hwex' copyright Gavin J Stark 2003, 2004, 2008
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+memory a 32 16
+memory b 32 16
+
+int i
+int j
+int csum
+
+printf "Regression batch arg *NO HARDWARE - SL_EXEC_FILE TEST*"
+
+printf "Load memory"
+a.load "small_input.mif" 0
+
+printf "Checksum memory and reverse it to another memory"
+set csum 0
+for i 0 31 1
+sub j 31 i
+add csum csum a.read(i)
+b.write j a.read(i)
+next i
+
+printf "Checksum %x0%" csum
+
+printf "Save reversed memory"
+printf "Save returned %d0%" b.save("small_reversed_output.mif",0,32)
+
+printf "Memory compare"
+set i b.compare("small_reversed.mif",0)
+printf "Returned %d0%" i
+bne i -1 memory_mismatch
+
+pass 0 "Test succeeded"
+
+end
+
+memory_mismatch:
+fail 0 "Memory mismatch"
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: sh ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***

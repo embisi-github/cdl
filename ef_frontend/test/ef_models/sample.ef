@@ -1,0 +1,59 @@
+#a Copyright
+#  
+#  This file 'sample.ef' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+module toplevel
+toplevel toplevel
+
+clock apb_clock
+input reset 1
+input select 1
+input enable 1
+input read_not_write 1
+input write_data 32
+input address 16
+output read_data 32
+output interrupt 1
+
+comb interrupt 1
+comb write_reg 1
+
+state read_data 32 apb_clock 1 reset 1 0
+
+code read_data_setting
+pushvar select
+pushvar enable
+expr and
+assign_comb write_reg
+
+pushint 32 1
+pushvar read_data
+expr add
+assign_state read_data
+
+pushvar write_reg
+if
+addcode 2 read_data_setting
+
+code interrupt_output
+pushint 1 1
+assign_comb interrupt
+addcode 1 interrupt_output
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

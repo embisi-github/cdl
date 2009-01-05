@@ -1,0 +1,29 @@
+constant integer width=16 "ALU word width";
+typedef bit[width] t_word;
+typedef enum [2]
+{
+	alu_op_add,
+	alu_op_sub,
+	alu_op_or
+} t_alu_op; 
+
+module alu( input t_word a, input t_word b, input t_alu_op op, output t_word r )
+{
+	alu_logic "ALU logic":
+	{
+		full_switch (op)
+		{
+        case alu_op_add: {r=a+b;}
+        case alu_op_sub: {r=a-b;}
+        case alu_op_or:  {r=a|b;}
+		}
+        /*
+        full_switch (a)
+        {
+        case 0x1,0x2,0x3,16h4: {r=1;}
+        case 0x8,0x5,0x7: {r=1;}
+        }
+        */
+	}
+}
+

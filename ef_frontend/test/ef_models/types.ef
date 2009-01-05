@@ -1,0 +1,103 @@
+#a Copyright
+#  
+#  This file 'types.ef' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+// struct pair { bit x; bit y; };
+struct pair 2
+struct_elt pair 0 x 1
+struct_elt pair 1 y 1
+// struct tagged_pair { bit changed; pair data; };
+struct tagged_pair 2
+struct_elt tagged_pair 0 changed 1
+struct_elt_type tagged_pair 1 data pair
+
+module toplevel
+
+clock clock
+input reset 1
+
+//clocked bit a=1;
+state a 1 clock 1 reset 1 1
+
+//clocked bit[8] aa=0x23;
+state aa 8 clock 1 reset 1 0x23
+
+//clocked bit[8][4] aaaa={0x01, 0x23, 0x45, 0x67};
+state_bv_array aaa 4 8 clock 1 reset 1
+state_reset aaa[0] 8 0x01
+state_reset aaa[1] 8 0x23
+state_reset aaa[2] 8 0x45
+state_reset aaa[3] 8 0x67
+
+//typedef struct { bit flag; bit[4] pc;} thread
+//thread thrd = { flag=>1, pc=>0x03 }
+struct thread 2
+struct_elt thread 0 flag 1
+struct_elt thread 1 pc 4
+state_type thrd thread clock 1 reset 1
+state_reset thrd.flag 1 1
+state_reset thrd.pc 8 0x03
+
+//thread[4] thrds = { flag[]=>0, flag[0]=>1, pc[]=>0, pc[0]=>0x03 }
+//statetypearray thrds thread 4 clock 1 reset 1
+//statereset thrds[0].flag 1 1
+//statereset thrds[1].flag 1 0
+//statereset thrds[2].flag 1 0
+//statereset thrds[3].flag 1 0
+//statereset thrds[0].pc 8 0
+//statereset thrds[1].pc 8 0x03
+//statereset thrds[2].pc 8 0x03
+//statereset thrds[3].pc 8 0x03
+
+//typedef struct all_state { thread[4] thrds; bit running; bit debug }
+//all_state state = { thrds.flag[]=>0, thrds.flag[0]=>1, thrds.pc[]=>0, thrds.pc[0]=>0x03, running=0, debug=1 };
+struct all_state 3
+struct_elt_type_array all_state 0 thrds 4 thread
+struct_elt all_state 1 running 1
+struct_elt all_state 2 debug 1
+state_type state all_state clock 1 reset 1
+state_reset state.thrds[0].flag 1 1
+state_reset state.thrds[1].flag 1 0
+state_reset state.thrds[2].flag 1 0
+state_reset state.thrds[3].flag 1 0
+state_reset state.thrds[0].pc 8 0
+state_reset state.thrds[1].pc 8 0x03
+state_reset state.thrds[2].pc 8 0x03
+state_reset state.thrds[3].pc 8 0x03
+state_reset state.running 1 0
+state_reset state.debug 1 1
+
+// code fred
+code fred
+
+//state.thrds[3].pc <= 0x45
+lvar state
+lvar thrds
+lvar_index 3
+lvar pc
+push_int 8 0x45
+assign_state
+add_code 1 fred
+
+printf "\n**********\nFile %F%\nLine %L%\nThread %T%\n**********"
+printf "\n++++++++++\nIntegers %d0% %d1% %d2%\n++++++++++" line() 456 789
+printf "\n++++++++++\nStrings %s0% %s1%\n++++++++++" filename() threadname()
+printf "\n++++++++++\n12 random numbers from 0 to 9:%d0% %d1% %d2% %d3% %d4% %d5% %d6% %d7% %d8% %d9% %d10% %d11%" random(10) random(10) random(10) random(10) random(10) random(10) random(10) random(10) random(10) random(10) random(10) random(10)
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

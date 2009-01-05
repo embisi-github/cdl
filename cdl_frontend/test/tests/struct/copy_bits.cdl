@@ -1,0 +1,61 @@
+/*a Copyright
+  
+  This file 'copy_bits.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Types
+ */
+/*t t_pair
+ */
+typedef struct
+{
+    bit a;
+    bit b;
+} t_pair;
+
+/*a Modules
+ */
+/*m copy_bits
+ */
+module copy_bits( clock io_clock,
+                 input bit io_reset,
+                 input bit in_0,
+                 input bit in_1,
+                 output bit out_0,
+                 output bit out_1 )
+    "This module copies its inputs to outputs using a simple type"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked t_pair store = { a=1b0, b=1b0 };
+
+copy_store:
+    {
+        store.a <= in_0;
+        store.b <= in_1;
+    }
+
+generate_outputs:
+    {
+        out_0 = store.a;
+        out_1 = store.b;
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

@@ -1,0 +1,29 @@
+module fred( a)
+    }
+
+module jim( input input input )
+    }
+
+module joe( input bit a, output bit b )
+{
+    dunno;
+    codeblock:
+    {
+        instance_type instance_name ( x, c<-1, l=>6 );
+        instance_type instance_name2 ( x, c<-1, l=>6 );
+        x<=;
+        y<=;
+        if () {x<=1;
+        if (1)
+        {x<=2;} elsif() {x<=1;
+
+        full_switch ;
+        part_switch ;
+
+        full_switch (a)
+        {
+            case
+        }
+        
+    }
+}

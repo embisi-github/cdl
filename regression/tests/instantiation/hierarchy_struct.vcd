@@ -1,0 +1,33 @@
+$var wire 16 P vector_input_0 $end
+$var wire 16 O vector_input_1 $end
+$var wire 16 N vector_output_0 $end
+$var wire 16 M vector_output_1 $end
+$scope module dut_0 $end
+$var wire 1 B in__c $end
+$var wire 1 C in__s__x $end
+$var wire 1 D in__s__y $end
+$var wire 1 H io_reset $end
+$var wire 1 E out__c $end
+$var wire 1 F out__s__x $end
+$var wire 1 G out__s__y $end
+$var wire 16 I vector_input_0 $end
+$var wire 16 J vector_input_1 $end
+$var wire 16 K vector_output_0 $end
+$var wire 16 L vector_output_1 $end
+$enddefinitions $end
+#0
+b0000000000000000 P
+b0000000000000000 O
+b0000000000000000 N
+b0000000000000000 M
+0B
+0C
+0D
+0H
+0E
+0F
+0G
+b0000000000000000 I
+b0000000000000000 J
+b0000000000000000 K
+b0000000000000000 L

@@ -1,0 +1,41 @@
+//a Copyright
+//  
+//  This file 'vector_reverse__width_8.mif' copyright Gavin J Stark 2003, 2004
+//  
+//  This program is free software; you can redistribute it and/or modify it under
+//  the terms of the GNU General Public License as published by the Free Software
+//  Foundation, version 2.0.
+//  
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+//  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+//  for more details.
+
+// MIF file for vector tests
+// Each vector has 4 32-bit fields
+// The first two are the inputs for the next clock period (driven off the rising edge of the clock)
+// The last two are the expected output values at the end of this clock period (i.e. the rising edge that drives the input values)
+// Reset is asserted for the first three clock edges
+0 0 0 0
+0 0 0 0
+0 0 0 0
+
+00 0 00 0
+55 0 00 0
+05 0 00 0
+a0 0 aa 0
+fe 0 a0 0
+01 0 05 0
+02 0 7f 0
+04 0 80 0
+08 0 40 0
+10 0 20 0
+20 0 10 0
+40 0 00 0
+80 0 00 0
+00 0 00 0
+00 0 00 0
+00 0 00 0
+00 0 00 0
+00 0 00 0
+00 0 00 0

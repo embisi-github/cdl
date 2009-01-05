@@ -1,0 +1,82 @@
+/*a Copyright
+  
+  This file 'vector_sum_2.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+constant integer width=16;
+typedef bit[width] value;
+
+typedef struct
+{
+    bit a;
+    bit b;
+} pair;
+typedef struct
+{
+    pair c;
+    pair d;
+} nested_pair;
+
+module vector_sum_2( clock io_clock,
+                     input bit io_reset,
+                     input value vector_input_0,
+                     input value vector_input_1,
+                     output value vector_output_0,
+                     output value vector_output_1 )
+    "This module sums its two vector inputs to its vector output on every clock, and on the last two of every fourth clock to its second output too"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked value vector_output_0 = 0;
+    clocked value vector_output_1 = 0;
+    clocked nested_pair np0 = { c={a=0, b=0}, d={a=1,b=1} };
+    clocked pair p0 = { a=0, b=0 };
+    clocked pair p1 = { a=0, b=0 };
+
+    output_0 "Always sum inputs to vector_output_0":
+        {
+            vector_output_0 <= vector_input_0 + vector_input_1;
+        }
+
+    shuffle_code "Shuffle bits around":
+        {
+            if ( !(np0.c.a || np0.c.b || np0.d.a || np0.d.b) )
+            {
+                np0 <= {c={a=1,b=0},d={a=0,b=0}};
+                p0 <= {a=0,b=1};
+                p1 <= {a=1,b=0};
+            }
+            else
+            {
+                np0 <= {c={a=np0.d.b, b=np0.c.a}};
+                np0.d <= {a=np0.c.b, b=np0.d.a};
+                p0 <= { a=np0.d.b, b=a };
+                p1 <= p0;
+            }
+        }
+
+    conditional_code "Only set vector_input_1 if one of the shuffled bits is set":
+        {
+            if (p1.b)
+            {
+                vector_output_1 <= vector_output_0;
+            }
+        }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

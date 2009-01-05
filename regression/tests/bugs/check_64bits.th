@@ -1,0 +1,121 @@
+#a Copyright
+#  
+#  This file 'vector_test_harness.th' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+int toggle
+int failures
+
+set failures 0
+
+input_bus.drive 0
+sum_enable.drive 0
+select.drive 0
+
+printf "Regression batch arg Running check_64bits test to check for bugs in 64 bit handling (reset value, bit select, sub-bus select, bit assign, sub-bus assign reported Feb 18th 2008"
+
+bfm_wait 30
+
+beq sum_out.value() 0x76543210fedcba98 reset_64_pass
+printf "%d0%:Reset value of sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0x76543210fedcba98
+add failures failures 1
+reset_64_pass:
+
+# Clear bits 0 thru 15
+input_bus.drive 0
+sum_enable.drive 1
+select.drive 0
+bfm_wait 2
+beq sum_out.value() 0x76543210fedc0000 set_bottom_16_pass
+printf "%d0%:Set bottom 16 bits of sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0x76543210fedc0000
+add failures failures 1
+set_bottom_16_pass:
+
+# Clear bit 63 and 31 thru 15
+input_bus.drive 0
+sum_enable.drive 1
+select.drive 63
+bfm_wait 1
+sum_enable.drive 0
+bfm_wait 1
+beq sum_out.value() 0x7654321080000000 set_next_16_pass
+printf "%d0%:Clear bit 63 and 31 thru 15 of sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0x7654321080000000
+add failures failures 1
+set_next_16_pass:
+
+# Clear bit 62
+input_bus.drive 0
+sum_enable.drive 1
+select.drive 62
+bfm_wait 1
+sum_enable.drive 0
+bfm_wait 1
+beq sum_out.value() 0x3654321080000000 set_next_16_pass_2
+printf "%d0%:Clear bit 62 of sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0x3654321080000000
+add failures failures 1
+set_next_16_pass_2:
+
+# Clear bit 31
+input_bus.drive 0
+sum_enable.drive 1
+select.drive 31
+bfm_wait 1
+sum_enable.drive 0
+bfm_wait 1
+beq sum_out.value() 0x3654321000000000 set_next_16_pass_3
+printf "%d0%:Clear bit 31 of sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0x3654321000000000
+add failures failures 1
+set_next_16_pass_3:
+
+# Clear bits 0-63
+for i 0 63 1
+input_bus.drive 0
+sum_enable.drive 1
+select.drive i
+bfm_wait 1
+next i
+sum_enable.drive 0
+bfm_wait 1
+beq sum_out.value() 0 set_zero
+printf "%d0%:Cleared all bits of sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0
+add failures failures 1
+set_zero:
+
+# Add 0x123456789abcdef0
+sum_enable.drive 1
+input_bus.drive 0x123456789abcdef0
+select.drive 0
+bfm_wait 1
+sum_enable.drive 0
+bfm_wait 1
+beq sum_out.value() 0x123456789abcdef0 added_large
+printf "%d0%:Adding 64-bits to sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0x123456789abcdef0
+add failures failures 1
+added_large:
+sum_enable.drive 1
+bfm_wait 15
+sum_enable.drive 0
+bfm_wait 1
+beq sum_out.value() 0x23456789abcdef00 added_large16
+printf "%d0%:Adding 64-bits 16 times to sum_out failed - got %x1% expected %x2%" global_cycle() sum_out.value() 0x23456789abcdef00
+add failures failures 1
+added_large16:
+
+beq failures 0 passed
+fail global_cycle() "**************************************************************************** Test failed"
+end
+
+passed:
+
+pass global_cycle() "Test succeeded"
+end
+
+

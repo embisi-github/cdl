@@ -1,0 +1,5 @@
+PYTHON := python2.4
+OS_CFLAGS := -fpic
+OS_CXXFLAGS := -fpic
+DEBUG_BUILD := yes
+BUILD_ARCH := linux

@@ -1,0 +1,4 @@
+#!/bin/csh -f
+/usr/bin/rsync --archive --include "*sl_*h" --exclude "*" -v ../support_libraries/ documentation/support_libraries/code
+chmod -R ugo+rx .
+/usr/bin/rsync --archive --exclude "*.local" --exclude "*~" -v -e ssh . cdlsf@shell.sourceforge.net:/home/groups/c/cy/cyclicity-cdl/htdocs

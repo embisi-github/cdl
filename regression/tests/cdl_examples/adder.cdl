@@ -1,0 +1,9 @@
+constant integer width=16;
+typedef bit[width] value;
+module adder( input value A, input value B, output value Z )
+{
+    main_code "Main code":
+        {
+            Z = A+B;
+        }
+}

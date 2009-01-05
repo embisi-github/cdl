@@ -1,0 +1,50 @@
+#a Copyright
+#  
+#  This file 'rf.hwex' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+#a Instantiate all
+module register_file rf
+
+option_string "clock" "system_clock"
+option_string "inputs" "read_data[32]"
+option_string "outputs" "test_reset read_address[5] write_enable write_address[5] write_data[32]"
+option_string "filename" rf_test_harness.th
+module se_test_harness th
+
+clock system_clock 0 1 1
+drive th.system_clock system_clock
+drive rf.main_clock system_clock
+
+wire read_address[5] read_data[32] write_enable write_address[5] write_data[32] test_reset
+
+drive test_reset th.test_reset
+
+drive rf.read_address read_address
+drive rf.write_address write_address
+drive rf.write_enable write_enable
+drive rf.write_data write_data
+drive read_data rf.read_data
+
+drive th.read_data read_data
+drive read_address th.read_address
+drive write_address th.write_address
+drive write_enable th.write_enable
+drive write_data th.write_data
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: sh ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

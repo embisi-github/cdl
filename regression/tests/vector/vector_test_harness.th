@@ -1,0 +1,84 @@
+#a Copyright
+#  
+#  This file 'vector_test_harness.th' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+int reason
+int vector_number
+int tv
+
+#trace 1
+
+memory test_vectors 2048 64
+
+test_vectors.load env_string("vectors_filename") 0
+
+test_reset.reset 1
+
+bfm_wait 1
+
+set vector_number 0
+gosub test_values
+
+bfm_wait 1
+add vector_number vector_number 1
+gosub test_values
+
+test_reset.drive 0
+bfm_wait 1
+add vector_number vector_number 1
+gosub test_values
+
+for i 0 10 1
+bfm_wait 1
+add vector_number vector_number 1
+gosub test_values
+next i
+
+pass global_cycle() "Test succeeded"
+
+end
+
+test_fail:
+printf "Test failed, vector number %d0%, reason %d1%" vector_number reason
+fail vector_number "**************************************************************************** Test failed"
+end
+
+
+
+test_values:
+
+printf "Cycle %d0% vector number %d1%, testing values" global_cycle() vector_number
+
+int tv_0
+int tv_1
+int index
+
+set index vector_number
+mult index index 4
+
+set tv_0 test_vectors.read(index)
+add index index 1
+set tv_1 test_vectors.read(index)
+vector_input_0.drive tv_0
+vector_input_1.drive tv_1
+
+add index index 1
+set tv_0 test_vectors.read(index)
+add index index 1
+set tv_1 test_vectors.read(index)
+
+printf "   info: expected %x0% %x1% got %x2% %x3%" tv_0 tv_1 vector_output_0.value() vector_output_1.value()
+
+bne tv_0 vector_output_0.value() test_fail
+bne tv_1 vector_output_1.value() test_fail
+
+return

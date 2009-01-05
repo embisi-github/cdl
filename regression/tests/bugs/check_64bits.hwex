@@ -1,0 +1,42 @@
+#a Copyright
+#  
+#  This file 'partial_ports.hwex' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+module check_64bits "check_64bits"
+
+option_string "clock" "clk"
+option_string "inputs" "sum_out[64] selected_bit selected_bus[32]"
+option_string "outputs" "input_bus[64] sum_enable select[6]"
+option_string "filename" "check_64bits.th"
+module se_test_harness "th"
+
+wire rst input_bus[64] sum_enable select[6] sum_out[64] selected_bit selected_bus[32]
+clock system_clock 0 1 1
+drive check_64bits.clk system_clock
+drive th.clk system_clock
+drive check_64bits.rst rst
+drive check_64bits.input_bus input_bus
+drive check_64bits.sum_enable sum_enable
+drive check_64bits.select select
+drive sum_out check_64bits.sum_out
+drive selected_bit check_64bits.selected_bit
+drive selected_bus check_64bits.selected_bus
+
+assign rst 1 30 0
+drive input_bus th.input_bus
+drive sum_enable th.sum_enable
+drive select th.select
+drive th.sum_out sum_out
+drive th.selected_bit selected_bit
+drive th.selected_bus selected_bus
+
+end

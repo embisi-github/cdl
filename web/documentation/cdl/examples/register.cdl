@@ -1,0 +1,8 @@
+module reg( clock int_clock, input bit int_reset, input bit D, output bit Q )
+{
+    clocked rising int_clock active_high int_reset bit Q = 0;
+    main_code "Main code":
+        {
+            Q <= D;
+        }
+}

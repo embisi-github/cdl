@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+<html>
+<head>
+  <title>Simulation Engine Code Coverage</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="GENERATOR" content="Quanta Plus">
+</head>
+<body>
+<h1>Simulation Engine Code Coverage</h1>
+
+Simulation engine modules may supply support for code coverage estimations; any module generated using CDL,
+for example, can have code coverage support with appropriate options to the CDL compiler. The simulation
+engine supplies support for accessing the code coverage information, and supporting a common access method for it.
+
+<p>
+
+The modules themselves generate the code coverage data, and are responsible for having a mechanism for indicating
+the actual correspondence with some code of each element; the simulation engine is not responsible for the data, just
+for keeping it in a common format and providing access to it.
+
+</p>
+
+<h1>Exec file enhancements</h1>
+
+The following exec file enhancements are provided for code coverage management:
+
+<dl>
+<dt>coverage_reset</dt>
+
+<dd>Reset any code coverage metrics within the simulation</dd>
+
+<dt>coverage_load( string filename, optional string module )</dt>
+
+<dd>Load a code coverage file. This can be used for incremental code coverage determination. The top level module that should be handled may be provided; otherwise all modules will have the code coverage loaded.</dd>
+
+<dt>coverage_save( string filename, optional string module )</dt>
+
+<dd>
+Save a code coverage file.
+Either all the top level modules, or just the specified module, will have their code coverage saved in the specified file.
+</dd>
+
+</dl>
+
+<h1>
+Code coverage file format
+</h1>
+
+<p>
+
+The code coverage files are textual. They consist of sections, one per module instance, each section of which starts with a line of the form:
+
+</p>
+
+<pre><code>
+&lt;instance type&gt; &lt;instance name&gt; &lt;number of coverage elements&gt;
+</code></pre>
+
+<p>
+
+The sections indicate the code coverage of each module instance: each section heading is then followed by the specified number of lines, each line
+containing an integer which should be the number of occurrences of a coverage element.
+
+</p>
+
+<p>
+
+A sample code coverage file may then be:
+
+</p>
+
+<pre><code>
+and and_gate_1 4
+ 10
+ 20
+ 5
+ 0
+and and_gate_2 4
+ 0
+ 15
+ 10
+ 10
+</code></pre>
+
+<p>
+
+This file may indicate (depending on the coding of the and gate, and the meaning that particular coding supplies to the code coverage
+for the simulation engine) that one AND gate has its two inputs exercised as 00 ten times, 01 twenty times, 10 five times, and 11 never. The second
+AND gate, then, would have its inputs exercised as 00 never, 01 fifteen times, 10 ten times, and 11 ten times.
+
+<br>
+Of course, the actual meaning depends on the code implementing the  AND gate, and particularly how that code calculates its code coverage
+that it reports to the simulation engine.
+
+</p>
+
+</body>
+</html>

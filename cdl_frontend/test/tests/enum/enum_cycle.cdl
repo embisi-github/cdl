@@ -1,0 +1,77 @@
+/*a Copyright
+  
+  This file 'enum_cycle.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+typedef enum [3] {
+    expe_a = 3b001,
+    expe_b = 3b010,
+    expe_c = 3b100,
+} explicit_enum;
+
+typedef enum [2] {
+    impe_a,
+    impe_b,
+    impe_c
+} implicit_enum;
+
+module enum_cycle( clock io_clock,
+                    input bit io_reset,
+                    output explicit_enum expe,
+                    output implicit_enum impe )
+    "This module runs its outputs through cycles"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked explicit_enum expe=expe_c;
+    clocked implicit_enum impe=impe_c;
+
+    expe_code "Code to set expe":
+        {
+            if (expe==expe_a)
+            {
+                expe <= expe_b;
+            }
+            if (expe==expe_b)
+            {
+                expe <= expe_c;
+            }
+            if (expe==expe_c)
+            {
+                expe <= expe_a;
+            }
+        }
+
+    impe_code "Code to set impe":
+        {
+            if (impe==impe_a)
+            {
+                impe <= impe_b;
+            }
+            if (impe==impe_b)
+            {
+                impe <= impe_c;
+            }
+            if (impe==impe_c)
+            {
+                impe <= impe_a;
+            }
+        }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

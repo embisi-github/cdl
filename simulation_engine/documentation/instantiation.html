@@ -1,0 +1,60 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+<html>
+<head>
+  <title>Simulation Engine Instantiations</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="GENERATOR" content="Quanta Plus">
+</head>
+<body>
+
+<h1>Simulation Engine Instantiation</h1>
+
+<p>
+
+The simulation engine supports instantiation of signals and modules from a C API and also from
+an exec file, where the basic exec file language is extended with the commands described below. Note that some of
+the internal exec file commands below instantiate some internal logic gate modules.
+
+</p>
+
+<h1>Exec file enhancements</h1>
+
+<dl>
+
+<dt>module( string type, string instance )
+</dt>
+<dd> Instantiate a module of the given type, with the given instance name, and any options that may have been specified since
+the list instantiation.</dd>
+
+<dt>option_int( string option_name, integer value )</dt>
+<dd>Add an integer option to the list of options for the next module instance.</dd>
+
+<dt>option_string( string option_name, string value )</dt>
+<dd>Add a string option to the list of options for the next module instance.</dd>
+
+<dt>wire( string global_signal, ... )</dt>
+<dd>Specify a list of global signals. A signal of the form 'fred[20]' specifies a bus of width 20. Many signals may be declared in a single statement.</dd>
+
+<dt>drive( string driven_signal, string driver_signal )</dt>
+<dd>Specify that a particular signal be driven by another; to specify a module input or output use&lt; instance name.signal name&gt;.
+
+<dt>clock( string name, integer delay, integer cycles_high, integer cycles_low )</dt>
+<dd>Specify a clock; it will start low, and go high after the specified delay, then clock high/low with the given cycles_high and cycles_low</dd>
+
+<dt>mux( string bus_name, string select_signal, string input, ... )</dt>
+<dd>Multiplex one of many inputs to an output, with a given select signal. The select signal should be the correct width given the number of inputs.</dd>
+
+<dt>decode( string output, string input, optional string enable )</dt>
+<dd>Instantiate an n-to-m decoder; the output bus should  be m bits wide. If an optional enable signal is supplied then the output bits will be zero if the enable is zero, else
+one of the output bits will be one.</dd>
+
+<dt>extract( string output, string input, integer start bit, integer width )</dt>
+<dd>Extract a set of bits from a bus</dd>
+
+<dt>logic (and|or|xor|nand|nor|xnor, string output, string input_1, ... )</dt>
+<dd>Instantiate a logic gate of the specified type with a number of inputs.</dd>
+
+</dl>
+
+</body>
+</html>

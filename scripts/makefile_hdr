@@ -1,0 +1,183 @@
+#a Copyright
+#  
+#  This file 'makefile_hdr' copyright Gavin J Stark 2003, 2004
+#  
+#  This is free software; you can redistribute it and/or modify it however you wish,
+#  with no obligations
+#  
+#  This software is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE.
+
+#a Documentation
+# ${CYCLICITY} should point at cvstree/hardware/cyclicity (set in parent makefile)
+# ${arch} should be cygwin or linux (set in a user's .login or equivalent)
+# $(PREREQS) should be a list of letters including:
+#   b if backend includes are required
+#   e if simulation engine includes are required
+#   s if support includes are required
+#   h if execution harness includes are required
+#   i if exported includes are required
+#   B if backend objects are required
+#   E if simulation engine objects are required
+#   S if support libraries are required
+#   H if execution harness objects are required
+
+#a Determine OS subdirectories - required for includes and objects for builds
+include ${CYCLICITY}/scripts/makefile.config
+OS_DIR := linux
+ifeq (${BUILD_ARCH},cygwin)
+    OS_DIR := cygwin
+endif
+ifeq (${BUILD_ARCH},osx)
+    OS_DIR := osx
+endif
+
+TARGET_DIR := $(PREFIX_OBJ_DIR)$(OS_DIR)
+CYCLICITY_OBJ_DIR := ${CYCLICITY}/lib/${OS_DIR}
+CYCLICITY_BIN_DIR := ${CYCLICITY}/bin/${OS_DIR}
+CREATE_MAKE := ${CYCLICITY}/scripts/create_make
+objs_from_srcs = $(foreach SRC,${1},$(patsubst %.cpp,${OS_DIR}/%.o,${SRC:.y=.cpp}))
+
+#a Set up correct includes and objects for builds
+BACKEND_INCLUDES :=
+ENGINE_INCLUDES :=
+SUPPORT_INCLUDES := 
+HARNESS_INCLUDES := 
+EXPORTED_INCLUDES := 
+BACKEND_OBJECTS :=
+ENGINE_LIBS :=
+ENGINE_OBJECTS :=
+SUPPORT_OBJECTS := 
+HARNESS_BATCH_OBJECTS := 
+HARNESS_GUI_OBJECTS := 
+
+ifneq (,$(findstring b,${PREREQS}))
+BACKEND_INCLUDES := -I ${CYCLICITY}/backend
+endif
+ifneq (,$(findstring B,${PREREQS}))
+BACKEND_INCLUDES := -I ${CYCLICITY}/backend
+BACKEND_OBJECTS := ${CYCLICITY_OBJ_DIR}/be_backend.o
+endif
+
+ifneq (,$(findstring e,${PREREQS}))
+ENGINE_INCLUDES := -I ${CYCLICITY}/simulation_engine
+endif
+ifneq (,$(findstring E,${PREREQS}))
+ENGINE_INCLUDES := -I ${CYCLICITY}/simulation_engine
+ENGINE_LIBFILE := se_simulation_engine
+#ENGINE_LIBS := -l${ENGINE_LIBFILE}
+ENGINE_LIBS := ${CYCLICITY_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
+ENGINE_OBJECTS := ${CYCLICITY_OBJ_DIR}/lib${ENGINE_LIBFILE}.so
+endif
+
+ifneq (,$(findstring s,${PREREQS}))
+SUPPORT_INCLUDES := -I ${CYCLICITY}/support_libraries
+endif
+ifneq (,$(findstring S,${PREREQS}))
+SUPPORT_INCLUDES := -I ${CYCLICITY}/support_libraries
+SUPPORT_OBJECTS := ${CYCLICITY_OBJ_DIR}/sl_support.o
+endif
+
+ifneq (,$(findstring h,${PREREQS}))
+HARNESS_INCLUDES := -I ${CYCLICITY}/execution_harnesses
+endif
+ifneq (,$(findstring H,${PREREQS}))
+HARNESS_INCLUDES := -I ${CYCLICITY}/execution_harnesses
+HARNESS_BATCH_OBJECTS := ${CYCLICITY_OBJ_DIR}/eh_batch_scripting_harness.o
+HARNESS_GUI_OBJECTS := ${CYCLICITY_OBJ_DIR}/eh_python_scripting_harness.o
+HARNESS_VPI_OBJECTS := ${CYCLICITY_OBJ_DIR}/eh_vpi_harness.o
+ifeq ($(BUILD_PYTHON),no)
+HARNESS_GUI_OBJECTS := 
+endif
+ifeq ($(BUILD_VPI),no)
+HARNESS_VPI_OBJECTS := 
+endif
+endif
+
+ifneq (,$(findstring i,${PREREQS}))
+EXPORTED_INCLUDES := -I ${CYCLICITY}/include
+endif
+
+#a Default linux environment
+BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
+CYCLICITY_INCLUDES := ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
+CYCLICITY_OBJS := ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
+CYCLICITY_LIBS := ${ENGINE_LIBS}
+
+LIBS = 
+LIB_DEP_EXT = so
+LIB_EXT = so
+
+#a Makefile flags
+# for verbose builds use Q:=
+Q:=@
+
+#a Compiler flags
+COMPILE_OPTIMIZATION_FLAGS := -O2 -Wall
+LINK_OPTIMIZATION_FLAGS := 
+ifeq (${DEBUG_BUILD},yes)
+	COMPILE_OPTIMIZATION_FLAGS := -DDEBUG_ENABLED -g -Wall
+	LINK_OPTIMIZATION_FLAGS := -g
+endif
+
+CFLAGS   = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CFLAGS}    ${LOCAL_CFLAGS}
+CXXFLAGS = ${COMPILE_OPTIMIZATION_FLAGS} ${CYCLICITY_INCLUDES} ${SPECIFIC_INCLUDES} ${OS_CXXFLAGS}  ${LOCAL_CXXFLAGS}
+LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CYCLICITY}/lib/${OS_DIR}                 ${OS_LINKFLAGS} ${LOCAL_LINKFLAGS}
+LD_LIBS = ${CYCLICITY_LIBS} -lm -lc
+
+#a Os-specific overrides - libs for python and DLL generation issues
+os_lib_hdr = 
+CC := g++
+LINK := g++
+LINKASOBJ := g++ -nostdlib -r ${LINKFLAGS} -o
+LINKDYNLIB := ${LINK} -shared -export-dynamic ${LINKFLAGS} -o 
+LINKASBIN := ${LINK} ${LINKFLAGS} -o
+BISON_TAIL := .h
+PYTHON_INCLUDES := /usr/include/${PYTHON}
+PYTHONLINKLIB := ${LINK} ${LINK_FLAGS} -shared -export-dynamic -o 
+VPI_INCLUDES := ${VERILOG_ROOT}/include
+ifeq (${BUILD_ARCH},cygwin)
+	LIBS = -L /usr/lib/${PYTHON}/config -lc
+	LIB_EXT = dll
+	LIB_DEP_EXT = dll.a
+	os_lib_hdr = -Wl,--out-implib=$(1).a -Wl,--enable-auto-import
+
+	CC := gcc
+	LINK := g++
+	LINKASOBJ := ${LINK} -o
+	LINKASBIN := ${LINK} ${LINKFLAGS} -o
+	LINKDYNLIB := ${LINK} -r ${LINKFLAGS} -o 
+	BISON_TAIL := .h
+endif
+ifeq (${BUILD_ARCH},osx)
+	# We require macports
+	# We use port install python, port install gtk2
+	# We need X11 for this to work
+	BISON_TAIL := .h
+	ifeq (${BUILD_SUBARCH},tiger)
+	  PYTHON_INCLUDES := /opt/local/include/python2.5
+	else
+	  PYTHON_INCLUDES := /Developer/SDKs/MacOSX10.5.sdk/System/Library/Frameworks/Python.framework/Versions/2.5/include/${PYTHON}
+	endif
+	CC := gcc -dynamic
+	LINK := g++
+	LINKASOBJ := ld -r -o
+	LINKASBIN := g++ ${LINK_OPTIMIZATION_FLAGS} -o
+	LINKDYNLIB := g++ ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
+	# Python requires -bundle and a .so, with fred.so containing a function _initfred
+	# We build within the Python framework, which in macports is held in /opt/local/Library/Frameworks
+	PYTHONLINKLIB := g++ ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F/opt/local/Library/Frameworks -o 
+endif
+
+#a Default patterns
+${OS_DIR}/%.o : %.cpp
+	@echo "CC $< -o $@"
+	$(Q)$(CC) -c ${CXXFLAGS} -Wp,-MD,${OS_DIR}/$*.P $< -o $@
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: Makefile ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

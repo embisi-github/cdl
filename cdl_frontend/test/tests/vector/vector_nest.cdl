@@ -1,0 +1,54 @@
+/*a Copyright
+  
+  This file 'vector_nest.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+constant integer width=16;
+
+module vector_nest( clock io_clock,
+                     input bit io_reset,
+                     input bit[width] vector_input_0,
+                     input bit[width] vector_input_1,
+                     output bit[width] vector_output_0,
+                     output bit[width] vector_output_1 )
+    "This module uses four nested FOR loops to reverese its input vector to its vector output on every clock"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked bit[width] vector_output_0 = 0;
+    clocked bit[width] vector_output_1 = 0;
+
+nest_code:
+    {
+        for (i0; width) (0; i0<width; i0+8) // i0 is 0,8,16,.. width
+        {
+            for (i1; 2) (0; i1<8; i1+4) // i1 is 0,4
+            {
+                for (i2; 2) (0; i2<4; i2+2) // i2 is 0,2
+                {
+                    for (i3; 2) // i3 is 0,1
+                    {
+                        vector_output_0[i0+i1+i2+i3] <= vector_input_0[ width-1-i0-i1-i2-i3 ];
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

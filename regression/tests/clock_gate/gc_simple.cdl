@@ -1,0 +1,63 @@
+module gc_simple( clock clk,
+                  input bit reset_in,
+                  input bit data_in,
+                  output bit[8] clock_divider,
+                  output bit data_out )
+"
+This is the module documentation
+
+stuff goes here!
+"
+{
+default clock clk;// "Default clock signal - handy!";
+    default reset active_high reset_in;
+
+    clocked bit[8] clock_divider = 0 "This is our clock divider counter";
+    clocked bit    div2=0;
+    clocked bit    div4=0;
+    clocked bit    div8=0;
+    clocked bit    div16=0;
+
+    gated_clock active_high div2 clk_div2 "Gate the clock to run every other cycle";
+    gated_clock active_high div4 clk_div4;
+    gated_clock active_high div8 clk_div8;
+    gated_clock active_high div16 clk_div16;
+
+    clocked clock clk_div2  bit data_in_2=0;
+    clocked clock clk_div4  bit data_in_4=0;
+    clocked clock clk_div8  bit data_in_8=0;
+    clocked clock clk_div16 bit data_in_16=0;
+
+    clocked clock clk bit data_out=1;
+
+    assert clocked bit asrt_data=0;
+    cover  clocked bit cover_data=0;
+
+    stuff "documentation for the stuff code block":
+        {
+            clock_divider <= clock_divider+1 "We like incrementing the clock divider";
+            div2  <= (clock_divider[0]==1);
+            div4  <= (clock_divider[2;0]==2);
+            div8  <= (clock_divider[3;0]==3);
+            div16 <= (clock_divider[4;0]==4);
+
+            data_in_2  <= data_in "On odd cycles";
+            data_in_4  <= data_in "On every other even cycle";
+            data_in_8  <= data_in "On every third cycle of eight
+                                   This is tricky";
+            data_in_16 <= data_in "On every fourth cycle of sixteen";
+
+            if (div2) "Only do this if div2 is asserted"
+            {
+                print("Div2 was asserted");
+            }
+
+            data_out <= clock_divider[4] ^ data_in_2 ^ data_in_4 ^ data_in_8 ^ data_in_16; 
+            assert
+            {
+                asrt_data <= 1;
+            }
+            assert (clock_divider, "Message %d0% %d1% %d0% %x0%", clock_divider, div2) (1,2,3);
+            print("Message %d0%",clock_divider);
+        }
+}

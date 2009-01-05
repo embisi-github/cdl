@@ -1,0 +1,46 @@
+#a Copyright
+#  
+#  This file 'all.hwex' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+module gc_simple gc
+
+option_string "clock" clk
+option_string "signal_object_prefix" "signal__"
+option_string "inputs" "clock_divider[8] data_out"
+option_string "outputs" "reset_in data_in"
+option_string "filename" gc_simple.th
+module se_test_harness th
+
+clock system_clock 0 1 1
+drive th.clk system_clock
+drive gc.clk system_clock
+
+wire reset_in data_in clock_divider[8] data_out
+
+drive gc.reset_in reset_in
+drive gc.data_in  data_in
+drive clock_divider gc.clock_divider
+drive data_out      gc.data_out
+
+drive reset_in         th.reset_in
+drive data_in          th.data_in
+drive th.clock_divider clock_divider
+drive th.data_out      data_out
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: sh ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">
+<html>
+<head>
+  <title>Simulation engine details</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="GENERATOR" content="Quanta Plus">
+</head>
+<body>
+
+<h1>
+Execution
+</h1>
+
+The simulation harness is invoked from some simple execution harness; in
+particular here the code that is included in se_engine.cpp. This is to be moved 
+in the near future to the new directory execution_harnesses/batch.cpp, where it 
+can be placed under the GPL and dynamically linked to the simulation engine 
+code.
+
+<p>
+
+This batch execution engine uses batch files written in the exec file language.
+As such is supports the standard exec file language, with some additional
+enhancements described below to support instantiation of individual simulations
+with arguments, and their execution.
+
+<p>
+
+To support waveform display (or rather, saving), code coverage and other
+simulation enhancements the batch execution engine also supports the simulation
+engine's exec file enhancements in those areas: please visit <a
+href="simulation.html">the simulation documentation</a>, <a
+href="waveform.html">the waveform documentation</a>, or the <a
+href="coverage.html">the code coverage documentation</a>.
+
+</p>
+
+<h1>
+Batch simulation exec file enhancements
+</h1>
+
+Batch simulation exec files also
+support the coverage, waveform and simulation enhancements.
+
+<p>
+
+It enhances the basic exec_file language with the following commands:
+
+<dl>
+<dt>read_hw_file(string filename)</dt>
+<dd>discard the current instantiations, and read the given hardware file, which
+should be an instantiation exec_file
+</dd>
+
+<dt>
+reset
+</dt>
+<dd>
+reset the current instantiations
+</dd>
+
+<dt>
+step(integer cycles)
+</dt>
+<dd>
+step the given number of cycles
+</dd>
+
+<dt>
+setenv(string name, string value)
+</dt>
+<dd>
+set an environment option for the hardware instantation file to read; this is
+the mechanism used for passing arguments to the instantiation files
+</dd>
+
+<dt>
+display_state
+</dt>
+
+<dd>
+display the state registered by the instantiations; useful for debugging
+</dd>
+
+</dl>
+
+<p>
+
+A simulation batch might then look like:
+
+<pre><code>
+setenv "width" 16
+setenv "module_name" hierarchy_test_harness
+setenv "module_mif_filename" "hierarchy_test_harness.mif"
+read_hw_file vector.hwex
+reset
+step 50
+end
+</code></pre>
+
+<p>
+
+This simulation file sets three arguments for the hardware instantiation, then reads a hardware instantiation batch file.
+It can then run a simulation (reset, step), before its work is completed.
+
+<p>
+
+The hardware instantiation file should have suitable test harnesses that produce pass and fail messges.
+
+<p>
+
+Additionally waveforms can be generated from a batch file, using the waveform exec file enhancements, for example like this (replacing the reset and step):
+
+<pre><code>
+vcd_file_open hierarchy hierarchy.vcd
+vcd_file_add  hierarchy vector_input_0 vector_input_1 vector_output_0 vector_output_1
+reset
+vcd_file_enable hierarchy
+step 50
+vcd_file_close hierarchy
+</code></pre>
+
+</p>
+
+<p>
+
+Furthermore, code coverage may be gathered for a simulation, or a module in the simulation,
+using the waveform exec file enhancements, for example like this (again replacing the reset and step):
+
+<pre><code>
+coverage_reset
+coverage_load "coverage_file_so_far.cov"
+reset
+step 50
+coverage_save "coverage_file_so_far.cov"
+</code></pre>
+
+This will build on a current code coverage file, so incremental code coverage can be performed
+
+</p>
+
+
+</body>
+</html>

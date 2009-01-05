@@ -1,0 +1,93 @@
+#a Copyright
+#  
+#  This file 'all.hwex' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+module tie_high tie_high_0
+module tie_both tie_both_0
+module toggle toggle_0
+module invert invert_0
+module and and_0
+module invert_chain invert_chain_0
+module constants constants_0
+
+option_string "clock" system_clock
+option_string "inputs" "high_0 high_1 low_0 toggle_0 invert_0 and_0 invert_chain_0 invert_chain_1 invert_chain_2 invert_chain_3 invert_chain_4 invert_chain_5 invert_chain_6 invert_chain_7 constants_out[13]"
+option_string "outputs" "test_reset and_in_0 and_in_1"
+option_string "filename" test_harness.th
+module se_test_harness test_harness_0
+
+clock system_clock 0 1 1
+drive toggle_0.io_clock system_clock
+drive test_harness_0.system_clock system_clock
+drive constants_0.clk system_clock
+
+wire test_reset
+
+wire high_0 high_1 low_0 toggle_0 invert_0 and_0
+wire invert_chain_0 invert_chain_1 invert_chain_2 invert_chain_3 invert_chain_4 invert_chain_5 invert_chain_6 invert_chain_7
+wire and_in_0 and_in_1
+wire constants_out[13]
+
+drive high_0 tie_high_0.value
+drive high_1 tie_both_0.value_high
+drive low_0 tie_both_0.value_low
+drive toggle_0 toggle_0.toggle
+drive invert_0 invert_0.out_value
+
+drive toggle_0.io_reset test_reset
+drive invert_0.in_value toggle_0
+drive invert_chain_0.in_value toggle_0
+
+drive invert_chain_0 invert_chain_0.out_value_0
+drive invert_chain_1 invert_chain_0.out_value_1
+drive invert_chain_2 invert_chain_0.out_value_2
+drive invert_chain_3 invert_chain_0.out_value_3
+drive invert_chain_4 invert_chain_0.out_value_4
+drive invert_chain_5 invert_chain_0.out_value_5
+drive invert_chain_6 invert_chain_0.out_value_6
+drive invert_chain_7 invert_chain_0.out_value_7
+
+drive and_0.in_value_0 and_in_0
+drive and_0.in_value_1 and_in_1
+drive and_0 and_0.out_value
+
+drive test_reset test_harness_0.test_reset
+drive test_harness_0.high_0 high_0
+drive test_harness_0.high_1 high_1
+drive test_harness_0.low_0 low_0
+drive test_harness_0.and_0 and_0
+drive test_harness_0.toggle_0 toggle_0
+drive test_harness_0.invert_0 invert_0
+drive test_harness_0.invert_chain_0 invert_chain_0
+drive test_harness_0.invert_chain_1 invert_chain_1
+drive test_harness_0.invert_chain_2 invert_chain_2
+drive test_harness_0.invert_chain_3 invert_chain_3
+drive test_harness_0.invert_chain_4 invert_chain_4
+drive test_harness_0.invert_chain_5 invert_chain_5
+drive test_harness_0.invert_chain_6 invert_chain_6
+drive test_harness_0.invert_chain_7 invert_chain_7
+drive test_harness_0.constants_out constants_out
+drive and_in_0 test_harness_0.and_in_0
+drive and_in_1 test_harness_0.and_in_1
+
+drive constants_0.test_reset test_reset 
+drive constants_0.in toggle_0
+drive constants_out constants_0.out
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: sh ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

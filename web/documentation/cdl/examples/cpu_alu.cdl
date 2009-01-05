@@ -1,0 +1,123 @@
+typedef bit[c_cpu_word_width+1] t_cpu_word_extended;
+module cpu_alu(
+    input t_cpu_word a            "First operand input to the ALU",
+    input t_cpu_word b            "Second operand input to the ALU",
+    input bit carry_in            "Carry in to the ALU; used by add_with_carry only",
+    input t_cpu_alu_op alu_op     "ALU operation to perform, including 'use shifter'",
+    input t_cpu_shift_op shift_op "Operation for the barrel shifter to perform",
+    output t_cpu_word result      "Result of the ALU/shift operation, given by alu_op and the operands",
+    output bit carry_out          "Carry out of an arithmetic operation, if alu_op specified one",
+    output bit result_is_zero     "Indicates that the result is zero; useful for comparisons and tests"
+    )
+"
+This module implements the arithmeritc, logical, shift, and compare operations for a cpu core
+The module is purely combinatorial.
+It consists of:
+ an adder, whose inputs are preconditioned to perform subtract as well as add, with arbitrary carry.
+ a barrel shifter, which can do shift left, right, and rotate right, by an amount specified by an input
+ a result mux (with the ALU logic operation gates) which takes the adder or shifter result or a logical
+  combination of the inputs, and produces the final results.
+"
+{
+    comb bit adder_carry_in                "Carry in for the adder";
+    comb t_cpu_word_extended adder_input_a "First input to the adder,
+                                             extended by one bit to provide a carry out";
+    comb t_cpu_word_extended adder_input_b "Second input to the adder,
+                                              extended by one bit to provide a carry out";
+    comb t_cpu_word_extended adder_result  "Full result of the adder,
+                                              including carry out in the top bit";
+    comb t_cpu_word shifter_result         "Result from the shifter";
+
+    adder_code "Adder inputs and the adder itself; generates the adder_result":
+    {
+        adder_input_a[ c_cpu_word_width; 0] = a;
+        adder_input_a[ c_cpu_word_width ] = 0;
+        adder_carry_in = 0;
+        full_switch( alu_op )
+        {
+        case alu_op_sub:
+            {
+                adder_input_b[ c_cpu_word_width; 0] = ~b;
+                adder_input_b[ c_cpu_word_width ] = 0;
+                adder_carry_in = 1;
+            }
+        case alu_op_add_with_carry:
+            {
+                adder_input_b[ c_cpu_word_width; 0] = b;
+                adder_input_b[ c_cpu_word_width ] = 0;
+                adder_carry_in = carry_in;
+            }
+        default:
+            {
+                adder_input_b[ c_cpu_word_width; 0] = b;
+                adder_input_b[ c_cpu_word_width ] = 0;
+                adder_carry_in = 0;
+            }
+        }
+        adder_result = adder_input_a + adder_input_b;
+        if (adder_carry_in)
+        {
+            adder_result = adder_result + 1;
+        }
+    }
+        
+    shifter_code "Simple shifter, produces the shifter_result":
+    {
+        shifter_result = 0;
+        part_switch (shift_op)
+        {
+        case shift_op_shift_left:
+            {
+                shifter_result = a << b[5;0];
+            }
+        case shift_op_shift_right:
+            {
+                shifter_result = a >> b[5;0];
+            }
+        case shift_op_rotate_right:
+            {
+                shifter_result = (a >> b[5;0]) | (a<<(32-b[5;0]));
+            }
+        }
+    }
+
+    result_code "Generate the final outputs from the intermediate results":
+    {
+        carry_out = 0;
+        full_switch ( t_cpu_alu_op )
+        {
+        case alu_op_shift_rotate:
+            {
+                result = shifter_result;
+            }
+        case alu_op_add,
+            alu_op_sub,
+            alu_op_add_with_carry:
+            {
+                result = adder_result[32;0];
+                carry_out = adder_result[32];
+            }
+        case alu_op_and:
+            {
+                result = a &amp; b;
+            }
+        case alu_op_or:
+            {
+                result = a | b;
+            }
+        case alu_op_xor:
+            {
+                result = a ^ b;
+            }
+        case alu_op_not:
+            {
+                result = ~b;
+            }
+        case alu_op_mov:
+            {
+                result = b;
+            }
+        }
+        result_is_zero = (result==0);
+    }
+}

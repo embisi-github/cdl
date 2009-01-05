@@ -1,0 +1,73 @@
+/*a Copyright
+  
+  This file 'two_modules.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+constant integer width=16;
+typedef bit[width] value;
+
+module two_module_a( clock io_clock,
+                     input bit io_reset,
+                     input value value_in,
+                     output value value_out_c,
+                     output value value_out_r,
+                     output value value_out_t,
+                     output value value_out_a
+)
+    "This module pipelines its input"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked value value_out_r = 0;
+
+
+pipeline:
+    {
+        value_out_r <= value_in;
+        value_out_c = value_in;
+        value_out_t = 0;
+        value_out_a = value_out_r | value_out_c | value_out_t;
+    }
+}
+
+module two_module( clock io_clock,
+                     input bit io_reset,
+                     input value value_in,
+                     output value value_out
+)
+    "This module pipelines its input with 3 registers"
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked value store_in = 0;
+    clocked value store_out = 0;
+    net value sub_out;
+
+pipeline "Stuff":
+    {
+        store_in <= value_in;
+        two_module_a fred ( io_clock -> io_clock,
+                            io_reset = io_reset,
+                            value_in = store_in,
+                            value_out_r => sub_out );
+        store_out <= sub_out;
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

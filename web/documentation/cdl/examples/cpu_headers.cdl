@@ -1,0 +1,20 @@
+constant integer c_cpu_word_width=32;
+typedef bit[c_cpu_word_width] t_cpu_word;
+typedef enum[4]
+{
+    alu_op_shift_rotate=0,
+    alu_op_add=1,
+    alu_op_sub=2,
+    alu_op_add_with_carry=3,
+    alu_op_and=4,
+    alu_op_or=5,
+    alu_op_xor=6,
+    alu_op_not=7,
+    alu_op_mov=8,
+} t_cpu_alu_op;
+typedef enum[2]
+{
+    shift_op_shift_left=0,
+    shift_op_shift_right=1,
+    shift_op_rotate_right=2,
+} t_cpu_shift_op;

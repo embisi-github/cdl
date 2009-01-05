@@ -1,0 +1,118 @@
+# Format is <rdnw> <en> <address> <data> <rdnw> <en> address> <data>
+# First check the contents match the MIF file
+1 3 00 1234   1 0 08 0f0f
+1 2 01 5678   1 1 09 f0f0
+1 1 02 9abc   1 2 0a f0f0
+1 0 03 def0   1 3 0b 0f0f
+1 3 04 5a5a   1 0 0c 8765
+1 2 05 a5a5   1 1 0d 7654
+1 1 06 a5a5   1 2 0e 6543
+1 0 07 5a5a   1 3 0f 5432
+
+# Now write on port 0
+0 3 00 f052   1 0 08 0f0f
+0 3 01 e152   1 1 09 f0f0
+0 3 02 d2ae   1 2 0a f0f0
+0 3 03 c3ae   1 3 0b 0f0f
+0 3 04 b4bd   1 3 0c 8765
+0 3 05 a5bd   1 2 0d 7654
+0 3 06 9643   1 1 0e 6543
+0 3 07 8743   1 0 0f 5432
+
+# Now read back that on port 1
+1 3 08 0f0f   1 0 00 f052   
+1 2 09 f0f0   1 1 01 e152   
+1 1 0a f0f0   1 0 02 d2ae   
+1 0 0b 0f0f   1 1 03 c3ae   
+1 3 0c 8765   1 0 04 b4bd   
+1 2 0d 7654   1 1 05 a5bd   
+1 3 0e 6543   1 0 06 9643   
+1 2 0f 5432   1 1 07 8743   
+
+# Now write on port 1
+1 3 00 f052   0 3 08 250f   
+1 2 01 e152   0 3 09 251e   
+1 3 02 d2ae   0 3 0a ea2d   
+1 2 03 c3ae   0 3 0b ea3c   
+1 2 04 b4bd   0 3 0c db4b   
+1 3 05 a5bd   0 3 0d db5a   
+1 2 06 9643   0 3 0e 3469   
+1 3 07 8743   0 3 0f 3478   
+
+# Now some unenabled writes
+1 3 00 f052   0 0 08 aaaa   
+0 0 01 aaaa   0 0 09 aaaa   
+1 2 02 d2ae   0 0 0a aaaa   
+0 0 03 aaaa   0 0 0b aaaa   
+1 3 04 b4bd   0 0 0c aaaa   
+0 0 05 aaaa   0 0 0d aaaa   
+1 3 06 9643   0 0 0e aaaa   
+0 0 07 aaaa   0 0 0f aaaa   
+
+# Now read back that on ports 0 and 1
+1 3 00 f052   1 3 08 250f   
+1 2 01 e152   1 2 09 251e   
+1 1 02 d2ae   1 1 0a ea2d   
+1 0 03 c3ae   1 0 0b ea3c   
+1 3 04 b4bd   1 3 0c db4b   
+1 2 05 a5bd   1 2 0d db5a   
+1 1 06 9643   1 1 0e 3469   
+1 0 07 8743   1 0 0f 3478   
+
+1 3 00 f052   1 0 00 f052   
+1 2 01 e152   1 1 01 e152   
+1 3 02 d2ae   1 0 02 d2ae   
+1 2 03 c3ae   1 1 03 c3ae   
+1 3 04 b4bd   1 0 04 b4bd   
+1 2 05 a5bd   1 1 05 a5bd   
+1 3 06 9643   1 0 06 9643   
+1 2 07 8743   1 1 07 8743   
+1 3 08 250f   1 1 08 250f   
+1 2 09 251e   1 0 09 251e   
+1 3 0a ea2d   1 1 0a ea2d   
+1 2 0b ea3c   1 0 0b ea3c   
+1 3 0c db4b   1 1 0c db4b   
+1 2 0d db5a   1 0 0d db5a   
+1 3 0e 3469   1 1 0e 3469   
+1 2 0f 3478   1 0 0f 3478   
+
+# Now write on both ports alternate bytes
+0 1 00 de34   0 2 08 9aef
+0 2 01 23ad   0 1 09 becd
+0 1 02 de56   0 2 0a bcef
+0 2 03 45ad   0 1 0b beef
+0 1 04 de78   0 2 0c deef
+0 2 05 67ad   0 1 0d be01
+0 1 06 de9a   0 2 0e f0ef
+0 2 07 89ad   0 1 0f be23
+0 2 00 12ef   0 1 08 debc
+0 1 01 be45   0 2 09 abad
+0 2 02 34ef   0 1 0a dede
+0 1 03 be67   0 2 0b cdad
+0 2 04 56ef   0 1 0c def0
+0 1 05 be89   0 2 0d efad
+0 2 06 78ef   0 1 0e de12
+0 1 07 beab   0 2 0f 01ad
+
+# Now read back that on ports 0 and 1
+1 1 00 1234   1 2 08 9abc
+1 2 01 2345   1 1 09 abcd
+1 1 02 3456   1 2 0a bcde
+1 2 03 4567   1 1 0b cdef
+1 1 04 5678   1 2 0c def0
+1 2 05 6789   1 1 0d ef01
+1 1 06 789a   1 2 0e f012
+1 2 07 89ab   1 1 0f 0123
+1 1 00 1234   1 2 08 9abc
+1 2 01 2345   1 1 09 abcd
+1 1 02 3456   1 2 0a bcde
+1 2 03 4567   1 1 0b cdef
+1 1 04 5678   1 2 0c def0
+1 2 05 6789   1 1 0d ef01
+1 1 06 789a   1 2 0e f012
+1 2 07 89ab   1 1 0f 0123
+
+# End marker
+0 0 00 0000   0 0 00 0000
+0 0 00 0000   0 0 00 0000
+ffff 2 2 2 ffff 2 2 2

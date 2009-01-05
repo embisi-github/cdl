@@ -1,0 +1,160 @@
+#a Copyright
+#  
+#  This file 'modules.ef' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+prototype timer
+
+clock apb_clock
+input reset 1
+input select 1
+input enable 1
+input read_not_write 1
+input write_data 32
+input address 16
+output read_data 32
+output interrupt 1
+
+input_clocked apb_clock 1 reset
+input_clocked apb_clock 1 select
+input_clocked apb_clock 1 enable
+input_clocked apb_clock 1 read_not_write
+input_clocked apb_clock 1 write_data
+input_clocked apb_clock 1 address
+
+output_clocked apb_clock 1 read_data
+output_clocked apb_clock 1 interrupt
+
+
+module decode
+input top_address 2
+output enable 1
+
+code enable
+
+// enable=0
+comb enable 1
+push_int 1 0
+lvar enable
+assign_comb
+
+// if (top_address==0) enable=1
+push_var top_address
+push_int 1 0
+expr eq
+push_int 1 1
+lvar enable
+assign_comb
+if
+
+add_code 2 enable
+
+
+
+module select
+input address 18
+output top_address 2
+
+comb top_address 2
+
+code select
+
+lvar address
+lvar_range 2 16
+push_lvar
+lvar top_address
+assign_comb
+
+add_code 1 select
+
+
+
+module toplevel
+
+clock apb_clock
+input reset 1
+input select 1
+input read_not_write 1
+input write_data 32
+input address 18
+output read_data 32
+output interrupt 1
+output enable
+
+net interrupt 1
+net read_data 32
+net enable
+net top_address 2
+
+instantiate select s0
+lvar address
+push_lvar
+port_lvar address
+inst_input s0
+lvar top_address
+port_lvar top_address
+inst_output s0
+
+instantiate decode d0
+lvar top_address
+push_lvar
+port_lvar top_address
+inst_input d0
+lvar enable
+port_lvar enable
+inst_output d0
+
+instantiate timer t0
+
+inst_clock t0 apb_clock apb_clock
+
+push_var reset
+port_lvar reset
+inst_input t0 
+
+port_lvar select
+push_var select
+inst_input t0
+
+push_var enable
+port_lvar enable
+inst_input t0
+
+push_var read_not_write
+port_lvar read_not_write
+inst_input t0 
+
+push_var write_data
+port_lvar write_data
+inst_input t0 
+
+lvar address
+lvar_range 16 0
+push_lvar
+port_lvar address
+inst_input t0
+
+lvar read_data
+port_lvar read_data
+inst_output t0 
+
+lvar interrupt
+port_lvar interrupt
+inst_output t0
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

@@ -1,0 +1,32 @@
+typedef struct
+{
+    bit fred[64];
+    bit jim;
+    bit bit joe;
+} t_element_error;
+
+typedef fsm
+{
+    fred joe;
+    bit jumbo;
+    fred {a,b} {c,d,e}=;
+} t_fsm_error;
+
+typedef enum [2]
+{
+    bit
+    sd,
+    a=2=3,
+    bit fred
+} fred;
+
+typedef enum
+{
+    a,b,c
+} fred;
+
+constant integer fred=0;
+
+constant a,b;
+
+

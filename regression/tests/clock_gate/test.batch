@@ -1,0 +1,32 @@
+#a Copyright
+#  
+#  This file 'test.batch' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+vcd_file waves
+
+read_hw_file gc_simple.hwex
+waves.reset
+waves.open "simple.vcd"
+waves.add_hierarchy gc th
+waves.enable
+reset
+step 300
+waves.close
+
+end
+
+#a Editor preferences and notes
+# Local Variables: ***
+# mode: shell ***
+# outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
+# End: ***
+

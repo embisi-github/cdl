@@ -1,0 +1,75 @@
+constant integer and_higher_than_or = 1|0&0;    // (c+b).a==0 and c+(a.b)==1 works if a is 0 and c is 1
+constant bit equal_higher_than_and = (2b00==2b00&3b01==3b01);
+constant bit not_equal_higher_than_and = !(2b00!=2b01&3b01!=3b01);
+constant bit lor_higher_than_query = !((1==1)||(2==2)?1b0:1b1);
+constant bit land_higher_than_lor = (1==1)||(2==1)&&(2==1);
+constant bit or_higher_than_land = !((1==1)|(2==1)&&(2==1));
+constant bit xor_higher_than_or  = 1|0^1;   // (c|b)^a==0 and c|(a^b)==1 works if c is 1, a is 1, b is 0
+constant bit and_higher_than_xor = 0&0^1;   // (c^b).a==0 and c^(a.b)==1 works if c is 1, a is 0
+constant bit eq_higher_than_and = 2b1==2b1&1b1 | 1b1&2b1==2b1; // Fails at compile if order is wrong
+constant bit ne_higher_than_and = !(2b1!=2b1&1b1 | 1b1&2b1!=2b1); // Fails at compile if order is wrong
+constant bit le_higher_than_eq = !(1==2<=0);
+constant bit ge_higher_than_eq = 1==5>=4;
+constant bit lt_higher_than_eq = !(1==2<0);
+constant bit gt_higher_than_eq = 1==5>4;
+constant bit lshr_higher_than_gt = ((4>>1>8)==0);
+constant bit add_higher_than_lshr = ((4+4>>3)==1);
+constant bit mult_higher_than_add = ((2*3+4)==10);
+constant integer n=2176;
+
+module operator_precedence_sub( input bit a, output bit b)
+{
+logic:{b=a;}
+}
+module operator_precedence( clock clk, input bit a, input bit[6]select, output bit b, output bit selected )
+{
+    net bit[4] d;
+    comb bit[4] c;
+logic_test :
+    {
+        b = ( a &
+              and_higher_than_or &
+              equal_higher_than_and &
+              not_equal_higher_than_and &
+              lor_higher_than_query &
+              land_higher_than_lor &
+              or_higher_than_land &
+              xor_higher_than_or &
+              and_higher_than_xor &
+              eq_higher_than_and &
+              ne_higher_than_and &
+              le_higher_than_eq &
+              ge_higher_than_eq &
+              lt_higher_than_eq &
+              gt_higher_than_eq &
+              lshr_higher_than_gt &
+              add_higher_than_lshr &
+              mult_higher_than_add &
+              1 );
+        for (i; 4)
+        {
+            operator_precedence_sub sub[i+1](a<=c[i], b=>d[i]);
+        }
+        full_switch(select)
+        {
+        case 0: { selected = and_higher_than_or; }
+        case 1: { selected = equal_higher_than_and; }
+        case 2: { selected = not_equal_higher_than_and; }
+        case 3: { selected = lor_higher_than_query; }
+        case 4: { selected = land_higher_than_lor; }
+        case 5: { selected = or_higher_than_land; }
+        case 6: { selected = xor_higher_than_or; }
+        case 7: { selected = and_higher_than_xor; }
+        case 8: { selected = eq_higher_than_and; }
+        case 9: { selected = ne_higher_than_and; }
+        case 10: { selected = le_higher_than_eq; }
+        case 11: { selected = ge_higher_than_eq; }
+        case 12: { selected = lt_higher_than_eq; }
+        case 13: { selected = gt_higher_than_eq; }
+        case 14: { selected = lshr_higher_than_gt; }
+        case 15: { selected = add_higher_than_lshr; }
+        case 16: { selected = mult_higher_than_add; }
+        default: {selected=0;}
+        }
+    }
+}

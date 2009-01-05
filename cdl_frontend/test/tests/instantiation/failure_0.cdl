@@ -1,0 +1,24 @@
+/*a Copyright Gavin J Stark, 2004
+ */
+
+/*a External modules
+ */
+extern module fred( clock int_clock,
+                    input bit int_reset,
+                    input bit[4] a )
+{
+    timing to rising clock int_clock int_reset;
+
+    timing to rising clock int_clock a;
+}
+
+/*a Modules
+ */
+module failure_0( clock int_clock, input bit int_reset )
+{
+    instances "Instances":
+        {
+            fred psr( int_clock <- int_clock, int_reset <= int_reset, a <= 0 );
+        }
+}
+

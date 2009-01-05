@@ -1,0 +1,36 @@
+#a Copyright
+#  
+#  This file 'partial_ports.hwex' copyright Gavin J Stark 2003, 2004
+#  
+#  This program is free software; you can redistribute it and/or modify it under
+#  the terms of the GNU General Public License as published by the Free Software
+#  Foundation, version 2.0.
+#  
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+#  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+#  for more details.
+
+module partial_ports pp
+
+option_string "clock" "clk"
+option_string "inputs" "chain_out[2] cnt[4]"
+option_string "outputs" "chain_in"
+option_string "filename" "partial_ports.th"
+module se_test_harness th
+
+wire rst in out[2] cnt[4]
+clock system_clock 0 1 1
+drive pp.clk system_clock
+drive th.clk system_clock
+drive pp.rst rst
+drive pp.in in
+drive out pp.out
+drive cnt pp.cnt
+
+assign rst 1 30 0
+drive in th.chain_in
+drive th.chain_out out
+drive th.cnt cnt
+
+end
