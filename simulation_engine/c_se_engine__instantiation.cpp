@@ -413,12 +413,13 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      emi->output_list = NULL;
      emi->state_desc_list = NULL;
      emi->coverage_desc = NULL;
+     emi->checkpoint_fn_list = NULL;
+     emi->log_event_list = NULL;
 
      emi->sdl_to_view = NULL;
      emi->state_to_view = 0;
 
      emi->checkpoint_entry = NULL;
-     emi->checkpoint_fn_list = NULL;
 
      return se_external_module_instantiate( em, this, (void *)emi );
 }

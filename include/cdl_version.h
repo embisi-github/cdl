@@ -21,8 +21,8 @@
 /*a Defines
  */
 #define __CDL__VERSION 1
-#define __CDL__SUBVERSION 22
-#define __CDL__VERSION_STRING "1.22"
+#define __CDL__SUBVERSION 23
+#define __CDL__VERSION_STRING "1.23"
 #define __CDL__VERSION_COPYRIGHT_STRING "Copyright (C) 2002-8 Gavin J Stark\nThis is free software; see the source for copying conditions.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
 
 /*a Wrapper

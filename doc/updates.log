@@ -9,6 +9,10 @@ Overall to do
 
  Reset values (!) are of 32-bit width??? - not that I can see
 
+v1.0.23
+=======
+Simulation:  Couple of bugs in the logging stuff that showed up in regression
+
 v1.0.22
 =======
 Simulation:   Added log handling

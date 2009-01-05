@@ -582,8 +582,8 @@ void ef_poststate_callback( void *handle )
     log_event_ef_lib->log_desc = (t_engine_text_value_pair *) malloc(sizeof(t_engine_text_value_pair)*(log_event_ef_lib->num_events+log_event_ef_lib->total_args+1));
     log_event_ef_lib->next_event = 0;
     log_event_ef_lib->next_arg = 0;
-    log_event_ef_lib->log_desc[log_event_ef_lib->next_event+log_event_ef_lib->next_arg].text = NULL; // terminator
     sl_exec_file_send_message_to_all_objects( log_event_ef_lib->file_data, "log_event_post_state", (void *)log_event_ef_lib ); // Fill structure, and fill events with their pointers ready for events to occur
+    log_event_ef_lib->log_desc[log_event_ef_lib->next_event+log_event_ef_lib->next_arg].text = NULL; // terminator
     // Declare the log events so interest can be registered and so occurrences can, er, occur
     log_event_ef_lib->log_event_array = log_event_ef_lib->engine->log_event_register_array( log_event_ef_lib->engine_handle, log_event_ef_lib->log_desc, log_event_ef_lib->values );
     free(log_event_ef_lib->log_desc);

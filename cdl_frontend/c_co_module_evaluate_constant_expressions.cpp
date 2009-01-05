@@ -311,6 +311,7 @@ void c_co_statement::evaluate_constant_expressions( class c_cyclicity *cyclicity
         {
             arg->evaluate_constant_expressions( cyclicity, types, variables, reevaluate );
         }
+        break;
     }
     case statement_type_instantiation:
         if (type_data.instantiation)
