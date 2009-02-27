@@ -9,6 +9,11 @@ Overall to do
 
  Reset values (!) are of 32-bit width??? - not that I can see
 
+v1.0.24
+=======
+Support:     Made sl_hier_mem work with top level required
+Simulation:  logger did not clear outfile on delete_instance so it close many times and crashed
+
 v1.0.23
 =======
 Simulation:  Couple of bugs in the logging stuff that showed up in regression

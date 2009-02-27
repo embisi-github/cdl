@@ -894,14 +894,13 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
           {
               if (statement->data.switch_stmt.full)
               {
-                  output( handle, indent+1, "//pragma coverage off\n");
-                  output( handle, indent+1, "//synopsys translate_off\n");
+                  output_push_usage_type( model, output, handle, md_usage_type_assert );
                   output( handle, indent+1, "default:\n");
                   output( handle, indent+2, "begin\n");
                   output( handle, indent+2, "//ASSERT(0, \"Full switch statement did not cover all values\");\n");
                   output( handle, indent+2, "end\n");
-                  output( handle, indent+1, "//synopsys translate_on\n");
-                  output( handle, indent+1, "//pragma coverage on\n");
+                  output_pop_usage_type( model, output, handle );
+                  output_set_usage_type( model, output, handle );
               }
               else
               {
@@ -1464,6 +1463,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                 instance = reference->data.instance;
                 if ((instance->reference.type==md_reference_type_signal) && (instance->output_args[output_arg_use_comb_reg]))
                 {
+                    output_push_usage_type( model, output, handle, instance->reference.data.signal->usage_type );
                     if (instance->type==md_type_instance_type_array_of_bit_vectors)
                     {
                         if (options.vmod_mode && INSTANCE_IS_BIT_VECTOR_ARRAY(instance) && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
@@ -1483,6 +1483,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                     {
                         output( handle, 2, "%s = %s%s;\n", instance->output_name, instance->output_name, options.verilog_comb_reg_suffix );
                     }
+                    output_pop_usage_type( model, output, handle );
                 }
             }
         }
@@ -1494,6 +1495,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                 signal->instance_iter->children[i]->output_args[output_arg_use_comb_reg] = 0;
             }
         }
+        output_set_usage_type( model, output, handle );
         output( handle, 1, "end //always\n");
         output( handle, 0, "\n" );
 

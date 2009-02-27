@@ -173,7 +173,9 @@ void c_co_lvar::cross_reference_post_type_resolution_within_type_context( class 
         non_signal_declaration = lvar->non_signal_declaration;
         if (non_signal_declaration.cyc_object)
         {
-            fprintf(stderr,"c_co_lvar::cross_reference_post_type_resolution_within_type_context: Bit selection of a non-signal (%p) is not supported\n", non_signal_declaration.cyc_object );
+            int file_number, first_line, last_line, char_offset;
+            cyclicity->translate_lex_file_posn( &non_signal_declaration.cyc_object->start_posn, &file_number, &first_line, &last_line, &char_offset );
+            fprintf(stderr,"c_co_lvar::cross_reference_post_type_resolution_within_type_context: Bit selection of a non-signal (%p) is not supported %s:%d:(char %d)\n", non_signal_declaration.cyc_object, cyclicity->get_filename(file_number), 1+first_line, char_offset );
             exit(4);
         }
         if (symbol)
@@ -503,7 +505,7 @@ void c_co_statement::cross_reference_post_type_resolution( class c_cyclicity *cy
                 case signal_declaration_type_input:
                 case signal_declaration_type_clock:
                 case signal_declaration_type_parameter:
-                    cyclicity->set_parse_error( this, co_compile_stage_cross_reference, "Assignment to a non-port '%s'", lex_string_from_terminal( lvar->symbol ) );
+                    cyclicity->set_parse_error( this, co_compile_stage_cross_reference, "Assignment to a non-port '%s' (may need to unref if lvar is a struct or array)", lex_string_from_terminal( lvar->symbol ) );
                     break;
                 }
                 if (type_data.assign_stmt.nested_assignment)

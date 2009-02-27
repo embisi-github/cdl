@@ -5606,20 +5606,21 @@ void c_model_descriptor::output_coverage_map( const char *filename )
     SL_DEBUG(sl_debug_level_info, "Output coverage map %s", filename);
     for (module=module_list; module; module=module->next_in_list)
     {
+        if (module->external) continue; // No coverage fussing for external modules
         file_buffer = NULL;
         start_of_cut = -1;
         end_of_cut = -1;
         file_length = -1;
         in_cut = 0;
-        if (sl_allocate_and_read_file( error, filename, &file_buffer, "coverage_map" )==error_level_okay)
+        if (sl_allocate_and_read_file( error, 1, filename, &file_buffer, "coverage_map" )==error_level_okay)
         {
             for (i=0; file_buffer[i]; i+=(file_buffer[i])?1:0)
             {
                 if (!strncmp(file_buffer+i, "scope ", 6))
                 {
-                    if (!strncmp(file_buffer+i+6, module->name, strlen(module->name) ))
+                    if (!strncmp(file_buffer+i+6, module->name, strlen(module->output_name) ))
                     {
-                        if (file_buffer[i+6+strlen(module->name)]=='\n')
+                        if (file_buffer[i+6+strlen(module->output_name)]=='\n')
                         {
                             start_of_cut=i;
                             in_cut = 1;
@@ -5635,6 +5636,7 @@ void c_model_descriptor::output_coverage_map( const char *filename )
             }
             file_length=i;
         }
+        printf("Coverage map file %s of length %d being cut from %d to %d for module %s", filename, file_length, start_of_cut, end_of_cut, module->output_name );
 
         f = fopen(filename, "w");
         if (!f)
@@ -5658,7 +5660,7 @@ void c_model_descriptor::output_coverage_map( const char *filename )
                 fwrite( file_buffer, 1, file_length, f );
             }
         }
-        fprintf( f, "scope %s\n", module->name );
+        fprintf( f, "scope %s\n", module->output_name );
         for (statement=module->statements; statement; statement=statement->next_in_module)
         {
             if (statement->enumeration>=0)
@@ -5777,7 +5779,10 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      filename = sl_option_get_string( env_options, "be_coverage_map" );
      if (filename)
      {
-         output_coverage_map( filename );
+         if (include_coverage || include_stmt_coverage)
+         {
+             output_coverage_map( filename );
+         }
      }
 
      filename = sl_option_get_string( env_options, "be_cppfile" );

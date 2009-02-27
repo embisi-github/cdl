@@ -91,6 +91,17 @@ extern t_sl_error_level sl_allocate_and_read_file( c_sl_error *error,
                                                         char **file_data_ptr,
                                                         const char *user )
 {
+    return sl_allocate_and_read_file( error, 0, filename, file_data_ptr, user );
+}
+
+/*f sl_allocate_and_read_file
+ */
+extern t_sl_error_level sl_allocate_and_read_file( c_sl_error *error,
+                                                   int no_file_okay,
+                                                   const char *filename,
+                                                   char **file_data_ptr,
+                                                   const char *user )
+{
      FILE *f;
      int length;
 
@@ -108,10 +119,13 @@ extern t_sl_error_level sl_allocate_and_read_file( c_sl_error *error,
      f = fopen( filename, "r" );
      if (!f)
      {
-          return error->add_error( (void *)user, error_level_serious, error_number_general_bad_filename, error_id_sl_general_sl_allocate_and_read_file,
-                                   error_arg_type_malloc_string, filename,
-                                   error_arg_type_malloc_filename, user,
-                                   error_arg_type_none );
+         if (!no_file_okay)
+             return error_level_okay;
+
+         return error->add_error( (void *)user, error_level_serious, error_number_general_bad_filename, error_id_sl_general_sl_allocate_and_read_file,
+                                  error_arg_type_malloc_string, filename,
+                                  error_arg_type_malloc_filename, user,
+                                  error_arg_type_none );
      }
      fseek( f, 0,SEEK_END );
      length = ftell(f);

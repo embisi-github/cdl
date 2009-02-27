@@ -179,6 +179,7 @@ t_sl_error_level c_logger::delete_instance( void )
     if (outfile)
     {
         fclose(outfile);
+        outfile = NULL;
     }
     return error_level_okay;
 }

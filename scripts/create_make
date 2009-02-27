@@ -203,6 +203,7 @@ function parse_models( $objs )
     $cdl_options = array();
     $cdl_options["coverage"]="off";
     $cdl_options["assertions"]="off";
+    $cdl_options["statements"]="off";
     foreach (objs_of_type($objs,"/^cdl(|_options)/") as $sel)
     {
         if ($sel["type"]=="cdl_options")
@@ -216,6 +217,10 @@ function parse_models( $objs )
                 if (preg_match("/^cov:(\S+)/",$option, $matches))
                 {
                     $cdl_options["coverage"]=($matches[1]=="on")?"on":"off";
+                }
+                if (preg_match("/^stmt:(\S+)/",$option, $matches))
+                {
+                    $cdl_options["statements"]=($matches[1]=="on")?"on":"off";
                 }
             }
         }
@@ -235,7 +240,8 @@ function parse_models( $objs )
 
             $base_options = "";
             if ($cdl_options["assertions"]=="on") { $base_options.="--include-assertions@@@"; }
-            if ($cdl_options["coverage"]=="on") { $base_options.="--include-coverage@@@"; }
+            if ($cdl_options["coverage"]=="on")   { $base_options.="--include-coverage@@@"; }
+            if ($cdl_options["statements"]=="on") { $base_options.="--include-stmt-coverage@@@"; }
             $cdl_opts = $base_options;
             foreach ($args as $option)
             {
@@ -263,7 +269,7 @@ function parse_models( $objs )
                     $cdl_opts .= "@@@"."--constant@@@".$matches[1];
                 }
             }
-            $cdl_opts .= "@@@"."--coverage-desc-file@@@"."\${TARGET_DIR}/coverage.map";
+            $cdl_opts .= "@@@"."--coverage-desc-file@@@"."\${TARGET_DIR}/".$obj["model"].".map";
             $obj["opts"] = $cdl_opts;
             $models["cdl"][] = $obj;
             $models["hash"][$obj["model"]] = "cdl";

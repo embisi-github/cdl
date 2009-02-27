@@ -79,7 +79,7 @@ static t_sl_hier_mem_ptr alloc_page( t_sl_hier_mem *shm, t_sl_uint64 address, in
     int i;
     int page;
 
-    //printf("alloc_page %p:%d:%d:%d\n", shm, address, level, shm->page_shift[level] );
+    //printf("alloc_page %p:%lld:%d:%d\n", shm, address, level, shm->page_shift[level] );
     if (shm->page_shift[level]==0) // This layer is data, so a pointer to it is a t_sl_hier_mem_data_ptr
     {
         ptr.data = (t_sl_hier_mem_data_ptr)malloc(shm->page_size[level]*shm->bytes_per_memory);
@@ -106,7 +106,7 @@ static t_sl_hier_mem_data_ptr find_with_alloc( t_sl_hier_mem *shm, t_sl_hier_mem
 {
     int page;
 
-    //printf("find_with_alloc %p:%p:%d:%d:%d\n", shm, submem, address, level, alloc );
+    //printf("find_with_alloc %p:%p:%llx:%d:%d\n", shm, submem, address, level, alloc );
     page = (address>>shm->page_shift[level])&shm->page_mask[level]; // Get page
     if (!submem[page].data) // Is it allocated?
     {
@@ -144,7 +144,7 @@ static t_sl_hier_mem_data_ptr find_page_at_or_after( t_sl_hier_mem *shm, t_sl_hi
     t_sl_uint64 addr;
     t_sl_hier_mem_data_ptr data;
 
-    //printf("find_page_at_or_after %p:%p:%lld:%d\n", shm, submem, *address, level );
+    //printf("find_page_at_or_after %p:%p:%llx:%d\n", shm, submem, *address, level );
     addr = *address;
     page = (addr>>shm->page_shift[level])&shm->page_mask[level]; // Get page to start at
     for (i=page; i<shm->page_size[level]; i++)
@@ -195,7 +195,7 @@ extern t_sl_hier_mem *sl_hier_mem_create( t_sl_uint64 total_size, int *log2_page
 
     for (j=0; log2_page_sizes[j]; j++);
     j--; // log2_page_sizes[j] is the last one
-    for (i=0,n=total_size-1; (j>0) && (i<SL_HIER_MAX_LEVEL) && (n>0); i++,j--)
+    for (i=0,n=total_size-1; (j>=0) && (i<SL_HIER_MAX_LEVEL) && (n>0); i++,j--)
     {
         if ((((t_sl_uint64) 1)<<log2_page_sizes[j]) > n) // Last one?
         {
@@ -318,7 +318,7 @@ extern t_sl_hier_mem_data_ptr sl_hier_mem_find( t_sl_hier_mem *shm, t_sl_uint64 
 {
     if (address>=shm->total_size)
         return NULL;
-    //printf("sl_hier_mem_find %p:%d:%d:%d\n", shm, address, alloc, shm->page_shift[0]);
+    //printf("sl_hier_mem_find %p:%llx:%d:%d\n", shm, address, alloc, shm->page_shift[0]);
     if (shm->page_shift[0]==0) // Not hierarchical after all :-)
         return shm->array[0].data + (shm->bytes_per_memory*address);
     return find_with_alloc( shm, shm->array, address, 0, alloc );

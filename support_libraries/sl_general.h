@@ -50,6 +50,7 @@ extern char *sl_str_alloc_copy( const char *text );
 extern char *sl_str_alloc_copy( const char *text, int length );
 extern char *sl_str_copy_max( char *dest, const char *src, int max_length );
 extern int sl_str_split( const char *src, char **dest, int argc, char **argv, int escape, int quote, int bracket ); // Split string src into args, ptrs in argv array, array length is given by argc; args may be quoted if quoted is true, or bracketed if bracket is true
+extern t_sl_error_level sl_allocate_and_read_file( c_sl_error *error, int no_file_okay, const char *filename, char **file_data_ptr, const char *user );
 extern t_sl_error_level sl_allocate_and_read_file( c_sl_error *error, const char *filename, char **file_data_ptr, const char *user );
 extern void sl_print_bits_hex( char *buffer, int buffer_size, int *data, int bits );
 extern int sl_integer_from_token( char *token, int *data );
