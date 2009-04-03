@@ -143,6 +143,7 @@ public:
       */
      int check_errors( FILE *f, t_sl_error_level error_level_display, t_sl_error_level error_level_count );
      int check_errors_and_reset( FILE *f, t_sl_error_level error_level_display, t_sl_error_level error_level_count );
+     int check_errors_and_reset( char *str, size_t str_length, t_sl_error_level error_level_display, t_sl_error_level error_level_count, void **handle );
 
      /*b Private data structures
       */

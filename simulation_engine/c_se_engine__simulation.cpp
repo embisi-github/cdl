@@ -1110,6 +1110,7 @@ t_sl_error_level c_engine::step_cycles( int cycles )
      t_se_engine_simulation_callback *scb;
      int i;
      int edge_occurred;
+     int abort;
 
      /*b Debug
       */
@@ -1137,6 +1138,7 @@ t_sl_error_level c_engine::step_cycles( int cycles )
 
      /*b Loop through all the cycles
       */
+     abort=0;
      for ( ; cycles>0; cycles-- )
      {
 
@@ -1278,7 +1280,10 @@ t_sl_error_level c_engine::step_cycles( int cycles )
            */
           for (scb=simulation_callbacks; edge_occurred && scb; scb=scb->next_in_list)
           {
-               scb->callback( scb->handle, scb->handle_b );
+              if (scb->callback( scb->handle, scb->handle_b )<0)
+              {
+                  abort=1;
+              }
           }
 
           /*b Done the loop - increment cycle_number

@@ -123,7 +123,6 @@ public:
     /*b Type comparision/coercion functions
      */
     int compare_types( t_type_value type_value, class c_co_type_specifier *type_specifier );
-    int could_coerce( t_type_value type_value, t_type_value type_value );
      
     /*b Type finding and addition functions
      */

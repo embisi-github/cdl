@@ -48,6 +48,7 @@ typedef struct t_globals
 {
     c_sl_error *error;
     c_engine *engine;
+    t_sl_option_list plus_args;
 } t_globals;
 
 /*t t_vpi_input
@@ -145,7 +146,11 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
     vmi = vck->vmi;
     //vpi_printf( "Clock callback %s\n",vck->signal_name);
     vck->value.format = vpiIntVal;
-    vpi_get_value( vck->signal_handle, &(vck->value) );
+    if (vck->signal_handle == NULL)
+    {
+        fprintf(stderr, "NULL to vck->signal_handle for vpi_get_value!\n");
+    }
+     vpi_get_value( vck->signal_handle, &(vck->value) );
     if ( vck->value.format==vpiIntVal )
     {
         int i, posedge;
@@ -160,6 +165,10 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
                 {
                     int j;
                     vck->value.format = vpiVectorVal;
+                    if (vmi->inputs[i].signal_handle == NULL)
+                    {
+                        fprintf(stderr, "NULL to vmi->inputs[i].signal_handle for vpi_get_value!\n");
+                    }
                     vpi_get_value( vmi->inputs[i].signal_handle, &(vck->value) );
                     if (vck->value.format==vpiVectorVal)
                     {
@@ -220,8 +229,21 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
             }
         }
     }
-    globals.engine->message->check_errors_and_reset( stdout, error_level_info, error_level_info );
-    globals.engine->error->check_errors_and_reset( stdout, error_level_info, error_level_info );
+
+    {
+        char error_accumulator[16384];
+        void *handle;
+        handle = NULL;
+        while (globals.engine->message->check_errors_and_reset( error_accumulator, sizeof(error_accumulator), error_level_info, error_level_info, &handle )>0)
+        {
+            vpi_printf("%s", error_accumulator);
+        }
+        handle = NULL;
+        while (globals.engine->error->check_errors_and_reset( error_accumulator, sizeof(error_accumulator), error_level_info, error_level_info, &handle )>0)
+        {
+            vpi_printf("%s", error_accumulator);
+        }
+    }
     WHERE_I_AM;
     return 1;
 }
@@ -266,10 +288,19 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
             keyword = NULL;
             while ( (arg = vpi_scan(iter))!=NULL )
             {
+                PLI_INT32 arg_type;
                 s_vpi_value value;
-                if (vpi_get(vpiType,arg)==vpiConstant)
+                arg_type = vpi_get(vpiType, arg);
+                if ( (arg_type == vpiConstant) ||
+                     (arg_type == vpiParameter) ||
+                     (arg_type == vpiReg) ||
+                     (arg_type == vpiNet) )
                 {
                     value.format = vpiObjTypeVal;
+                    if (arg == NULL)
+                    {
+                        fprintf(stderr, "NULL to arg for vpi_get_value!\n");
+                    }
                     vpi_get_value( arg, &value );
                     if (!keyword)
                     {
@@ -280,9 +311,60 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
                     }
                     else
                     {
+                        if (value.format==vpiVectorVal)
+                        {
+                            /* Try to coerce this into a string. */
+                            value.format = vpiStringVal;
+                            vpi_get_value( arg, &value );
+                        }
                         if (value.format==vpiStringVal)
                         {
-                            vmi->option_list = sl_option_list( vmi->option_list, keyword, value.value.str );
+                            char *plusloc = strstr(value.value.str, "+{");
+                            if (globals.plus_args && plusloc) 
+                            {
+                                /* Replace each occurrence of +{KEYWORD} with the keyvalue from the plus_args. */
+                                char *old_string = value.value.str;
+                                char substituted_string[256];
+
+                                substituted_string[0] = '\0';
+                                while (plusloc)
+                                {
+                                    char *close_brace = strchr(old_string, '}');
+                                    if (close_brace && close_brace > plusloc)
+                                    {
+                                        const char *substitution;
+                                        int substituted_length = strlen(substituted_string);
+                                        char *plusloc_in_new = (substituted_string + substituted_length) + (plusloc - old_string);
+                                        size_t cat_length = close_brace - old_string;
+
+                                        if (cat_length > sizeof(substituted_string) - substituted_length)
+                                        {
+                                            cat_length = sizeof(substituted_string) - substituted_length;
+                                        }
+                                        strncat(substituted_string, old_string, cat_length);
+                                        substitution = sl_option_get_string(globals.plus_args, plusloc_in_new + 2);
+                                        if (substitution)
+                                        {
+                                            *plusloc_in_new = '\0';
+                                            strncat(substituted_string, substitution, 
+                                                    sizeof(substituted_string) - strlen(substituted_string));
+                                        }
+                                        old_string = close_brace+1;
+                                    }
+                                    else
+                                    {
+                                        /* Oops. Malformed. Do what we can. */
+                                        old_string = plusloc+2;
+                                    }
+                                    plusloc = strstr(old_string, "+{");
+                               }
+                               strncat(substituted_string, old_string, sizeof(substituted_string) - strlen(substituted_string));
+                               vmi->option_list = sl_option_list( vmi->option_list, keyword, substituted_string );
+                            }
+                            else
+                            {
+                                vmi->option_list = sl_option_list( vmi->option_list, keyword, value.value.str );
+                            }
                         }
                         if (value.format==vpiIntVal)
                         {
@@ -299,7 +381,7 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
     /*b Instantiate simulation model
      */
     vpi_printf("Instantiate %s %p %s\n", vmi->module_type, vmi->task_handle, vmi->task_name );
-    vmi->instance_name = globals.engine->create_unique_instance_name( NULL, vmi->module_type );
+    vmi->instance_name = globals.engine->create_unique_instance_name( NULL, vmi->module_type, NULL );
     globals.engine->instantiate( NULL, vmi->module_type, vmi->instance_name, vmi->option_list );
     vmi->engine_handle = globals.engine->find_module_instance( vmi->instance_name );
 
@@ -420,6 +502,7 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
 static void setup_vpi_callbacks()
 {
     int i;
+    s_vpi_vlog_info vlog_info;
 
     /*b Initialize simulation engine
      */
@@ -436,6 +519,34 @@ static void setup_vpi_callbacks()
      */
     globals.error = new c_sl_error( 4, 8 ); // GJS
     globals.engine = new c_engine( globals.error, "cycle simulation engine" );
+
+    /*b Grab plus_args
+     */
+    globals.plus_args = NULL;
+    if (vpi_get_vlog_info(&vlog_info))
+    {
+        for (i=1; i<vlog_info.argc; i++) // ignore argv[0]
+        {
+            if (vlog_info.argv[i][0] == '+')
+            {
+                char *equal_pos;
+                char *keyword;
+                char *keyvalue;
+                
+                equal_pos = strchr(vlog_info.argv[i]+1, '=');
+                if (equal_pos == NULL)
+                {
+                    equal_pos = strchr(vlog_info.argv[i]+1, '+');
+                }
+                if (equal_pos)
+                {
+                    keyword = sl_str_alloc_copy(vlog_info.argv[i]+1, equal_pos - vlog_info.argv[i] - 1);
+                    keyvalue = sl_str_alloc_copy(equal_pos+1);
+                    globals.plus_args = sl_option_list( globals.plus_args, keyword, keyvalue );
+                }
+            }
+        }
+    }
 
     /*b Register all simulation external modules with VPI
      */

@@ -119,7 +119,7 @@ extern t_sl_error_level sl_allocate_and_read_file( c_sl_error *error,
      f = fopen( filename, "r" );
      if (!f)
      {
-         if (!no_file_okay)
+         if (no_file_okay)
              return error_level_okay;
 
          return error->add_error( (void *)user, error_level_serious, error_number_general_bad_filename, error_id_sl_general_sl_allocate_and_read_file,

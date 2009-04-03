@@ -217,8 +217,20 @@ static t_sl_error_level exec_file_cmd_handler( struct t_sl_exec_file_cmd_cb *cmd
     default:
         break;
     }
-    hw_engine->message->check_errors_and_reset( stdout, error_level_info, error_level_info );
-    batch_message->check_errors_and_reset( stdout, error_level_info, error_level_info );
+    {
+        char error_accumulator[16384];
+        void *handle;
+        handle = NULL;
+        while (hw_engine->message->check_errors_and_reset( error_accumulator, sizeof(error_accumulator), error_level_info, error_level_info, &handle )>0)
+        {
+            printf("%s", error_accumulator);
+        }
+        handle = NULL;
+        while (batch_message->check_errors_and_reset( error_accumulator, sizeof(error_accumulator), error_level_info, error_level_info, &handle )>0)
+        {
+            printf("%s", error_accumulator);
+        }
+    }
     fflush(stdout);
     if ( (hw_error->check_errors_and_reset( stderr, error_level_info, error_level_fatal)) ||
          (batch_error->check_errors_and_reset( stderr, error_level_info, error_level_fatal )) )

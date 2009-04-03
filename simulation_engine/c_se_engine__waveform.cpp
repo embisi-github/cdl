@@ -353,11 +353,12 @@ int c_engine::waveform_vcd_file_count_and_fill_signals( t_waveform_vcd_file_enti
 
 /*f waveform_vcd_file_callback_fn
  */
-static void waveform_vcd_file_callback_fn( void *handle, void *handle_b )
+static int waveform_vcd_file_callback_fn( void *handle, void *handle_b )
 {
      c_engine *engine;
      engine = (c_engine *)handle;
      engine->waveform_vcd_file_callback( (t_waveform_vcd_file *) handle_b );
+     return 0;
 }
 
 /*f c_engine::waveform_vcd_file_callback

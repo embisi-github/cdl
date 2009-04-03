@@ -531,7 +531,7 @@ int c_sl_error::generate_error_message( void *handle, char *buffer, int buffer_s
 
 /*a Display methods
 */
-/*f c_sl_error::check_errors
+/*f c_sl_error::check_errors - to file
  */
 int c_sl_error::check_errors( FILE *f, t_sl_error_level error_level_display, t_sl_error_level error_level_count )
 {
@@ -553,7 +553,7 @@ int c_sl_error::check_errors( FILE *f, t_sl_error_level error_level_display, t_s
      return (get_error_count( error_level_count )>0);
 }
 
-/*f c_sl_error::check_errors_and_reset
+/*f c_sl_error::check_errors_and_reset - to file
  */
 int c_sl_error::check_errors_and_reset( FILE *f, t_sl_error_level error_level_display, t_sl_error_level error_level_count )
 {
@@ -563,6 +563,46 @@ int c_sl_error::check_errors_and_reset( FILE *f, t_sl_error_level error_level_di
      return result;
 }
 
+/*f c_sl_error::check_errors - to buffer
+ */
+int c_sl_error::check_errors_and_reset( char *str, size_t str_length, t_sl_error_level error_level_display, t_sl_error_level error_level_count, void **handle )
+{
+    char error_buffer[1024];
+    int errors_found;
+
+    //fprintf(stderr,"c_sl_error::check_errors:%p:display level %d count level %d\n", this, error_level_display, error_level_count );
+    if (str_length<sizeof(error_buffer))
+    {
+        fprintf(stderr,"c_sl_error::check_errors:BUG:MUST BE CALLED WITH 'str_length' > size of error buffer, preferably 16x\n");
+    }
+    errors_found = 0;
+    if (get_error_count( error_level_display ))
+    {
+        //fprintf(stderr,"c_sl_error::check_errors:%p:handle %p\n", this, handle );
+        while (str_length>sizeof(error_buffer))
+        {
+            *handle = get_next_error( *handle, error_level_display );
+            if (!*handle)
+            {
+                break;
+            }
+            generate_error_message( *handle, error_buffer, sizeof(error_buffer), 1, NULL );
+            copy_to_sized_buffer( &str, (int*)&str_length, error_buffer, -1 );
+            if (str_length)
+            {
+                *str++ = '\n';
+                *str = '\0';
+                str_length--;
+                errors_found++;
+            }
+        }
+        if (!*handle)
+        {
+            reset();
+        }
+    }
+    return errors_found;
+}
 
 /*a Editor preferences and notes
 mode: c ***

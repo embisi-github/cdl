@@ -9,6 +9,12 @@ Overall to do
 
  Reset values (!) are of 32-bit width??? - not that I can see
 
+v1.0.25
+=======
+Support:     Fixed sl_allocate_and_read_file 'no_file_okay'
+Simulation:  Added return value for callbacks to permit breakpoints on sim
+Harnesses:   Added changes for + args to eh_vpi
+
 v1.0.24
 =======
 Support:     Made sl_hier_mem work with top level required

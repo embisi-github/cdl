@@ -5614,27 +5614,30 @@ void c_model_descriptor::output_coverage_map( const char *filename )
         in_cut = 0;
         if (sl_allocate_and_read_file( error, 1, filename, &file_buffer, "coverage_map" )==error_level_okay)
         {
-            for (i=0; file_buffer[i]; i+=(file_buffer[i])?1:0)
+            if (file_buffer)
             {
-                if (!strncmp(file_buffer+i, "scope ", 6))
+                for (i=0; file_buffer[i]; i+=(file_buffer[i])?1:0)
                 {
-                    if (!strncmp(file_buffer+i+6, module->name, strlen(module->output_name) ))
+                    if (!strncmp(file_buffer+i, "scope ", 6))
                     {
-                        if (file_buffer[i+6+strlen(module->output_name)]=='\n')
+                        if (!strncmp(file_buffer+i+6, module->name, strlen(module->output_name) ))
                         {
-                            start_of_cut=i;
-                            in_cut = 1;
+                            if (file_buffer[i+6+strlen(module->output_name)]=='\n')
+                            {
+                                start_of_cut=i;
+                                in_cut = 1;
+                            }
                         }
                     }
+                    if ((in_cut) && (!strncmp(file_buffer+i, "endscope\n", strlen("endscope\n"))))
+                    {
+                        end_of_cut = i+strlen("endscope\n");
+                        in_cut = 0;
+                    }
+                    for (; (file_buffer[i]) && (file_buffer[i]!='\n'); i++);
                 }
-                if ((in_cut) && (!strncmp(file_buffer+i, "endscope\n", strlen("endscope\n"))))
-                {
-                    end_of_cut = i+strlen("endscope\n");
-                    in_cut = 0;
-                }
-                for (; (file_buffer[i]) && (file_buffer[i]!='\n'); i++);
+                file_length=i;
             }
-            file_length=i;
         }
         printf("Coverage map file %s of length %d being cut from %d to %d for module %s", filename, file_length, start_of_cut, end_of_cut, module->output_name );
 

@@ -43,7 +43,7 @@ typedef void (*t_se_engine_monitor_callback_fn)( void *handle, void *handle_b );
 
 /*t t_se_engine_simulation_callback_fn
  */
-typedef void (*t_se_engine_simulation_callback_fn)( void *handle, void *handle_b );
+typedef int (*t_se_engine_simulation_callback_fn)( void *handle, void *handle_b );
 
 /*t t_engine_message_level
  */

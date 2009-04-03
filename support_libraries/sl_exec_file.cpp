@@ -1164,7 +1164,7 @@ static int parse_variable_or_function( t_sl_exec_file_data *file_data, int line_
         char result;
         if (ket!=token_length-1)
         {
-            fprintf(stderr, "NNE:Mismatched brackets stuff at line %d\n",line_number);
+            fprintf(stderr, "NNE:Mismatched brackets stuff at line %d\n",line_number+1);
             //mismatched or other bad bracket stuff;
             return 0;
         }
@@ -1174,7 +1174,7 @@ static int parse_variable_or_function( t_sl_exec_file_data *file_data, int line_
             fn = find_function_in_libraries( file_data, token, bra, &lib );
         if (!fn && !method)
         {
-            fprintf(stderr, "NNE:Bad function '%s' at line %d\n", token, line_number);
+            fprintf(stderr, "NNE:Bad function '%s' at line %d\n", token, line_number+1);
             //bad function
             return 0;
         }
@@ -1183,7 +1183,7 @@ static int parse_variable_or_function( t_sl_exec_file_data *file_data, int line_
              ((result=='d') && (type!=sl_exec_file_value_type_double) && (type!=sl_exec_file_value_type_integer_or_double) && (type!=sl_exec_file_value_type_any)) ||
              ((result=='i') && (type!=sl_exec_file_value_type_integer) && (type!=sl_exec_file_value_type_integer_or_double) && (type!=sl_exec_file_value_type_any)) )
         {
-            fprintf(stderr, "NNE:Bad return value at line %d\n", line_number);
+            fprintf(stderr, "NNE:Bad return value at line %d\n", line_number+1);
             //bad function
             return 0;
         }
