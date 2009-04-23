@@ -156,6 +156,35 @@ extern t_sl_error_level sl_mif_reset_and_read_mif_file( c_sl_error *error, const
             }
         }
         break;
+    case 3:
+    {
+        t_sl_uint64 value;
+        t_sl_uint64 taps[2];
+        taps[0] = 1LL<<((reset_value>>0)&0xff);
+        taps[1] = 1LL<<((reset_value>>8)&0xff);
+        value = (reset_value>>16)&0xffff;
+        value = ~(value | (value<<16) | (value<<32) | (value<<48));
+        for (i=0; i<max_size; i++)
+        {
+            int j;
+            switch (bytes_per_item)
+            {
+            case 1: ((char *)data)[i] = value; break;
+            case 2:
+                ((char *)data)[i*2+0] = value;
+                ((char *)data)[i*2+1] = value>>8;
+                break;
+            default:
+                data[i] = value;
+                break;
+            }
+            for (j=0; j<8*bytes_per_item; j++)
+            {
+                if (((value & taps[0])!=0) ^ ((value & taps[1])!=0)) {value = (value<<1)|1;} else {value<<=1;}
+            }
+        }
+        break;
+    }
     }
 
     /*b Read the MIF file

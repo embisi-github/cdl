@@ -4044,7 +4044,8 @@ void c_model_descriptor::expression_check_liveness( t_md_module *module, t_md_co
              (instance->code_block==code_block) &&
              !(reference_set_includes( &parent_makes_live, instance) || reference_set_includes( &being_made_live, instance)) )
         {
-            error->add_error( NULL, error_level_serious, error_number_be_used_while_not_live, error_id_be_c_model_descriptor_statement_analyze,
+            //error->add_error( NULL, error_level_serious, error_number_be_used_while_not_live, error_id_be_c_model_descriptor_statement_analyze,
+            error->add_error( NULL, error_level_warning, error_number_be_used_while_not_live, error_id_be_c_model_descriptor_statement_analyze,
                               error_arg_type_malloc_string, instance->output_name,
                               error_arg_type_malloc_string, code_block->name, 
                               error_arg_type_none );
@@ -4750,8 +4751,10 @@ void c_model_descriptor::statement_analyze_liveness( t_md_code_block *code_block
         t_instance_set *switch_makes_live;
         t_md_switch_item *switem;
         int first;
+        int has_default;
 
         instance_set_null(switch_makes_live);
+        has_default = 0;
         instance_set_union(&switch_makes_live,*makes_live);
         expression_check_liveness( code_block->module, code_block, statement->data.switch_stmt.expr, parent_makes_live, *makes_live );
         first = 1;
@@ -4760,6 +4763,10 @@ void c_model_descriptor::statement_analyze_liveness( t_md_code_block *code_block
             if (switem->type == md_switch_item_type_dynamic)
             {
                 expression_check_liveness( code_block->module, code_block, switem->data.expr, parent_makes_live, *makes_live );
+            }
+            if (switem->type == md_switch_item_type_default)
+            {
+                has_default = 1;
             }
             if (switem->statement) // Statement may be null if there is nothing to do, e.g. case 1:{}
             {
@@ -4778,9 +4785,9 @@ void c_model_descriptor::statement_analyze_liveness( t_md_code_block *code_block
                 }
             }
         }
-        if (statement->data.switch_stmt.full)
+        if (has_default)
         {
-            instance_set_union(makes_live,switch_makes_live);
+            instance_set_union(makes_live,switch_makes_live); // full switch statements are NOT guaranteed to cover every case, but ARE guaranteed to generate an assertion should an unexpected case be hit
         }
         instance_set_free(switch_makes_live);
         break;
@@ -4992,7 +4999,8 @@ int c_model_descriptor::code_block_analyze( t_md_code_block *code_block, t_md_us
                 {
                     if (!reference_set_includes( &makes_live, instance))
                     {
-                        error->add_error( NULL, error_level_serious, error_number_be_likely_transparent_latch, error_id_be_c_model_descriptor_statement_analyze,
+                        //error->add_error( NULL, error_level_serious, error_number_be_likely_transparent_latch, error_id_be_c_model_descriptor_statement_analyze,
+                        error->add_error( NULL, error_level_warning, error_number_be_likely_transparent_latch, error_id_be_c_model_descriptor_statement_analyze,
                                           error_arg_type_malloc_string, instance->output_name,
                                           error_arg_type_none );
                         fprintf(stderr, "****************************************************************************\nSERIOUS ERROR:Expected '%s' to be live - likely transparent latch?\n", instance->output_name );

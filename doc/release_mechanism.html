@@ -30,10 +30,15 @@
 <!--
 
 pushd /tmp
+svn export --quiet https://cyclicity-cdl.svn.sourceforge.net/svnroot/cyclicity-cdl/branches/cdl_1_0 cyclicity-1.0.27
+tar zcf cyclicity-1.0.27.tgz cyclicity-1.0.27
+scp cyclicity-1.0.27.tgz gstark@ocarina:/data/yd/hw/tools/Packages
+
+pushd /tmp
 svn export --quiet https://cyclicity-cdl.svn.sourceforge.net/svnroot/cyclicity-cdl/trunk cyclicity-1.0.26
 tar zcf cyclicity-1.0.26.tgz cyclicity-1.0.26
 scp cyclicity-1.0.26.tgz gstark@ocarina:/data/yd/hw/tools/Packages
 
 -->
-<!-- Hhmts start --> Last modified: Mon Mar 30 12:43:16 EDT 2009 <!-- hhmts end -->
+<!-- Hhmts start --> Last modified: Thu Apr 23 18:08:08 BST 2009 <!-- hhmts end -->
 </body> </html>

@@ -238,6 +238,8 @@ public:
      struct t_se_engine_simulation_callback *simulation_add_callback( t_se_engine_simulation_callback_fn callback, void *handle, void *handle_b );
      void simulation_free_callback( struct t_se_engine_simulation_callback *scb );
      int cycle( void );
+     void simulation_assist_preclock_instance( void *engine_handle, int posedge, const char *clock_name );
+     void simulation_assist_clock_instance( void *engine_handle, int posedge, const char *clock_name );
      void simulation_assist_preclock_instance( void *engine_handle, int posedge );
      void simulation_assist_clock_instance( void *engine_handle, int posedge );
      void simulation_assist_reset_instance( void *engine_handle, int pass );

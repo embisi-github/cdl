@@ -191,16 +191,16 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
             {
                 if (vck->edges&1)
                 {
-                    globals.engine->simulation_assist_preclock_instance( vmi->engine_handle, 1 );
-                    globals.engine->simulation_assist_clock_instance( vmi->engine_handle, 1 );
+                    globals.engine->simulation_assist_preclock_instance( vmi->engine_handle, 1, vck->signal_name );
+                    globals.engine->simulation_assist_clock_instance( vmi->engine_handle, 1, vck->signal_name );
                 }
             }
             if (vck->value.value.integer==0)
             {
                 if (vck->edges&2)
                 {
-                    globals.engine->simulation_assist_preclock_instance( vmi->engine_handle, 0 );
-                    globals.engine->simulation_assist_clock_instance( vmi->engine_handle, 0 );
+                    globals.engine->simulation_assist_preclock_instance( vmi->engine_handle, 0, vck->signal_name );
+                    globals.engine->simulation_assist_clock_instance( vmi->engine_handle, 0, vck->signal_name );
                 }
             }
             WHERE_I_AM;

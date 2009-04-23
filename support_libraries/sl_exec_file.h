@@ -40,6 +40,15 @@
 
 /*a Types
  */
+/*t t_sl_exec_file_completion
+ */
+typedef struct t_sl_exec_file_completion
+{
+    t_sl_uint64 finished;
+    t_sl_uint64 passed;
+    t_sl_uint64 failed;
+    t_sl_uint64 return_code;
+} t_sl_exec_file_completion;
 
 /*t t_sl_exec_file_callback_fn
  */
@@ -347,6 +356,7 @@ extern const char *sl_exec_file_command_threadname( struct t_sl_exec_file_data *
 extern c_sl_error *sl_exec_file_error( struct t_sl_exec_file_data *file_data );
 extern c_sl_error *sl_exec_file_message( struct t_sl_exec_file_data *file_data );
 extern c_sl_error *sl_exec_file_message( struct t_sl_exec_file_data *file_data );
+extern t_sl_exec_file_completion *sl_exec_file_completion( struct t_sl_exec_file_data *file_data );
 
 /*a Wrapper
  */

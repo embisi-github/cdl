@@ -851,7 +851,7 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
                   defaulted = 1;
               }
           }
-          output( handle, -1, ") //synopsys parallel_case%s\n", (statement->data.switch_stmt.full && !defaulted)?" full_case":"" );
+          output( handle, -1, ") //synopsys parallel_case%s\n", (statement->data.switch_stmt.full && !defaulted)?"":"" ); // removed full case directive as people JUST DONT GET IT RIGHT
           output_documentation( model, output, handle, indent+1, statement->data.switch_stmt.expr_documentation, 0 );
           for (switem = statement->data.switch_stmt.items; switem; switem=switem->next_in_list)
           {
@@ -897,7 +897,7 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
                   output_push_usage_type( model, output, handle, md_usage_type_assert );
                   output( handle, indent+1, "default:\n");
                   output( handle, indent+2, "begin\n");
-                  output( handle, indent+2, "//ASSERT(0, \"Full switch statement did not cover all values\");\n");
+                  output( handle, indent+2, "$display($time,\"*********CDL ASSERTION FAILURE:%s:%s: Full switch statement did not cover all values\");\n", code_block->module->output_name, code_block->name);
                   output( handle, indent+2, "end\n");
                   output_pop_usage_type( model, output, handle );
                   output_set_usage_type( model, output, handle );

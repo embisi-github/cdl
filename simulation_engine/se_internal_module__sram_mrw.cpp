@@ -95,6 +95,8 @@ private:
     void *engine_handle;
     const char *filename;
     int num_ports;
+    int reset_type;
+    int reset_value;
     int address_width;
     int data_width; // in bits
     uint64 data_size;
@@ -199,11 +201,19 @@ c_sram_mrw::c_sram_mrw( class c_engine *eng, void *eng_handle )
     memory = NULL;
     filename = engine->get_option_string( engine_handle, "filename", "" );
     num_ports = engine->get_option_int( engine_handle, "num_ports", 1 );
+    reset_type = engine->get_option_int( engine_handle, "reset_type", 2 );
+    reset_value = engine->get_option_int( engine_handle, "reset_value", 0 );
     data_size = engine->get_option_int( engine_handle, "size", 0 );
     data_width = engine->get_option_int( engine_handle, "width", 0 );
     bits_per_enable = engine->get_option_int( engine_handle, "bits_per_enable", 0 );
     verbose = engine->get_option_int( engine_handle, "verbose", 0 );
     address_width = sl_log2(data_size);
+
+    if (verbose)
+    {
+        fprintf(stderr,"%s:Reset type %d value %x\n", engine->get_instance_name(engine_handle), reset_type, reset_value );
+    }
+
     if ((num_ports<1) || (num_ports>10))
     {
         engine->error->add_error( (void *)"se_internal_module__sram_mrw_instantiate", error_level_serious, error_number_general_error_sd, 0,
@@ -320,9 +330,12 @@ t_sl_error_level c_sram_mrw::reset( int pass )
         sl_mif_allocate_and_read_mif_file( engine->error,
                                            strcmp(filename,"")?filename:NULL,
                                            "se_internal_module__sram_mrw",
-                                           data_size,
-                                           data_width,
-                                           0,
+                                           0, // address offset
+                                           data_size, // max size
+                                           data_width, // bit size
+                                           0, // bit start
+                                           reset_type,
+                                           reset_value,
                                            (int **)&memory,
                                            NULL,
                                            NULL );

@@ -392,10 +392,16 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
     int num_outputs;
     int i, j;
 
+    if (!file_data)
+        return 0;
+
     result = 1;
     lib_data = NULL;
     num_inputs = 0;
     num_outputs = 0;
+    output_string = NULL;
+    input_string = NULL;
+    signal_prefix = NULL;
 
     if (engine_handle && clock)
     {
@@ -496,6 +502,34 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
             object_desc.methods = ef_output_object_methods;
             sl_exec_file_add_object_instance( file_data, &object_desc );
         }
+
+        if (engine_handle && clock)
+        {
+            const char *ef_completion_prefix;
+            t_sl_exec_file_completion *completion;
+            completion = sl_exec_file_completion( file_data );
+            ef_completion_prefix = get_option_string( engine_handle, "ef_completion_prefix", "<none>" );
+            if (strcmp(ef_completion_prefix,"<none>"))
+            {
+                char buffer[256];
+
+                snprintf( buffer, sizeof(buffer), "%sfinished", ef_completion_prefix );
+                register_output_signal( engine_handle, buffer, 1, &(completion->finished) );
+                register_output_generated_on_clock( engine_handle, buffer, clock, posedge );
+
+                snprintf( buffer, sizeof(buffer), "%spassed", ef_completion_prefix );
+                register_output_signal( engine_handle, buffer, 1, &(completion->passed) );
+                register_output_generated_on_clock( engine_handle, buffer, clock, posedge );
+
+                snprintf( buffer, sizeof(buffer), "%sfailed", ef_completion_prefix );
+                register_output_signal( engine_handle, buffer, 1, &(completion->failed) );
+                register_output_generated_on_clock( engine_handle, buffer, clock, posedge );
+
+                snprintf( buffer, sizeof(buffer), "%sreturn_code", ef_completion_prefix );
+                register_output_signal( engine_handle, buffer, 64, &(completion->return_code) );
+                register_output_generated_on_clock( engine_handle, buffer, clock, posedge );
+            }
+        }
     }
     if (lib_data)
     {
@@ -519,9 +553,10 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
         sl_exec_file_add_object_instance( file_data, &object_desc );
     }
 
-    if (engine_handle && clock) {
-	free(input_string);
-	free(output_string);
+    if (engine_handle && clock)
+    {
+        free(input_string);
+        free(output_string);
     }
     return result;
 }
@@ -1337,26 +1372,19 @@ int c_engine::cycle( void )
  */
 void c_engine::simulation_assist_preclock_instance( void *engine_handle, int posedge )
 {
-    t_engine_module_instance *emi;
-    t_engine_function *emi_sig;
-
-    emi = (t_engine_module_instance *)engine_handle;
-    for (emi_sig=emi->clock_fn_list;emi_sig;emi_sig=emi_sig->next_in_list)
-    {
-        if (posedge && emi_sig->data.clock.posedge_preclock_fn)
-        {
-            emi_sig->data.clock.posedge_preclock_fn( emi_sig->handle );
-        }
-        if ((!posedge) && emi_sig->data.clock.negedge_preclock_fn)
-        {
-            emi_sig->data.clock.negedge_preclock_fn( emi_sig->handle );
-        }
-    }
+    simulation_assist_preclock_instance( engine_handle, posedge, NULL );
 }
 
 /*f c_engine::simulation_assist_clock_instance
  */
 void c_engine::simulation_assist_clock_instance( void *engine_handle, int posedge )
+{
+    simulation_assist_clock_instance( engine_handle, posedge, NULL );
+}
+
+/*f c_engine::simulation_assist_preclock_instance
+ */
+void c_engine::simulation_assist_preclock_instance( void *engine_handle, int posedge, const char *clock_name )
 {
     t_engine_module_instance *emi;
     t_engine_function *emi_sig;
@@ -1364,13 +1392,40 @@ void c_engine::simulation_assist_clock_instance( void *engine_handle, int posedg
     emi = (t_engine_module_instance *)engine_handle;
     for (emi_sig=emi->clock_fn_list;emi_sig;emi_sig=emi_sig->next_in_list)
     {
-        if (posedge && emi_sig->data.clock.posedge_clock_fn)
+        if ((!clock_name) || (!strcmp(clock_name, emi_sig->name)))
         {
-            emi_sig->data.clock.posedge_clock_fn( emi_sig->handle );
+            if (posedge && emi_sig->data.clock.posedge_preclock_fn)
+            {
+                emi_sig->data.clock.posedge_preclock_fn( emi_sig->handle );
+            }
+            if ((!posedge) && emi_sig->data.clock.negedge_preclock_fn)
+            {
+                emi_sig->data.clock.negedge_preclock_fn( emi_sig->handle );
+            }
         }
-        if ((!posedge) && emi_sig->data.clock.negedge_clock_fn)
+    }
+}
+
+/*f c_engine::simulation_assist_clock_instance
+ */
+void c_engine::simulation_assist_clock_instance( void *engine_handle, int posedge, const char *clock_name )
+{
+    t_engine_module_instance *emi;
+    t_engine_function *emi_sig;
+
+    emi = (t_engine_module_instance *)engine_handle;
+    for (emi_sig=emi->clock_fn_list;emi_sig;emi_sig=emi_sig->next_in_list)
+    {
+        if ((!clock_name) || (!strcmp(clock_name, emi_sig->name)))
         {
-            emi_sig->data.clock.negedge_clock_fn( emi_sig->handle );
+            if (posedge && emi_sig->data.clock.posedge_clock_fn)
+            {
+                emi_sig->data.clock.posedge_clock_fn( emi_sig->handle );
+            }
+            if ((!posedge) && emi_sig->data.clock.negedge_clock_fn)
+            {
+                emi_sig->data.clock.negedge_clock_fn( emi_sig->handle );
+            }
         }
     }
 }

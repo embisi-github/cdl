@@ -245,7 +245,7 @@ typedef struct t_sl_exec_file_data
     char *id;
     char *filename;
     char *user;
-    int finished;
+    t_sl_exec_file_completion completion;
 
     t_sl_exec_file_register_state_fn register_state_fn;
     void *register_state_handle;
@@ -466,6 +466,11 @@ static void sl_exec_file_free_thread( t_sl_exec_file_data *file_data, t_sl_exec_
      if (thread->id)
           free(thread->id);
      free(thread);
+
+     if (!file_data->threads)
+     {
+         file_data->completion.finished = 1;
+     }
 }
 
 /*f sl_exec_file_free_threads
@@ -1724,7 +1729,10 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
      (*file_data_ptr)->filename = sl_str_alloc_copy( filename );
      (*file_data_ptr)->user = sl_str_alloc_copy( user );
 
-     (*file_data_ptr)->finished = 0;
+     (*file_data_ptr)->completion.finished = 0;
+     (*file_data_ptr)->completion.passed = 0;
+     (*file_data_ptr)->completion.failed = 0;
+     (*file_data_ptr)->completion.return_code = 0;
 
      (*file_data_ptr)->register_state_fn = NULL;
      (*file_data_ptr)->poststate_callbacks = NULL;
@@ -1905,7 +1913,11 @@ extern void sl_exec_file_reset( struct t_sl_exec_file_data *file_data )
     WHERE_I_AM;
     sl_exec_file_free_threads( file_data );
     sl_exec_file_create_thread( file_data, "main", SL_EXEC_FILE_MAX_STACK_DEPTH, 0 );
-    
+
+    file_data->completion.finished = 0;
+    file_data->completion.passed = 0;
+    file_data->completion.failed = 0;
+    file_data->completion.return_code = 0;
     {
         t_sl_exec_file_object_chain *obj;
         for (obj=file_data->object_chain; obj; obj=obj->next_in_list)
@@ -2534,6 +2546,8 @@ static int sl_exec_file_thread_execute( t_sl_exec_file_data *file_data, t_sl_exe
                                                      error_arg_type_line_number, i+1,
                                                      error_arg_type_none );
                       thread->line_number++;
+                      file_data->completion.passed = 1;
+                      file_data->completion.return_code = file_data->lines[i].args[0].integer;
                       break;
                   case cmd_fail: // Use malloc for the string as the exec_file may be freed before the error comes out
                       file_data->message->add_error( (void *)file_data->user,
@@ -2546,6 +2560,8 @@ static int sl_exec_file_thread_execute( t_sl_exec_file_data *file_data, t_sl_exe
                                                      error_arg_type_line_number, i+1,
                                                      error_arg_type_none );
                       thread->line_number++;
+                      file_data->completion.failed = 1;
+                      file_data->completion.return_code = file_data->lines[i].args[0].integer;
                       break;
                   case cmd_spawn:
                       sl_exec_file_create_thread( file_data, file_data->lines[i].args[0].p.string, file_data->lines[i].args[2].integer, file_data->lines[i].args[1].integer );
@@ -2577,8 +2593,8 @@ static int sl_exec_file_thread_execute( t_sl_exec_file_data *file_data, t_sl_exe
                                                      error_arg_type_malloc_filename, file_data->filename,
                                                      error_arg_type_line_number, i+1,
                                                      error_arg_type_none );
-                      file_data->finished = 1;
                       sl_exec_file_free_thread( file_data, thread );
+                      file_data->completion.finished = 1;
                       return 1;
                   case cmd_set_string:
                       sl_exec_file_set_string_variable( file_data, file_data->lines[i].args[0].p.string, file_data->lines[i].args[1].p.string );
@@ -3072,6 +3088,13 @@ extern c_sl_error *sl_exec_file_error( t_sl_exec_file_data *file_data )
 extern c_sl_error *sl_exec_file_message( t_sl_exec_file_data *file_data )
 {
      return file_data->message;
+}
+
+/*f sl_exec_file_completion
+ */
+extern t_sl_exec_file_completion *sl_exec_file_completion( t_sl_exec_file_data *file_data )
+{
+    return &(file_data->completion);
 }
 
 /*a Editor preferences and notes
