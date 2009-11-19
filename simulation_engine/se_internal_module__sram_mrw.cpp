@@ -36,6 +36,8 @@ Add error messages if reads are of an unwritten location
 /*a Defines
  */
 #define MAX_WIDTH (8)
+#define WHERE_I_AM {}
+#define WHERE_I_AM_VERBOSE {fprintf(stderr,"%s:%s:%d\n",__FILE__,__func__,__LINE__ );}
 
 /*a Types
  */
@@ -156,6 +158,7 @@ static t_sl_error_level sram_mrw_preclock( void *handle )
     c_sram_mrw *sram;
     t_clock_domain *cd;
     cd = (t_clock_domain *)handle;
+    WHERE_I_AM;
     sram = cd->mod;
     return sram->preclock_posedge_clock(cd);
 }
@@ -166,6 +169,7 @@ static t_sl_error_level sram_mrw_clock( void *handle )
 {
     c_sram_mrw *sram;
     t_clock_domain *cd;
+    WHERE_I_AM;
     cd = (t_clock_domain *)handle;
     sram = cd->mod;
     return sram->clock_posedge_clock(cd);
@@ -178,6 +182,7 @@ static t_sl_error_level sram_mrw_clock( void *handle )
 extern t_sl_error_level se_internal_module__sram_mrw_instantiate( c_engine *engine, void *engine_handle )
 {
     c_sram_mrw *mod;
+    WHERE_I_AM;
     mod = new c_sram_mrw( engine, engine_handle );
     if (!mod)
         return error_level_fatal;
@@ -191,6 +196,8 @@ extern t_sl_error_level se_internal_module__sram_mrw_instantiate( c_engine *engi
 c_sram_mrw::c_sram_mrw( class c_engine *eng, void *eng_handle )
 {
     int i;
+
+    WHERE_I_AM;
 
     engine = eng;
     engine_handle = eng_handle;
@@ -319,6 +326,7 @@ t_sl_error_level c_sram_mrw::delete_instance( void )
 */
 t_sl_error_level c_sram_mrw::reset( int pass )
 {
+    WHERE_I_AM;
     int i, j;
     if (pass==0)
     {
@@ -350,6 +358,7 @@ t_sl_error_level c_sram_mrw::reset( int pass )
             clock_domains[i].posedge_clock_state.write_enable[j] = 0;
             clock_domains[i].posedge_clock_state.data_out[j] = 0;
         }
+        //fprintf(stderr, "Reset: select %p\n",clock_domains[i].inputs.select);
     }
     return error_level_okay;
 }
@@ -359,6 +368,8 @@ t_sl_error_level c_sram_mrw::reset( int pass )
 t_sl_error_level c_sram_mrw::preclock_posedge_clock( t_clock_domain *cd )
 {
     int i;
+
+    WHERE_I_AM;
 
     memcpy( &(cd->next_posedge_clock_state), &(cd->posedge_clock_state), sizeof(t_sram_mrw_posedge_clock_state) );
 
@@ -387,6 +398,8 @@ t_sl_error_level c_sram_mrw::preclock_posedge_clock( t_clock_domain *cd )
 t_sl_error_level c_sram_mrw::clock_posedge_clock( t_clock_domain *cd )
 {
     memcpy( &(cd->posedge_clock_state), &(cd->next_posedge_clock_state), sizeof(t_sram_mrw_posedge_clock_state) );
+
+    WHERE_I_AM;
 
     if (!cd->posedge_clock_state.selected)
         return error_level_okay;

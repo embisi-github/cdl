@@ -23,6 +23,11 @@ setenv "mif_filename" "single_port_memory_in.mif"
 setenv "tv_filename" "single_port_memory.tv"
 read_hw_file single_port_memory_srw.hwex
 reset
+sim_message fred
+fred.send_int "sram" 16 0 10 1 2 3
+printf "Got response from SRAM of %d0% stuff" fred.response(1)
+printf "Text of response from SRAM is %s0%" fred.text(1)
+printf "Got response from SRAM of %d0%" env_int("bits_per_enable")
 step 1000
 
 # This is the second single-port test: 1024x16, rnw, with write enable

@@ -5647,7 +5647,7 @@ void c_model_descriptor::output_coverage_map( const char *filename )
                 file_length=i;
             }
         }
-        printf("Coverage map file %s of length %d being cut from %d to %d for module %s", filename, file_length, start_of_cut, end_of_cut, module->output_name );
+        printf("Coverage map file %s of length %d being cut from %d to %d for module %s\n", filename, file_length, start_of_cut, end_of_cut, module->output_name );
 
         f = fopen(filename, "w");
         if (!f)
@@ -5828,6 +5828,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
          options.vmod_mode = (sl_option_get_string( env_options, "be_vmod" )!=NULL);
          options.clock_gate_module_instance_type         = sl_option_get_string( env_options, "be_v_clkgate_type" );
          options.clock_gate_module_instance_extra_ports  = sl_option_get_string( env_options, "be_v_clkgate_ports" );
+         options.assert_delay_string                     = sl_option_get_string( env_options, "be_v_assert_delay" );
          options.verilog_comb_reg_suffix                 = sl_option_get_string( env_options, "be_v_comb_suffix" );
          options.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
          options.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
@@ -5890,6 +5891,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
          return 1;
      case option_be_v_clkgate_ports:
          *env_options = sl_option_list( *env_options, "be_v_clkgate_ports", optarg );
+         return 1;
+     case option_be_v_assert_delay:
+         *env_options = sl_option_list( *env_options, "be_v_assert_delay", optarg );
          return 1;
      case option_be_v_comb_suffix:
          *env_options = sl_option_list( *env_options, "be_v_comb_suffix", optarg );

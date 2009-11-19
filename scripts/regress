@@ -257,7 +257,11 @@ sub exec_test_in_dir {
             $trace->print("+");
         }
     }
-    $trace->print("\nCompleted\n");
+    $trace->print("\nEOF from child\n");
+    waitpid($child_pid,0);
+    my($child_result) = $? >> 8;
+    $results[++$#results] = "fail".$sep."Child process aborted with result $child_result" if ($child_result!=0);
+    $trace->print("\nCompleted with error code $child_result\n");
     {
         lock($abort);
         if ($abort) {

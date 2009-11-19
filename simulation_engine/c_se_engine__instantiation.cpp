@@ -409,11 +409,13 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      emi->clock_fn_list = NULL;
      emi->comb_fn_list = NULL;
      emi->propagate_fn_list = NULL;
+     emi->prepreclock_fn_list = NULL;
      emi->input_list = NULL;
      emi->output_list = NULL;
      emi->state_desc_list = NULL;
      emi->coverage_desc = NULL;
      emi->checkpoint_fn_list = NULL;
+     emi->message_fn_list = NULL;
      emi->log_event_list = NULL;
 
      emi->sdl_to_view = NULL;
@@ -1287,6 +1289,14 @@ t_sl_error_level c_engine::check_connectivity( void )
                                        error_arg_type_malloc_string, emi->full_name,
                                        error_arg_type_malloc_string, emi_sig->name, 
                                        error_arg_type_none );
+                 }
+                 else
+                 {
+                     (*emi_sig->data.input.value_ptr_ptr) = NULL;
+                     //error->add_error( (void *)"generic_logic", error_level_info, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
+                     //                  error_arg_type_malloc_string, emi->full_name,
+                     //                  error_arg_type_malloc_string, emi_sig->name, 
+                     //                  error_arg_type_none );
                  }
              }
              for (emi_sig=emi->output_list;emi_sig;emi_sig=emi_sig->next_in_list)

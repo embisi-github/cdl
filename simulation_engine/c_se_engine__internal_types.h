@@ -53,12 +53,15 @@ typedef struct t_engine_function
         struct {
             t_engine_callback_fn propagate_fn; // Callback for propagate inputs function; there should be just one per module instance
         } propagate;
+        struct {
+            t_engine_callback_fn prepreclock_fn; // Callback for prepreclock function; there should be just one per module instance
+        } prepreclock;
         struct
         {
-            t_engine_callback_fn posedge_prepreclock_fn; // Callbacks for clock functions; there should be just one of each type per clock on the module instance
+            t_engine_callback_fn posedge_prepreclock_fn;
             t_engine_callback_fn posedge_preclock_fn;
             t_engine_callback_fn posedge_clock_fn;
-            t_engine_callback_fn negedge_prepreclock_fn; // Callbacks for clock functions; there should be just one of each type per clock on the module instance
+            t_engine_callback_fn negedge_prepreclock_fn;
             t_engine_callback_fn negedge_preclock_fn;
             t_engine_callback_fn negedge_clock_fn;
             struct t_engine_clock *driven_by; // Main simulation engine clock that drives this clock
@@ -144,11 +147,11 @@ typedef struct t_engine_signal_reference
  */
 typedef struct t_engine_clock_fns
 {
-    t_engine_function_list *prepreclock;
+    t_engine_function_list *prepreclock; // Copied from module instance in the scheduler
     t_engine_function_list *preclock;
     t_engine_function_list *clock;
     t_engine_function_list *comb;
-    t_engine_function_list *propagate;
+    t_engine_function_list *propagate; // Copied from module instance in the scheduler
 } t_engine_clock_fns;
 
 /*t t_engine_clock
@@ -198,11 +201,13 @@ typedef struct t_engine_module_instance
     t_engine_function *clock_fn_list;
     t_engine_function *comb_fn_list;
     t_engine_function *propagate_fn_list;
+    t_engine_function *prepreclock_fn_list;
     t_engine_function *input_list;
     t_engine_function *output_list;
     t_engine_state_desc_list *state_desc_list;
     t_engine_coverage_desc *coverage_desc;
     t_engine_function_list *checkpoint_fn_list;
+    t_engine_function_list *message_fn_list;
     struct t_engine_log_event_array *log_event_list;
 
     t_engine_state_desc_list *sdl_to_view;

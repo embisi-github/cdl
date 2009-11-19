@@ -25,6 +25,19 @@
 #define BITS_TO_INTS(size) (((size-1)/32)+1)
 #define BITS_TO_BYTES(size) (((size-1)/8)+1)
 
+/*b Visual studio compatibility
+ */
+// For Windows, which does not support snprintf, remap it
+#ifdef _MSC_VER 
+#ifndef snprintf
+#define snprintf _snprintf
+#endif
+#ifndef vsnprintf
+#define vsnprintf _vsnprintf
+#endif
+#define __func__ __FUNCTION__
+#endif
+
 /*a Types
  */
 /*t uint and ints

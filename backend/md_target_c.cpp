@@ -18,14 +18,15 @@ Added
 
 The theory is that we should have:
 
-a) a prepreclock function for each clock - INPUTS ARE NOT VALID:
+a) a prepreclock function - INPUTS ARE NOT VALID:
 this would clear 'inputs copied', 'clocks at this step'
 
-b) preclock function - INPUTS ARE VALID:
-if (!inputs copied) {copy inputs to input_state; inputs_copied=1;}
+b) preclock function for each clock about to fire- INPUTS ARE VALID:
+if (!inputs copied) {capture inputs to input_state; inputs_copied=1;}
 set bit for 'clocks at this step'
 
 c) clock function - INPUTS ARE NOT VALID, NON-COMB OUTPUTS MUST BE VALID ON EXIT
+Propagate from inputs
 Do all internal combs and set inputs to all instances and flops (current preclock functionality)
   calls some submodule comb functions if they are purely combinatorial
 set bits for gated clocks derived from 'clocks at this step'
@@ -56,6 +57,7 @@ invoke_submodule_clock_set_function( submodule_clock_set, int *bitmask, function
 These functions can then be split using pthreads by the simulation engine by providing an affinity, splitting, and doing a join
 
  */
+
 /*a Includes
  */
 #include <stdio.h>
@@ -206,7 +208,8 @@ static void output_defines( c_model_descriptor *model, t_md_output_fn output, vo
         output( handle, 0, "#define COVER_START_UNCOND { if (0) {  \n" );
         output( handle, 0, "#define COVER_END                   }}\n" );
     }
-    output( handle, 0, "#define WHERE_I_AM {fprintf(stderr,\"%%s:%%d\\n\",__func__,__LINE__ );}\n");
+    output( handle, 0, "#define WHERE_I_AM_VERBOSE {fprintf(stderr,\"%%s:%%s:%%p:%%d\\n\",__FILE__,__func__,this,__LINE__ );}\n");
+    output( handle, 0, "#define WHERE_I_AM {}\n");
     output( handle, 0, "#define DEFINE_DUMMY_INPUT static t_sl_uint64 dummy_input[16]={0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0};\n");
     output( handle, 0, "\n");
 }
@@ -292,10 +295,9 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
 
     /*b Output input storage type
      */
-#ifdef INPUT_STORAGE
     output( handle, 0, "/*t t_%s_input_state\n", module->output_name);
     output( handle, 0, "*/\n");
-    output( handle, 0, "typedef struct t_%s_inputs\n", module->output_name);
+    output( handle, 0, "typedef struct t_%s_input_state\n", module->output_name);
     output( handle, 0, "{\n");
     for (signal=module->inputs; signal; signal=signal->next_in_list)
     {
@@ -306,7 +308,6 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     }
     output( handle, 0, "} t_%s_input_state;\n", module->output_name );
     output( handle, 0, "\n");
-#endif
 
     /*b Output combinatorials storage type
      */ 
@@ -419,14 +420,28 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
      */ 
     output( handle, 0, "/*t c_%s\n", module->output_name );
     output( handle, 0, "*/\n");
+    output( handle, 0, "class c_%s;\n", module->output_name );
+    output( handle, 0, "typedef t_sl_error_level t_%s_clock_callback_fn( void );\n", module->output_name );
+    output( handle, 0, "typedef t_%s_clock_callback_fn (c_%s::*t_c_%s_clock_callback_fn);\n", module->output_name, module->output_name, module->output_name );
+    output( handle, 0, "typedef struct\n");
+    output( handle, 0, "{\n");
+    output( handle, 1, "t_c_%s_clock_callback_fn preclock;\n", module->output_name );
+    output( handle, 1, "t_c_%s_clock_callback_fn clock;\n", module->output_name );
+    output( handle, 0, "} t_c_%s_clock_callback_fns;\n", module->output_name );
     output( handle, 0, "class c_%s\n", module->output_name );
     output( handle, 0, "{\n");
     output( handle, 0, "public:\n");
     output( handle, 1, "c_%s( class c_engine *eng, void *eng_handle );\n", module->output_name);
     output( handle, 1, "~c_%s();\n", module->output_name);
+    output( handle, 1, "t_c_%s_clock_callback_fns clocks_fired[1000];\n", module->output_name);
     output( handle, 1, "t_sl_error_level delete_instance( void );\n" );
     output( handle, 1, "t_sl_error_level reset( int pass );\n" );
-    output( handle, 1, "t_sl_error_level evaluate_combinatorials( void );\n" );
+    output( handle, 1, "t_sl_error_level capture_inputs( void );\n" );
+    output( handle, 1, "t_sl_error_level propagate_inputs( void );\n" );
+    output( handle, 1, "t_sl_error_level propagate_state( void );\n" );
+    output( handle, 1, "t_sl_error_level prepreclock( void );\n" );
+    output( handle, 1, "t_sl_error_level preclock( t_c_%s_clock_callback_fn preclock, t_c_%s_clock_callback_fn clock );\n", module->output_name, module->output_name, module->output_name );
+    output( handle, 1, "t_sl_error_level clock( void );\n" );
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
         for (edge=0; edge<2; edge++)
@@ -450,11 +465,33 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     }
     output( handle, 0, "private:\n");
     output( handle, 1, "c_engine *engine;\n");
+    output( handle, 1, "int clocks_to_call;\n" );
     output( handle, 1, "void *engine_handle;\n");
+    output( handle, 1, "int inputs_captured;\n" );
+
+    for (clk=module->clocks; clk; clk=clk->next_in_list)
+    {
+        for (edge=0; edge<2; edge++)
+        {
+            if (clk->data.clock.edges_used[edge])
+            {
+                t_md_signal *clk2;
+                for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
+                {
+                    if (clk2->data.clock.clock_ref == clk)
+                    {
+                        if (clk2->data.clock.edges_used[edge])
+                        {
+                            output( handle, 1, "int clock_enable__%s_%s;\n", edge_name[edge], clk2->name );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     output( handle, 1, "t_%s_inputs inputs;\n", module->output_name );
-#ifdef INPUT_STORAGE
     output( handle, 1, "t_%s_input_state input_state;\n", module->output_name );
-#endif
     output( handle, 1, "t_%s_combinatorials combinatorials;\n", module->output_name);
     output( handle, 1, "t_%s_nets nets;\n", module->output_name);
     for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
@@ -770,21 +807,40 @@ static void output_wrapper_functions( c_model_descriptor *model, t_md_module *mo
     /* Provide this for everything
        if ( (module->combinatorial_component) || (module->module_instances) )
     */
-    if (1)
+    output( handle, 0, "/*f %s_combinatorial_fn\n", module->output_name );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "static t_sl_error_level %s_combinatorial_fn( void *handle )\n", module->output_name );
+    output( handle, 0, "{\n");
+    output( handle, 1, "c_%s *mod;\n", module->output_name);
+    output( handle, 1, "mod = (c_%s *)handle;\n", module->output_name);
+    output( handle, 1, "mod->capture_inputs();\n" );
+    output( handle, 1, "return mod->propagate_inputs();\n" );
+    output( handle, 0, "}\n");
+    output( handle, 0, "\n");
+
+    if (module->clocks)
     {
-        output( handle, 0, "/*f %s_combinatorial_fn\n", module->output_name );
+        output( handle, 0, "/*f %s_prepreclock_fn\n", module->output_name );
         output( handle, 0, "*/\n");
-        output( handle, 0, "static t_sl_error_level %s_combinatorial_fn( void *handle )\n", module->output_name );
+        output( handle, 0, "static t_sl_error_level %s_prepreclock_fn( void *handle )\n", module->output_name );
         output( handle, 0, "{\n");
         output( handle, 1, "c_%s *mod;\n", module->output_name);
         output( handle, 1, "mod = (c_%s *)handle;\n", module->output_name);
-#ifdef INPUT_STORAGE
-        output( handle, 1, "mod->capture_inputs();\n" );
-#endif
-        output( handle, 1, "return mod->evaluate_combinatorials();\n" );
+        output( handle, 1, "return mod->prepreclock();\n" );
+        output( handle, 0, "}\n");
+        output( handle, 0, "\n");
+
+        output( handle, 0, "/*f %s_clock_fn\n", module->output_name );
+        output( handle, 0, "*/\n");
+        output( handle, 0, "static t_sl_error_level %s_clock_fn( void *handle )\n", module->output_name );
+        output( handle, 0, "{\n");
+        output( handle, 1, "c_%s *mod;\n", module->output_name);
+        output( handle, 1, "mod = (c_%s *)handle;\n", module->output_name);
+        output( handle, 1, "return mod->clock();\n" );
         output( handle, 0, "}\n");
         output( handle, 0, "\n");
     }
+
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
         if (!clk->data.clock.clock_ref) // Not a gated clock - they do not need static functions
@@ -799,21 +855,10 @@ static void output_wrapper_functions( c_model_descriptor *model, t_md_module *mo
                     output( handle, 0, "{\n");
                     output( handle, 1, "c_%s *mod;\n", module->output_name);
                     output( handle, 1, "mod = (c_%s *)handle;\n", module->output_name);
-#ifdef INPUT_STORAGE
-                    output( handle, 1, "mod->capture_inputs();\n" );
-                    output( handle, 1, "return;\n" );
-#else
-                    output( handle, 1, "return mod->preclock_%s_%s();\n", edge_name[edge], clk->name );
-#endif
-                    output( handle, 0, "}\n");
-                    output( handle, 0, "\n");
-                    output( handle, 0, "/*f %s_clock_%s_%s_fn\n", module->output_name, edge_name[edge], clk->name );
-                    output( handle, 0, "*/\n");
-                    output( handle, 0, "static t_sl_error_level %s_clock_%s_%s_fn( void *handle )\n", module->output_name, edge_name[edge], clk->name );
-                    output( handle, 0, "{\n");
-                    output( handle, 1, "c_%s *mod;\n", module->output_name);
-                    output( handle, 1, "mod = (c_%s *)handle;\n", module->output_name);
-                    output( handle, 1, "return mod->clock_%s_%s();\n", edge_name[edge], clk->name );
+                    output( handle, 1, "mod->preclock( &c_%s::preclock_%s_%s, &c_%s::clock_%s_%s );\n",
+                            module->output_name, edge_name[edge], clk->name,
+                            module->output_name, edge_name[edge], clk->name );
+                    output( handle, 1, "return error_level_okay;\n" );
                     output( handle, 0, "}\n");
                     output( handle, 0, "\n");
                 }
@@ -859,6 +904,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
     if (1)
     {
         output( handle, 1, "memset(&inputs, 0, sizeof(inputs));\n" ); 
+        output( handle, 1, "memset(&input_state, 0, sizeof(input_state));\n" ); 
         output( handle, 1, "memset(&combinatorials, 0, sizeof(combinatorials));\n" ); 
         output( handle, 1, "memset(&nets, 0, sizeof(nets));\n" ); 
         for (clk=module->clocks; clk; clk=clk->next_in_list)
@@ -877,17 +923,18 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
 
     /*b Register combinatorial, input propagation and clock/preclock functions
      */
-    if (module->combinatorial_component) // If there is a combinatorial component to this module, then evaluate_combintaorials will work wonders
+    if (module->combinatorial_component) // If there is a combinatorial component to this module, then propagate_inputs will work wonders
     {
         output( handle, 1, "engine->register_comb_fn( engine_handle, (void *)this, %s_combinatorial_fn );\n", module->output_name );
     }
     /* GJS Feb 2008 - propagate is used to get all signals valid for display
        This is true of all modules - they need to be called if any of their internal logic is combinatorial for signals
-       else if (module->module_instances) // If there are submodules then the inputs to them should be valid after calling evaluate_combinatorials; however, if we are combinatorial we will have already propagated. Note this is overkill, but it works.
+       else if (module->module_instances) // If there are submodules then the inputs to them should be valid after calling propagate_inputs; however, if we are combinatorial we will have already propagated. Note this is overkill, but it works.
     */
-    if (1)
+    output( handle, 1, "engine->register_propagate_fn( engine_handle, (void *)this, %s_combinatorial_fn );\n", module->output_name );
+    if (module->clocks)
     {
-        output( handle, 1, "engine->register_propagate_fn( engine_handle, (void *)this, %s_combinatorial_fn );\n", module->output_name );
+        output( handle, 1, "engine->register_prepreclock_fn( engine_handle, (void *)this, %s_prepreclock_fn );\n", module->output_name );
     }
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
@@ -897,18 +944,26 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             {
                 if (clk->data.clock.edges_used[0])
                 {
-                    output( handle, 1, "engine->register_clock_fns( engine_handle, (void *)this, \"%s\", %s_preclock_%s_%s_fn, %s_clock_%s_%s_fn, %s_preclock_%s_%s_fn, %s_clock_%s_%s_fn );\n", clk->name, module->output_name, edge_name[0], clk->name, module->output_name, edge_name[0], clk->name,   module->output_name, edge_name[1], clk->name, module->output_name, edge_name[1], clk->name );
+                    output( handle, 1, "engine->register_preclock_fns( engine_handle, (void *)this, \"%s\", %s_preclock_%s_%s_fn, %s_preclock_%s_%s_fn );\n", clk->name,
+                            module->output_name, edge_name[0], clk->name, 
+                            module->output_name, edge_name[1], clk->name );
+                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_posedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
+                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_negedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
                 }
                 else
                 {
-                    output( handle, 1, "engine->register_clock_fns( engine_handle, (void *)this, \"%s\", NULL, NULL, %s_preclock_%s_%s_fn, %s_clock_%s_%s_fn );\n", clk->name, module->output_name, edge_name[1], clk->name, module->output_name, edge_name[1], clk->name );
+                    output( handle, 1, "engine->register_preclock_fns( engine_handle, (void *)this, \"%s\", (t_engine_callback_fn) NULL, %s_preclock_%s_%s_fn );\n", clk->name,
+                            module->output_name, edge_name[1], clk->name );
+                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_negedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
                 }
             }
             else
             {
                 if (clk->data.clock.edges_used[0])
                 {
-                    output( handle, 1, "engine->register_clock_fns( engine_handle, (void *)this, \"%s\", %s_preclock_%s_%s_fn, %s_clock_%s_%s_fn );\n", clk->name, module->output_name, edge_name[0], clk->name, module->output_name, edge_name[0], clk->name );
+                    output( handle, 1, "engine->register_preclock_fns( engine_handle, (void *)this, \"%s\", %s_preclock_%s_%s_fn, (t_engine_callback_fn) NULL );\n", clk->name,
+                            module->output_name, edge_name[0], clk->name );
+                    output( handle, 1, "engine->register_clock_fn( engine_handle, (void *)this, \"%s\", engine_sim_function_type_posedge_clock, %s_clock_fn );\n", clk->name, module->output_name );
                 }
             }
         }
@@ -996,7 +1051,10 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             {
                 instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
                 output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &combinatorials.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name);
-                output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
+                if (signal->data.output.derived_combinatorially )
+                {
+                    output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
+                }
                 output( handle, 1, "combinatorials.%s = 0;\n", instance->output_name);
             }
         }
@@ -1049,6 +1107,11 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             t_md_module_instance_output_port *output_port;
             for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
             {
+                int is_comb = input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially;
+                output( handle, 1, "{ int comb, size;\n");
+                output( handle, 2, "engine->submodule_input_type( instance_%s.handle, \"%s\", &comb, &size );\n", module_instance->name, input_port->module_port_instance->output_name );
+                output( handle, 2, "if (comb !=%d){ fprintf(stderr,\"Comb of input %s.%s.%s is %%d expected %d\\n\", comb); }\n", is_comb, module->output_name, module_instance->name, input_port->module_port_instance->output_name, is_comb );
+                output( handle, 1, "}\n");
                 output( handle, 1, "engine->submodule_drive_input( instance_%s.handle, \"%s\", &instance_%s.inputs.%s, %d );\n",
                         module_instance->name, input_port->module_port_instance->output_name,
                         module_instance->name, input_port->module_port_instance->output_name,
@@ -1056,16 +1119,23 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             }
             for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
             {
-                if (output_port->lvar->instance->reference.data.signal->data.net.output_ref)
+                int used_comb = output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially;
+                output( handle, 1, "{ int comb, size;\n");
+                output( handle, 2, "engine->submodule_output_type( instance_%s.handle, \"%s\", &comb, &size );\n", module_instance->name, output_port->module_port_instance->output_name );
+                output( handle, 2, "if (comb !=%d){ fprintf(stderr,\"Comb of output %s.%s.%s is %%d expected %d\\n\", comb); }\n", used_comb, module->output_name, module_instance->name, output_port->module_port_instance->output_name, used_comb );
+                output( handle, 1, "}\n");
+                if (output_port->lvar->instance->reference.data.signal->data.net.output_ref) // If the submodule directly drives an output wholly
                 {
                     output( handle, 1, "engine->submodule_output_drive_module_output( instance_%s.handle, \"%s\", engine_handle, \"%s\" );\n",
                             module_instance->name, output_port->module_port_instance->output_name,
                             output_port->lvar->instance->output_name );
                 }
+                // Drive to this module's data instance_SUB.outputs.SUBPORT
                 output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &instance_%s.outputs.%s, %d );\n",
                         module_instance->name, output_port->module_port_instance->output_name,
                         module_instance->name, output_port->module_port_instance->output_name,
                         output_port->module_port_instance->type_def.data.width );
+                // Drive to this module's data nets.NETNAME
                 if (output_port->lvar->instance->driven_in_parts)
                 {
                     //printf("If lvar is partially driven, we don't want the net driven here\n");
@@ -1205,11 +1275,7 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
         switch (signal->type)
         {
         case md_signal_type_input:
-#ifdef INPUT_STORAGE
-            output( handle, -1, "input_state.%s[0]", lvar->instance->output_name );
-#else
-            output( handle, -1, "inputs.%s[0]", lvar->instance->output_name );
-#endif
+            output( handle, -1, "input_state.%s", lvar->instance->output_name );
             break;
         case md_signal_type_output:
             if (signal->data.output.combinatorial_ref)
@@ -2016,7 +2082,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         }
     }
     output( handle, 2, "}\n");
-    output( handle, 1, "if (pass>0) evaluate_combinatorials(); // Dont call eval combs on first pass as that may depend on undefined inputs; wait for second pass\n");
+    output( handle, 1, "if (pass>0) {capture_inputs(); propagate_inputs(); propagate_state();} // Dont call capture_inputs on first pass as they may be invalid; wait for second pass\n");
     for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
     {
         output( handle, 1, "engine->submodule_call_reset( instance_%s.handle, pass );\n", module_instance->name );
@@ -2112,13 +2178,32 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         }
     }
 
-    /*b Output the combinatorial function
-      For the combinatorial function all inputs are valid, and on completion all outputs must be valid
-      We currently abuse this function terribly, calling it from everywhere. This is slow, but it works.
+    /*b Output the function to capture inputs
      */
-    output( handle, 0, "/*f c_%s::evaluate_combinatorials\n", module->output_name );
+    output( handle, 0, "/*f c_%s::capture_inputs\n", module->output_name );
     output( handle, 0, "*/\n");
-    output( handle, 0, "t_sl_error_level c_%s::evaluate_combinatorials( void )\n", module->output_name );
+    output( handle, 0, "t_sl_error_level c_%s::capture_inputs( void )\n", module->output_name );
+    output( handle, 0, "{\n");
+    for (signal=module->inputs; signal; signal=signal->next_in_list)
+    {
+        for (i=0; i<signal->instance_iter->number_children; i++)
+        {
+            instance = signal->instance_iter->children[i];
+            output( handle, 1, "input_state.%s = inputs.%s[0];\n", instance->output_name, instance->output_name );
+        }
+    }
+    output( handle, 1, "return error_level_okay;\n");
+    output( handle, 0, "}\n");
+
+    /*b Output the function to propagate inputs/state to internal combs, through submodules, and through again to submodule inputs
+      This function currently assumes all inputs could have changed and so can all internal state and submodule outputs
+      In the future this function could be split in to more, each dependent on a subset of those
+      Note that if a submodule is combinatorial AND clocked, then there may be a situation where:
+        input -> sub.a_in -> sub.b_out -> logic -> sub.c_in; i.e. the c_in for the submodule has to be set AFTER the submodule is called as well as before
+     */
+    output( handle, 0, "/*f c_%s::propagate_inputs\n", module->output_name );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "t_sl_error_level c_%s::propagate_inputs( void )\n", module->output_name );
     output( handle, 0, "{\n");
 
     /*b Handle asynchronous reset
@@ -2163,6 +2248,28 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         module_instance->output_args[0] = 0;
     }
 
+    /*b   Assign outputs of every submodule that is clocked
+     */
+    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    {
+        /*b If module_instance is not combinatorial or has been done, skip to next - NOTE WE CURRENTLY DO IT FOR ALL MODULES
+         */
+        if ( (!module_instance->module_definition) ||
+             (0 && module_instance->module_definition->combinatorial_component) ) // Do it for every submodule output and then a part-comb, part-clocked module will have outputs it drives correct also - no need if PURELY comb
+        {
+            continue;
+        }
+
+        t_md_module_instance_output_port *output_port;
+        for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
+        {
+            if (output_port->lvar->instance->driven_in_parts)
+            {
+                output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
+            }
+        }
+    }
+
     /*b   Run through combinatorials and nets to see if we can output the code or module instances for one (are all its dependencies done?) - and repeat until we have nothing left
      */
     more_to_output = 1;
@@ -2203,7 +2310,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                         break;
                     }
                 }
-                if (reference)
+                if (reference) // unsatisfied dependency
                 {
                     more_to_output=1;
                     continue;
@@ -2291,50 +2398,30 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
             /*b Next module instance
              */
         }
-        if (did_output && more_to_output)
+    }
+
+    /*b Set inputs to all clocked modules EVEN IF THEY HAVE BEEN OUTPUT ALREADY
+     */
+    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    {
+        /*b If module_instance is not purely clocked then it has already been done
+         */
+        if ( (!module_instance->module_definition) )
         {
             continue;
         }
 
-        /*b So all modules Check all module instances which have been skipped (should just be purely clocked submodules) and ensure their inputs are valid
+        /*b Set inputs
          */
-        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+        for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
         {
-            /*b If module_instance has been done, skip to next
-             */
-            if ( (!module_instance->module_definition) ||
-                 (module_instance->output_args[0] & 1) )
-            {
-                continue;
-            }
-
-            /*b Set inputs
-             */
-            for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
-            {
-                if (1||input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially)
-                {
-                    output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-                    output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
-                    output( handle, -1, ";\n" );
-                }
-            }
-            output( handle, 1, "engine->submodule_call_propagate( instance_%s.handle );\n", module_instance->name );
-            if (module_instance->module_definition)
-            {
-                t_md_module_instance_output_port *output_port;
-                for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
-                {
-                    if (output_port->lvar->instance->driven_in_parts)
-                    {
-                        output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
-                    }
-                }
-            }
-
-            /*b Next module instance
-             */
+            output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+            output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
+            output( handle, -1, ";\n" );
         }
+
+        /*b Next module instance
+         */
     }
 
     /*b More to output? If so, warn!
@@ -2401,7 +2488,16 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
 
             /*b Warn
              */
-            output( handle, 1, "//Module instance %s has dependents which seem cyclic\n", module_instance->name );
+            {
+                char buffer[256];
+                output( handle, 1, "//Module instance %s has dependents which seem cyclic\n", module_instance->name );
+
+                snprintf(buffer,sizeof(buffer),"DESIGN ERROR: circular dependency found for module %s:", module_instance->name );
+                model->error->add_error( module, error_level_info, error_number_sl_message, error_id_be_backend_message,
+                                         error_arg_type_malloc_string, buffer,
+                                         error_arg_type_malloc_filename, module->output_name,
+                                         error_arg_type_none );
+            }
         }
     }
 
@@ -2411,33 +2507,95 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 0, "}\n");
     output( handle, 0, "\n");
 
-    /*b Output the clocked functions
-      On entry to preclocked the inputs to the module we are outputting are correct,
-      but we have to propagate to the inputs of submodules as required
-      On entry to the clocked function all inputs are invalid, and only our 'next_state'
-      array is correct, so we just copy that. Same for all submodules.
+    /*b Output the function to propagate from state to outputs and internal combs, through submodules
      */
+    output( handle, 0, "/*f c_%s::propagate_state\n", module->output_name );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "t_sl_error_level c_%s::propagate_state( void )\n", module->output_name );
+    output( handle, 0, "{\n");
+    output( handle, 1, "return propagate_inputs();\n");
+    output( handle, 0, "}\n");
+
+    /*b Output the clocked functions
+      On entry to preclocked the inputs to the module we are outputting are correct, and they should be captured
+      On entry to the clocked function the recorded input state is valid
+     */
+    if (module->clocks)
+    {
+        output( handle, 0, "/*f c_%s::prepreclock\n", module->output_name );
+        output( handle, 0, "*/\n");
+        output( handle, 0, "t_sl_error_level c_%s::prepreclock( void )\n", module->output_name );
+        output( handle, 0, "{\n");
+        output( handle, 1, "WHERE_I_AM;\n");
+        output( handle, 1, "inputs_captured=0;\n");
+        output( handle, 1, "clocks_to_call=0;\n");
+        output( handle, 1, "return error_level_okay;\n");
+        output( handle, 0, "}\n\n");
+
+        output( handle, 0, "/*f c_%s::preclock\n", module->output_name );
+        output( handle, 0, "*/\n");
+        output( handle, 0, "t_sl_error_level c_%s::preclock( t_c_%s_clock_callback_fn preclock, t_c_%s_clock_callback_fn clock )\n", module->output_name, module->output_name, module->output_name );
+        output( handle, 0, "{\n");
+        output( handle, 1, "WHERE_I_AM;\n");
+        output( handle, 1, "if (!inputs_captured) { capture_inputs(); inputs_captured++; }\n" );
+        output( handle, 1, "if (clocks_to_call>%d)\n", 16 );
+        output( handle, 1, "{\n" );
+        output( handle, 2, "fprintf(stderr,\"BUG - too many preclock calls after prepreclock\\n\");\n");
+        output( handle, 1, "} else {\n" );
+        output( handle, 2, "clocks_fired[clocks_to_call].preclock=preclock;\n");
+        output( handle, 2, "clocks_fired[clocks_to_call].clock=clock;\n");
+        output( handle, 2, "clocks_to_call++;\n");
+        output( handle, 1, "}\n" );
+        output( handle, 1, "return error_level_okay;\n" );
+        output( handle, 0, "}\n");
+
+        output( handle, 0, "/*f c_%s::clock\n", module->output_name );
+        output( handle, 0, "*/\n");
+        output( handle, 0, "t_sl_error_level c_%s::clock( void )\n", module->output_name );
+        output( handle, 0, "{\n");
+        output( handle, 1, "WHERE_I_AM;\n");
+        output( handle, 1, "if (clocks_to_call>0)\n" );
+        output( handle, 1, "{\n" );
+        output( handle, 2, "propagate_inputs();\n" ); // At this point all submodules should have valid inputs
+        // Prepreclock submodules
+        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+        {
+            output( handle, 2, "engine->submodule_call_prepreclock( instance_%s.handle );\n", module_instance->name );
+        }
+        output( handle, 2, "int i;\n" );
+        // preclock submodules that depend on the clock - done in individual preclock functions
+        output( handle, 2, "for (i=0; i<clocks_to_call; i++)\n" );
+        output( handle, 3, "(this->*clocks_fired[i].preclock)();\n" );
+        // clock submodules that depend on the clock - done in individual clock functions - their outputs will be valid after that
+        output( handle, 2, "for (i=0; i<clocks_to_call; i++)\n" );
+        output( handle, 3, "(this->*clocks_fired[i].clock)();\n" );
+        output( handle, 1, "}\n" );
+        output( handle, 1, "propagate_state();\n" );
+        output( handle, 1, "clocks_to_call=0;\n");
+        output( handle, 1, "return error_level_okay;\n");
+        output( handle, 0, "}\n");
+    }
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
         for (edge=0; edge<2; edge++)
         {
             if (clk->data.clock.edges_used[edge])
             {
+                // For clock_will_fire just need to record which functions to call
+                // For a clock preclock function, inputs will already have been propagated, as will state, so only need to do 'next_state' functions - can fire log events too
                 output( handle, 0, "/*f c_%s::preclock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
                 output( handle, 0, "*/\n");
                 output( handle, 0, "t_sl_error_level c_%s::preclock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
                 output( handle, 0, "{\n");
                 output( handle, 1, "memcpy( &next_%s_%s_state, &%s_%s_state, sizeof(%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
-                if (!clk->data.clock.clock_ref) // Not a gated clock - gated clocks are called from non-gated clocks only, so this will have been called in that routine
-                {
-                    output( handle, 1, "evaluate_combinatorials();\n"); // This removes the needs for submodule inputs to be assigned below for submodules that are called in evaluate_combinatorials
-                }
 
+                // Output code for this clock for this module - effects next state only
                 for (code_block = module->code_blocks; code_block; code_block=code_block->next_in_list)
                 {
                     output_simulation_methods_code_block( model, output, handle, code_block, clk, edge, NULL );
                 }
 
+                // Preclock submodules using this clock
                 for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
                 {
                     if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
@@ -2446,21 +2604,13 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                         {
                             if (clock_port->local_clock_signal==clk)
                             {
-                                for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
-                                {
-                                    if (0 && !input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially) // eval combinatorials does this - it preps all inputs to all submodules
-                                    {
-                                        output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-                                        output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
-                                        output( handle, -1, ";\n" );
-                                    }
-                                }
                                 output( handle, 1, "engine->submodule_call_preclock( instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
                             }
                         }
                     }
                 }
 
+                // Determine clock gate enables for every gated version of this clock
                 {
                     t_md_signal *clk2;
                     for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
@@ -2469,42 +2619,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                         {
                             if (clk2->data.clock.edges_used[edge])
                             {
-                                if (clk2->data.clock.gate_state)
-                                {
-                                    output( handle, 1, "if (%s_%s_state.%s==%d)\n",
-                                            edge_name[clk2->data.clock.gate_state->edge], clk2->data.clock.gate_state->clock_ref->name, clk2->data.clock.gate_state->name,
-                                            clk2->data.clock.gate_level );
-                                }
-                                else
-                                {
-                                    output( handle, 1, "if (combinatorials.%s==%d)\n", clk2->data.clock.gate_signal->name, clk2->data.clock.gate_level);
-                                }
-                                output( handle, 2, "preclock_%s_%s();\n", edge_name[edge], clk2->name );
-                            }
-                        }
-                    }
-                }
-                    
-                output( handle, 1, "return error_level_okay;\n");
-                output( handle, 0, "}\n");
-                output( handle, 0, "\n");
-
-                output( handle, 0, "/*f c_%s::clock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "t_sl_error_level c_%s::clock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "{\n");
-#ifdef INPUT_STORAGE
-                output( handle, 1, "mod->preclock();\n" );
-#endif
-                {
-                    t_md_signal *clk2;
-                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
-                    {
-                        if (clk2->data.clock.clock_ref == clk)
-                        {
-                            if (clk2->data.clock.edges_used[edge])
-                            {
-                                output( handle, 1, "int clock_enable__%s_%s = ", edge_name[edge], clk2->name );
+                                output( handle, 1, "clock_enable__%s_%s = ", edge_name[edge], clk2->name );
                                 if (clk2->data.clock.gate_state)
                                 {
                                     output( handle, -1, "(%s_%s_state.%s==%d);\n",
@@ -2518,8 +2633,37 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                             }
                         }
                     }
+
+                // Call gated clocks 'preclock' functions
+                {
+                    t_md_signal *clk2;
+                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
+                    {
+                        if (clk2->data.clock.clock_ref == clk)
+                        {
+                            if (clk2->data.clock.edges_used[edge])
+                            {
+                                output( handle, 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
+                                output( handle, 2, "preclock_%s_%s();\n", edge_name[edge], clk2->name );
+                            }
+                        }
+                    }
                 }
+
+
+                }
+
+                output( handle, 1, "return error_level_okay;\n");
+                output( handle, 0, "}\n");
+                output( handle, 0, "\n");
+
+                output( handle, 0, "/*f c_%s::clock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
+                output( handle, 0, "*/\n");
+                output( handle, 0, "t_sl_error_level c_%s::clock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
+                output( handle, 0, "{\n");
                 output( handle, 1, "memcpy( &%s_%s_state, &next_%s_%s_state, sizeof(%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
+
+                // Call submodules clock functions if they use this clock directly
                 for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
                 {
                     if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
@@ -2546,6 +2690,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                 }
                 output( handle, 0, "\n");
 
+                // Call gated clocks 'clock' functions
                 {
                     t_md_signal *clk2;
                     for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
@@ -2561,15 +2706,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                     }
                 }
 
-                if (!clk->data.clock.clock_ref) // Not a gated clock - gated clocks are called from non-gated clocks only, so this will have been called in that routine
-                {
-                    output( handle, 1, "return evaluate_combinatorials();\n" );
-                }
-                else
-                {
-                    output( handle, 1, "return error_level_okay;\n");
-                }
-
+                output( handle, 1, "return error_level_okay;\n");
                 output( handle, 0, "}\n");
                 output( handle, 0, "\n");
             }
@@ -2609,6 +2746,8 @@ static void output_initalization_functions( c_model_descriptor *model, t_md_outp
 }
 
 /*a External functions
+ */
+/*f target_c_output
  */
 extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage )
 {

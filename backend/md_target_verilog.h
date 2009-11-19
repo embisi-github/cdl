@@ -22,6 +22,7 @@ typedef struct
     int vmod_mode;
     const char *clock_gate_module_instance_type;
     const char *clock_gate_module_instance_extra_ports;
+    const char *assert_delay_string;
     const char *verilog_comb_reg_suffix;
     int include_displays;
     int include_assertions;

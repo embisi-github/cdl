@@ -265,8 +265,8 @@ extern t_sl_error_level se_internal_module__ddr_instantiate( c_engine *engine, v
     t_internal_module_ddr_data *data;
 
     clock = engine->get_option_string( engine_handle, "clock", "" );
-    input_string = strdup(engine->get_option_string( engine_handle, "ddr_inputs", "" ));
-    output_string = strdup(engine->get_option_string( engine_handle, "ddr_outputs", "" ));
+    input_string = sl_str_alloc_copy(engine->get_option_string( engine_handle, "ddr_inputs", "" ));
+    output_string = sl_str_alloc_copy(engine->get_option_string( engine_handle, "ddr_outputs", "" ));
 
     sl_tokenize_line( input_string, inputs, sizeof(inputs), &num_inputs );
     for (i=0; i<num_inputs; i++)

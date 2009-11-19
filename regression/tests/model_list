@@ -11,6 +11,8 @@
 #  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
 #  for more details.
 
+cdl_options ass:on
+
 c_model tests/log   c_log_toggle
 
 cdl tests/simple tie_high
@@ -50,9 +52,11 @@ cdl tests/vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_
 
 cdl tests/instantiation hierarchy_reg
 cdl tests/instantiation hierarchy_and
-cdl tests/instantiation hierarchy inc:tests/instantiation
-cdl tests/instantiation hierarchy_test_harness inc:tests/instantiation
-cdl tests/instantiation hierarchy_struct inc:tests/instantiation
+cdl tests/instantiation hierarchy_gated_clock
+cdl tests/instantiation hierarchy_comb_and_clocked
+cdl tests/instantiation hierarchy                     inc:tests/instantiation
+cdl tests/instantiation hierarchy_test_harness        inc:tests/instantiation
+cdl tests/instantiation hierarchy_struct              inc:tests/instantiation
 cdl tests/instantiation hierarchy_struct_test_harness inc:tests/instantiation
 cdl tests/instantiation failure_0
 

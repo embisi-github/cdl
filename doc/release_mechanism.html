@@ -34,11 +34,13 @@ svn export --quiet https://cyclicity-cdl.svn.sourceforge.net/svnroot/cyclicity-c
 tar zcf cyclicity-1.0.27.tgz cyclicity-1.0.27
 scp cyclicity-1.0.27.tgz gstark@ocarina:/data/yd/hw/tools/Packages
 
+( cd /data/yd/hw/tools/Scripts ; ./CDL_Build.csh 1.0.27 )
+  
 pushd /tmp
-svn export --quiet https://cyclicity-cdl.svn.sourceforge.net/svnroot/cyclicity-cdl/trunk cyclicity-1.0.26
-tar zcf cyclicity-1.0.26.tgz cyclicity-1.0.26
-scp cyclicity-1.0.26.tgz gstark@ocarina:/data/yd/hw/tools/Packages
+svn export --quiet https://cyclicity-cdl.svn.sourceforge.net/svnroot/cyclicity-cdl/trunk cyclicity-1.3.5
+tar zcf cyclicity-1.3.5.tgz cyclicity-1.3.5
+scp cyclicity-1.3.5.tgz gstark@ocarina:/data/yd/hw/tools/Packages
 
 -->
-<!-- Hhmts start --> Last modified: Thu Apr 23 18:08:08 BST 2009 <!-- hhmts end -->
+<!-- Hhmts start --> Last modified: Thu Nov 12 20:40:58 GMT 2009 <!-- hhmts end -->
 </body> </html>

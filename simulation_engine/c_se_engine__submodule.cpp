@@ -95,6 +95,18 @@ void c_engine::submodule_call_reset( void *submodule_handle, int pass )
     }
 }
 
+/*f c_engine::submodule_call_prepreclock
+ */
+void c_engine::submodule_call_prepreclock( void *submodule_handle )
+{
+    t_engine_module_instance *emi;
+    emi = (t_engine_module_instance *)submodule_handle;
+    if (emi->prepreclock_fn_list)
+    {
+        (emi->prepreclock_fn_list->data.prepreclock.prepreclock_fn)( emi->prepreclock_fn_list->handle );
+    }
+}
+
 /*f c_engine::submodule_call_preclock
  */
 void c_engine::submodule_call_preclock( void *submodule_clock_handle, int posedge )
@@ -224,6 +236,27 @@ void c_engine::submodule_clock_set_invoke( t_engine_submodule_clock_set_ptr scs,
     }
 }
 
+/*f c_engine::submodule_input_type
+ */
+int c_engine::submodule_input_type( void *submodule_handle, const char *name, int *comb, int *size )
+{
+     t_engine_module_instance *emi;
+     t_engine_function *input;
+
+     emi = (t_engine_module_instance *)submodule_handle;
+     if (!emi)
+         return error_level_serious;
+
+     input = se_engine_function_find_function( emi->input_list, name );
+     if (!input)
+     {
+         return 0;
+     }
+     if (size) { *size = input->data.input.size; }
+     if (comb) { *comb = input->data.input.combinatorial; }
+     return 1;
+}
+
 /*f c_engine::submodule_drive_input
   Drive the input of a submodule with a signal
  */
@@ -336,6 +369,27 @@ t_sl_error_level c_engine::submodule_drive_input_with_submodule_output( void *su
      }
      module_drive_input( submodule_input, submodule_output->data.output.value_ptr );
      return error_level_okay;
+}
+
+/*f c_engine::submodule_output_type
+ */
+int c_engine::submodule_output_type( void *submodule_handle, const char *name, int *comb, int *size )
+{
+     t_engine_module_instance *emi;
+     t_engine_function *output;
+
+     emi = (t_engine_module_instance *)submodule_handle;
+     if (!emi)
+         return error_level_serious;
+
+     output = se_engine_function_find_function( emi->output_list, name );
+     if (!output)
+     {
+         return 0;
+     }
+     if (size) { *size = output->data.output.size; }
+     if (comb) { *comb = output->data.output.combinatorial; }
+     return 1;
 }
 
 /*f c_engine::submodule_output_add_receiver

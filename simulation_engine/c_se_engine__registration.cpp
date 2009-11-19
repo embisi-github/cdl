@@ -46,8 +46,51 @@ typedef struct t_register_sl_exec_file_data
      int number_state_desc;
 } t_register_sl_exec_file_data;
 
+/*t t_sim_reg_ef_lib
+ */
+typedef struct t_sim_reg_ef_lib
+{
+    struct t_sl_exec_file_data *file_data;
+    c_engine *engine;
+    void *engine_handle;
+    struct t_sim_reg_ef_message_object *messages;
+} t_sim_reg_ef_lib;
+
+/*t t_sim_reg_ef_message_object
+ */
+typedef struct t_sim_reg_ef_message_object
+{
+    struct t_sim_reg_ef_message_object *next_in_list;
+    t_sim_reg_ef_lib *ef_lib;
+    t_se_message message;
+    const char *name;
+} t_sim_reg_ef_message_object;
+
+/*a Function declarations
+ */
+static t_sl_error_level ef_method_eval_message_send_int( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
+static t_sl_error_level ef_method_eval_message_response( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
+static t_sl_error_level ef_method_eval_message_text( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
+
 /*a Statics
  */
+/*v sim_file_cmds
+ */
+static t_sl_exec_file_cmd sim_file_cmds[] =
+{
+     {0,        1, "!sim_message", "s", "sim_message <name>"},
+     SL_EXEC_FILE_CMD_NONE
+};
+
+/*v sl_vcd_file_obj_methods - Exec file object methods
+ */
+static t_sl_exec_file_method sl_message_object_methods[] =
+{
+    {"send_int", 'i',  2, "siiiiiiii",  "send_int(<module instance>,<message number>,<args>*) - send message to instance given by name, keep results in the message object", ef_method_eval_message_send_int },
+    {"response", 'i',  1, "i",   "response(dummy)   - get response value from last message", ef_method_eval_message_response },
+    {"text",     's',  1, "i",   "text(dummy)       - get message text", ef_method_eval_message_text },
+    SL_EXEC_FILE_METHOD_NONE
+};
 
 /*a Module, signal, clock, state registration methods - called by modules instances at their instantiation
  */
@@ -114,7 +157,7 @@ void c_engine::register_output_signal( void *engine_handle, const char *name, in
      efn->data.output.value_ptr = value_ptr;
      efn->data.output.drives = NULL;
      efn->data.output.generated_by_clock = NULL;
-     efn->data.input.combinatorial = 0;
+     efn->data.output.combinatorial = 0;
 }
 
 /*f c_engine::register_clock_fns
@@ -157,6 +200,24 @@ void c_engine::register_clock_fns( void *engine_handle, void *handle, const char
      efn->data.clock.driven_by = NULL;
 }
 
+/*f c_engine::register_preclock_fns
+ */
+void c_engine::register_preclock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn negedge_preclock_fn )
+{
+     t_engine_module_instance *emi;
+     t_engine_function *efn;
+
+     emi = (t_engine_module_instance *)engine_handle;
+
+     efn = se_engine_function_add_function( emi, &emi->clock_fn_list, clock_name );
+     efn->handle = handle;
+     efn->data.clock.posedge_preclock_fn = posedge_preclock_fn;
+     efn->data.clock.posedge_clock_fn = NULL;
+     efn->data.clock.negedge_preclock_fn = negedge_preclock_fn;
+     efn->data.clock.negedge_clock_fn = NULL;
+     efn->data.clock.driven_by = NULL;
+}
+
 /*f c_engine::register_clock_fn - once registered with one of the above, set an individual function
  */
 int c_engine::register_clock_fn( void *engine_handle, void *handle, const char *clock_name, t_engine_sim_function_type type, t_engine_callback_fn x_clock_fn )
@@ -177,14 +238,28 @@ int c_engine::register_clock_fn( void *engine_handle, void *handle, const char *
     if (!efn) return 0;
     switch (type)
     {
-    case engine_sim_function_type_posedge_prepreclock: efn->data.clock.posedge_prepreclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_posedge_preclock:    efn->data.clock.posedge_prepreclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_posedge_clock:       efn->data.clock.posedge_prepreclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_negedge_prepreclock: efn->data.clock.negedge_prepreclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_negedge_preclock:    efn->data.clock.negedge_prepreclock_fn = x_clock_fn; return 1;
-    case engine_sim_function_type_negedge_clock:       efn->data.clock.negedge_prepreclock_fn = x_clock_fn; return 1;
+    case engine_sim_function_type_posedge_prepreclock:    efn->data.clock.posedge_prepreclock_fn = x_clock_fn; return 1;
+    case engine_sim_function_type_posedge_preclock:    efn->data.clock.posedge_preclock_fn = x_clock_fn; return 1;
+    case engine_sim_function_type_posedge_clock:       efn->data.clock.posedge_clock_fn = x_clock_fn; return 1;
+    case engine_sim_function_type_negedge_prepreclock:    efn->data.clock.negedge_prepreclock_fn = x_clock_fn; return 1;
+    case engine_sim_function_type_negedge_preclock:    efn->data.clock.negedge_preclock_fn = x_clock_fn; return 1;
+    case engine_sim_function_type_negedge_clock:       efn->data.clock.negedge_clock_fn = x_clock_fn; return 1;
     }
     return 0;
+}
+
+/*f c_engine::register_prepreclock_fn
+ */
+void c_engine::register_prepreclock_fn( void *engine_handle, void *handle, t_engine_callback_fn prepreclock_fn )
+{
+     t_engine_module_instance *emi;
+     t_engine_function *efn;
+
+     emi = (t_engine_module_instance *)engine_handle;
+
+     efn = se_engine_function_add_function( emi, &emi->prepreclock_fn_list, NULL );
+     efn->data.prepreclock.prepreclock_fn = prepreclock_fn;
+     efn->handle = handle;
 }
 
 /*f c_engine::register_propagate_fn
@@ -305,6 +380,58 @@ void c_engine::register_comb_output( void *engine_handle, const char *name )
      efn_sig->data.output.combinatorial = 1;
 }
 
+/*f c_engine::register_message_function
+ */
+void c_engine::register_message_function( void *engine_handle, void *handle, t_engine_callback_argp_fn message_fn )
+{
+     t_engine_module_instance *emi;
+     emi = (t_engine_module_instance *)engine_handle;
+    (void) se_engine_function_call_add( &emi->message_fn_list, handle, message_fn );
+}
+
+/*f c_engine::register_state_desc
+  prefix is used by sl_exec_file when registering extra state - so effectively if there is a prefix then the state is <prefix>.<state>
+  desc_type is 0 for mallocked (must copy), no indirect ptrs
+  desc_type is 1 for static (no need to copy), no indirect ptrs
+  desc_type is 2 for mallocked (must copy), all ptrs indirect
+  desc_type is 3 for static (no need to copy), all ptrs indirect
+ */
+void c_engine::register_state_desc( void *engine_handle, int desc_type, t_engine_state_desc *state_desc, void *data, const char *prefix )
+{
+     int i, num_state;
+     t_engine_state_desc_list *sdl;
+     t_engine_module_instance *emi;
+     emi = (t_engine_module_instance *)engine_handle;
+
+     if (!emi)
+          return;
+
+     //fprintf(stderr, "Registering state prefix %s state %s\n", prefix, state_desc[0].name );
+     SL_DEBUG(sl_debug_level_info, "c_engine::register_state_desc", "Registering state descriptions prefix %s first state %s", prefix?prefix:"<no prefix>", state_desc[0].name?state_desc[0].name:"<no state!>" ) ;
+
+     for (i=0; state_desc[i].type!=engine_state_desc_type_none; i++);
+     num_state = i;
+     if (desc_type & 1)
+     {
+          sdl = (t_engine_state_desc_list *)malloc(sizeof(t_engine_state_desc_list));
+          sdl->state_desc = state_desc;
+     }
+     else
+     {
+          sdl = (t_engine_state_desc_list *)malloc(sizeof(t_engine_state_desc_list) + num_state*sizeof(t_engine_state_desc));
+          sdl->state_desc = (t_engine_state_desc *)(&(sdl[1]));
+          memcpy( sdl->state_desc, state_desc, num_state * sizeof(t_engine_state_desc) );
+     }
+     sdl->next_in_list = emi->state_desc_list;
+     emi->state_desc_list = sdl;
+     sdl->data_base_ptr = data;
+     sdl->num_state = i;
+     sdl->prefix = sl_str_alloc_copy( prefix );
+     sdl->data_indirected = ((desc_type&2)!=0);
+}
+
+/*a Exec file enhancements
+ */
 /*f se_engine_register_sl_exec_file_register_state
  */
 static void se_engine_register_sl_exec_file_register_state( void *handle, const char *instance, const char *state_name, int type, int *data_ptr, int width, ... )
@@ -386,68 +513,151 @@ static void se_engine_register_sl_exec_file_register_state_complete( void *handl
      free(state_desc);
 }
 
+/*f static exec_file_cmd_handler
+ */
+static t_sl_error_level exec_file_cmd_handler( struct t_sl_exec_file_cmd_cb *cmd_cb, void *handle )
+{
+    t_sim_reg_ef_lib *efl;
+    efl = (t_sim_reg_ef_lib *)handle;
+    if (!efl->engine->register_handle_exec_file_command( handle, cmd_cb ))
+        return error_level_serious;
+    return error_level_okay;
+}
+
 /*f c_engine::register_add_exec_file_enhancements
  */
 int c_engine::register_add_exec_file_enhancements( struct t_sl_exec_file_data *file_data, void *engine_handle )
 {
-     t_register_sl_exec_file_data *rsefd;
-     if (!engine_handle)
-         return 1;
-     rsefd = (t_register_sl_exec_file_data *) malloc(sizeof(t_register_sl_exec_file_data));
-     if (rsefd)
-     {
-          rsefd->engine = this;
-          rsefd->module_instance = (t_engine_module_instance *)engine_handle;
-          rsefd->name = NULL;
-          rsefd->state_desc_chain = NULL;
-          rsefd->last_state_desc_chain = NULL;
-          rsefd->number_state_desc=0;
-          sl_exec_file_set_state_registration( file_data, se_engine_register_sl_exec_file_register_state, se_engine_register_sl_exec_file_register_state_complete, (void *)rsefd );
-     }
-     return 1;
+    t_register_sl_exec_file_data *rsefd;
+    t_sl_exec_file_lib_desc lib_desc;
+    t_sim_reg_ef_lib *efl;
+
+    if (engine_handle)
+    {
+        rsefd = (t_register_sl_exec_file_data *) malloc(sizeof(t_register_sl_exec_file_data));
+        if (rsefd)
+        {
+            rsefd->engine = this;
+            rsefd->module_instance = (t_engine_module_instance *)engine_handle;
+            rsefd->name = NULL;
+            rsefd->state_desc_chain = NULL;
+            rsefd->last_state_desc_chain = NULL;
+            rsefd->number_state_desc=0;
+            sl_exec_file_set_state_registration( file_data, se_engine_register_sl_exec_file_register_state, se_engine_register_sl_exec_file_register_state_complete, (void *)rsefd );
+        }
+    }
+
+    efl = (t_sim_reg_ef_lib *)malloc(sizeof(t_sim_reg_ef_lib));
+    efl->file_data = file_data;
+    efl->engine = this;
+    efl->engine_handle = engine_handle;
+    efl->messages = NULL;
+    lib_desc.version = sl_ef_lib_version_cmdcb;
+    lib_desc.library_name = "cdlsim.reg";
+    lib_desc.handle = (void *) efl;
+    lib_desc.cmd_handler = exec_file_cmd_handler;
+    lib_desc.file_cmds = sim_file_cmds;
+    lib_desc.file_fns = NULL;
+    return sl_exec_file_add_library( file_data, &lib_desc );
 }
 
-/*f c_engine::register_state_desc
-  prefix is used by sl_exec_file when registering extra state - so effectively if there is a prefix then the state is <prefix>.<state>
-  desc_type is 0 for mallocked (must copy), no indirect ptrs
-  desc_type is 1 for static (no need to copy), no indirect ptrs
-  desc_type is 2 for mallocked (must copy), all ptrs indirect
-  desc_type is 3 for static (no need to copy), all ptrs indirect
+/*f c_engine::register_handle_exec_file_command
+  returns 0 if it did not handle
+  returns 1 if it handled it
  */
-void c_engine::register_state_desc( void *engine_handle, int desc_type, t_engine_state_desc *state_desc, void *data, const char *prefix )
+int c_engine::register_handle_exec_file_command( void *handle, struct t_sl_exec_file_cmd_cb *cmd_cb )
 {
-     int i, num_state;
-     t_engine_state_desc_list *sdl;
-     t_engine_module_instance *emi;
-     emi = (t_engine_module_instance *)engine_handle;
+    t_sl_exec_file_object_desc object_desc;
+    t_sim_reg_ef_message_object *msg;
+    t_sim_reg_ef_lib *efl = (t_sim_reg_ef_lib *)handle;
 
-     if (!emi)
-          return;
-
-     //fprintf(stderr, "Registering state prefix %s state %s\n", prefix, state_desc[0].name );
-     SL_DEBUG(sl_debug_level_info, "c_engine::register_state_desc", "Registering state descriptions prefix %s first state %s", prefix?prefix:"<no prefix>", state_desc[0].name?state_desc[0].name:"<no state!>" ) ;
-
-     for (i=0; state_desc[i].type!=engine_state_desc_type_none; i++);
-     num_state = i;
-     if (desc_type & 1)
-     {
-          sdl = (t_engine_state_desc_list *)malloc(sizeof(t_engine_state_desc_list));
-          sdl->state_desc = state_desc;
-     }
-     else
-     {
-          sdl = (t_engine_state_desc_list *)malloc(sizeof(t_engine_state_desc_list) + num_state*sizeof(t_engine_state_desc));
-          sdl->state_desc = (t_engine_state_desc *)(&(sdl[1]));
-          memcpy( sdl->state_desc, state_desc, num_state * sizeof(t_engine_state_desc) );
-     }
-     sdl->next_in_list = emi->state_desc_list;
-     emi->state_desc_list = sdl;
-     sdl->data_base_ptr = data;
-     sdl->num_state = i;
-     sdl->prefix = sl_str_alloc_copy( prefix );
-     sdl->data_indirected = ((desc_type&2)!=0);
+    switch (cmd_cb->cmd)
+    {
+    case 0:
+        msg = (t_sim_reg_ef_message_object *)malloc(sizeof(t_sim_reg_ef_message_object));
+        msg->next_in_list = efl->messages;
+        efl->messages = msg;
+        msg->ef_lib = efl;
+        msg->name = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 ));
+        memset(&object_desc,0,sizeof(object_desc));
+        object_desc.version = sl_ef_object_version_checkpoint_restore;
+        object_desc.name = msg->name;
+        object_desc.handle = (void *)msg;
+        object_desc.methods = sl_message_object_methods;
+        sl_exec_file_add_object_instance( cmd_cb->file_data, &object_desc );
+        return 1;
+    }
+     return 0;
 }
 
+/*f ef_method_eval_message_send_int
+ */
+static t_sl_error_level ef_method_eval_message_send_int( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_reg_ef_message_object *msg;
+    void *handle;
+    const char *instance_name;
+    int reason;
+    int result;
+    unsigned int i;
+
+    msg = (t_sim_reg_ef_message_object *)object_desc->handle;
+
+    instance_name = sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 );
+    reason        = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
+    for (i=0; (i<cmd_cb->num_args-2) && (i<sizeof(msg->message.data.ints)/sizeof(int)); i++)
+    {
+        msg->message.data.ints[i] = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, i+2 );
+    }
+
+    handle = msg->ef_lib->engine->find_module_instance( instance_name );
+    if (!handle)
+    {
+        fprintf(stderr,"Could not find module '%s'\n",instance_name);
+        return error_level_fatal;
+    }
+    msg->message.reason = reason;
+    msg->message.response_type = se_message_response_type_none;
+    result = msg->ef_lib->engine->module_instance_send_message( handle, &(msg->message) );
+
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64) (result) ))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_message_response
+ */
+static t_sl_error_level ef_method_eval_message_response( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_reg_ef_message_object *msg;
+    int result;
+
+    msg = (t_sim_reg_ef_message_object *)object_desc->handle;
+    if (msg->message.response_type == se_message_response_type_none)
+        result = -1;
+    else
+        result = (int)(msg->message.response);
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64) (result) ))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_message_text
+ */
+static t_sl_error_level ef_method_eval_message_text( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_reg_ef_message_object *msg;
+    const char *result;
+
+    msg = (t_sim_reg_ef_message_object *)object_desc->handle;
+    if (msg->message.response_type == se_message_response_type_text)
+        result = msg->message.data.text;
+    else
+        result = "<Bad or no response>";
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, result, 1))
+        return error_level_fatal;
+    return error_level_okay;
+}
 
 /*a Editor preferences and notes
 mode: c ***

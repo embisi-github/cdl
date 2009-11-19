@@ -374,6 +374,21 @@ void *c_engine::find_module_instance( const char *full_name, int length )
      return NULL;
 }
 
+/*f c_engine::module_instance_send_message( handle, message )
+  Return -1 for bad ptr, -2 for instance has no message function, else 0 for okay and message should have a result
+ */
+int c_engine::module_instance_send_message( void *module, t_se_message *message )
+{
+     t_engine_module_instance *emi;
+     emi = (t_engine_module_instance *)module;
+     if (!emi)
+         return -1;
+     if (!emi->message_fn_list)
+         return 0;
+     se_engine_function_call_invoke_all_argp( emi->message_fn_list, (void *) message );
+     return 1;
+}
+
 /*f c_engine::find_global
  */
 void *c_engine::find_global( const char *name )
@@ -1002,6 +1017,7 @@ t_engine_state_desc_type c_engine::interrogate_get_data_sizes_and_type( t_se_int
      if (entity->signal && (entity->signal_type==signal_type_clock))
      {
          int edges=0;
+         data[0] = (t_se_signal_value*)sizes;
          edges |= (entity->signal->data.clock.posedge_clock_fn)?1:0;
          edges |= (entity->signal->data.clock.negedge_clock_fn)?1:0;
          sizes[0] = 1;
@@ -1183,7 +1199,14 @@ int c_engine::interrogate_get_entity_value_string( t_se_interrogation_handle ent
           n = snprintf( buffer, buffer_size, "<none>" );
           break;
      case engine_state_desc_type_bits:
-         sl_print_bits_hex( buffer, buffer_size, ((int **)datas)[0], sizes[0] );
+         if (datas[0])
+         {
+             sl_print_bits_hex( buffer, buffer_size, ((int **)datas)[0], sizes[0] );
+         }
+         else
+         {
+             strcpy( buffer, "<unc>");
+         }
           n = strlen(buffer);
           break;
      case engine_state_desc_type_memory:

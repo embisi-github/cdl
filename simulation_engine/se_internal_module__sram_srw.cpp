@@ -73,6 +73,7 @@ public:
     t_sl_error_level reset( int pass );
     t_sl_error_level preclock_posedge_clock( void );
     t_sl_error_level clock_posedge_clock( void );
+    t_sl_error_level message( t_se_message *message );
 private:
     c_engine *engine;
     void *engine_handle;
@@ -137,6 +138,16 @@ static t_sl_error_level sram_srw_reset( void *handle, int pass )
      return sram->reset( pass );
 }
 
+/*f sram_srw_message
+ */
+static t_sl_error_level sram_srw_message( void *handle, void *arg )
+{
+    c_sram_srw *sram;
+
+     sram = (c_sram_srw *)handle;
+     return sram->message( (t_se_message *)arg );
+}
+
 /*f sram_srw_preclock
  */
 static t_sl_error_level sram_srw_preclock( void *handle )
@@ -181,6 +192,7 @@ c_sram_srw::c_sram_srw( class c_engine *eng, void *eng_handle )
 
     engine->register_delete_function( engine_handle, (void *)this, sram_srw_delete );
     engine->register_reset_function( engine_handle, (void *)this, sram_srw_reset );
+    engine->register_message_function( engine_handle, (void *)this, sram_srw_message );
 
     memory = NULL;
     filename = engine->get_option_string( engine_handle, "filename", "" );
@@ -424,6 +436,61 @@ t_sl_error_level c_sram_srw::clock_posedge_clock( void )
         {
             fprintf(stderr,"c_memory::Out of range write\n");
         }
+    }
+    return error_level_okay;
+}
+
+/*f c_sram_srw::message
+*/
+t_sl_error_level c_sram_srw::message( t_se_message *message )
+{
+    switch (message->reason)
+    {
+    case se_message_reason_set_option:
+        const char *option_name;
+        option_name = (const char *)message->data.ptrs[0];
+        message->response_type = se_message_response_type_int;
+        message->response = 1;
+        if (!strcmp(option_name,"filename"))
+        {
+            filename = sl_str_alloc_copy((const char *)message->data.ptrs[1]);
+        }
+        else if (!strcmp(option_name,"reset_type"))
+        {
+            reset_type = (int)message->data.ptrs[1];
+        }
+        else if (!strcmp(option_name,"reset_value"))
+        {
+            reset_value = (int)message->data.ptrs[1];
+        }
+        else if (!strcmp(option_name,"verbose"))
+        {
+            verbose = (int)message->data.ptrs[1];
+        }
+        else
+        {
+            message->response = -1;
+        }
+        break;
+    case se_message_reason_force_reset:
+        message->response_type = se_message_response_type_int;
+        message->response = 1;
+        reset( message->data.ints[0] );
+        break;
+    case se_message_reason_interrogate_state:
+        message->response_type = se_message_response_type_ptrs;
+        message->response = 1;
+        message->data.ptrs[0] = memory;
+        break;
+    case se_message_reason_action_one:
+        int address;
+        message->response_type = se_message_response_type_int;
+        message->response = 1;
+        for (address = message->data.ints[0]; address<message->data.ints[1]; address++)
+        {
+            fprintf( stderr, "%08x: %016llx\n", address, memory[address] );
+        }
+        break;
     }
     return error_level_okay;
 }

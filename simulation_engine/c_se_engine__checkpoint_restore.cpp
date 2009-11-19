@@ -510,6 +510,7 @@ int c_engine::checkpoint_size( const char *name, const char *previous )
 
     /*b Run through all the checkpointing information and calculate the size
     */
+    total_size = 0;
     for (emi=module_instance_list; emi; emi=emi->next_instance )
     {
         t_engine_checkpoint_entry *ce;

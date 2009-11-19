@@ -41,9 +41,11 @@ extern void se_engine_function_references_free( t_engine_function_reference *lis
 extern void se_engine_function_references_add( t_engine_function_reference **ref_list_ptr, t_engine_function *efn );
 extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_fn callback_fn );
 extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_arg_fn callback_fn );
+extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_argp_fn callback_fn );
 extern void se_engine_function_call_add( t_engine_function_list **list_ptr, t_engine_function_reference *efr, t_engine_callback_fn callback_fn );
 extern void se_engine_function_call_invoke_all( t_engine_function_list *list );
 extern void se_engine_function_call_invoke_all_arg( t_engine_function_list *list, int arg );
+extern void se_engine_function_call_invoke_all_argp( t_engine_function_list *list, void *arg );
 extern void se_engine_function_call_display_stats_all( FILE *f, t_engine_function_list *list );
 extern void se_engine_function_call_free( t_engine_function_list *list_ptr );
 

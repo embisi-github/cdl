@@ -221,10 +221,10 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
                     vck->value.format = vpiVectorVal;
                     vck->value.value.vector = vector;
                     delta.type = vpiSimTime;
-                    delta.high = delta.low = 0;
+                    delta.high = 0; delta.low = 1;
                     strength.s0 = vpiStrongDrive;
                     strength.s1 = vpiStrongDrive;
-                    vpi_put_value( vmi->outputs[i].signal_handle, &(vck->value), &delta, vpiTransportDelay );
+                    vpi_put_value( vmi->outputs[i].signal_handle, &(vck->value), &delta, vpiInertialDelay );
                 }
             }
         }

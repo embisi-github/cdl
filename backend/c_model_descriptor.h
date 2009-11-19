@@ -39,6 +39,7 @@
      { "vmod", no_argument, NULL, option_be_vmod_mode }, \
      { "v_clkgate_type", required_argument, NULL, option_be_v_clkgate_type }, \
      { "v_clkgate_ports", required_argument, NULL, option_be_v_clkgate_ports }, \
+     { "v_assert_delay", required_argument, NULL, option_be_v_assert_delay }, \
      { "v_comb_suffix", required_argument, NULL, option_be_v_comb_suffix }, \
      { "v_displays", no_argument, NULL, option_be_v_displays }, \
      { "vhdl", required_argument, NULL, option_be_vhdl }, \
@@ -83,6 +84,7 @@ enum
     option_be_vmod_mode,
     option_be_v_clkgate_type,
     option_be_v_clkgate_ports,
+    option_be_v_assert_delay,
     option_be_v_comb_suffix,
     option_be_v_displays
 };

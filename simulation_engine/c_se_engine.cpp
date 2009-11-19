@@ -175,14 +175,16 @@ void c_engine::delete_instances_and_signals( void )
      {
           next_clk = clk->next_in_list;
           free(clk->global_name);
+          se_engine_function_call_free( clk->posedge.prepreclock );
           se_engine_function_call_free( clk->posedge.preclock );
           se_engine_function_call_free( clk->posedge.clock );
           se_engine_function_call_free( clk->posedge.comb );
           se_engine_function_call_free( clk->posedge.propagate );
+          se_engine_function_call_free( clk->negedge.prepreclock );
           se_engine_function_call_free( clk->negedge.preclock );
           se_engine_function_call_free( clk->negedge.clock );
-          se_engine_function_call_free( clk->negedge.comb );
           se_engine_function_call_free( clk->negedge.propagate );
+          se_engine_function_call_free( clk->negedge.comb );
           se_engine_function_references_free( clk->clocks_list );
           free(clk);
      }
@@ -237,13 +239,13 @@ t_engine_clock *c_engine::create_clock( const char *name )
      clk->posedge.prepreclock = NULL;
      clk->posedge.preclock = NULL;
      clk->posedge.clock = NULL;
-     clk->posedge.comb = NULL;
      clk->posedge.propagate = NULL;
+     clk->posedge.comb = NULL;
      clk->negedge.prepreclock = NULL;
      clk->negedge.preclock = NULL;
      clk->negedge.clock = NULL;
-     clk->negedge.comb = NULL;
      clk->negedge.propagate = NULL;
+     clk->negedge.comb = NULL;
      clk->delay = 0;
      clk->high_cycles = 0;
      clk->low_cycles = 0;

@@ -69,7 +69,7 @@ typedef enum t_sl_error_arg_type
     error_arg_type_const_private_data,
     error_arg_type_malloc_private_data,
     error_arg_type_none
-};
+} t_sl_error_arg_type;
 
 /*t t_sl_error_fn
 //d No idea what this is used for

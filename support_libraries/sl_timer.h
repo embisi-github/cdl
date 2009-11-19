@@ -26,7 +26,13 @@
 #else
 #define SL_TIMER_x86_CLKS_PER_US (2800)
 #endif
+
+#ifdef __GNUC__
 #define SL_TIMER_CPU_CLOCKS ({unsigned long long x;unsigned int lo,hi; __asm__ __volatile__ ("rdtsc" : "=a" (lo), "=d" (hi));x = (((unsigned long long)(hi))<<32) | lo;x;})
+#else
+#define SL_TIMER_CPU_CLOCKS (0)
+#endif
+
 #define SL_TIMER_US_FROM_CLKS(clks) (clks/(0.0+SL_TIMER_x86_CLKS_PER_US))
 
 #define SL_TIMER_INIT(t) {(t).accum_clks=0;(t).last_accum_clks=0;}

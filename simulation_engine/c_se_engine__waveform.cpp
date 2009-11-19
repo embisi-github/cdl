@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include "sl_general.h"
 #include "sl_debug.h"
 #include "se_engine_function.h"
 #include "c_se_engine.h"

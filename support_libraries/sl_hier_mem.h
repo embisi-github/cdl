@@ -41,7 +41,9 @@
 typedef enum
 {
     sl_hier_mem_unwritten_data_zero,
-    sl_hier_mem_unwritten_data_ones
+    sl_hier_mem_unwritten_data_ones,
+    sl_hier_mem_unwritten_data_lfsr_init_one,
+    sl_hier_mem_unwritten_data_lfsr_init_address,
 } t_sl_hier_mem_unwritten_data;
 
 /*t t_sl_hier_mem_ptr -- internal type, see main code for use

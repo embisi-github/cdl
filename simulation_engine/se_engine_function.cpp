@@ -165,6 +165,13 @@ extern t_engine_function_list *se_engine_function_call_add( t_engine_function_li
      return se_engine_function_call_add( list_ptr, handle, (t_engine_callback_fn) callback_arg_fn );
 }
 
+/*f se_engine_function_call_add
+ */
+extern t_engine_function_list *se_engine_function_call_add( t_engine_function_list **list_ptr, void *handle, t_engine_callback_argp_fn callback_argp_fn )
+{
+     return se_engine_function_call_add( list_ptr, handle, (t_engine_callback_fn) callback_argp_fn );
+}
+
 /*f se_engine_function_call_invoke_all
  */
 extern void se_engine_function_call_invoke_all( t_engine_function_list *list )
@@ -189,6 +196,20 @@ extern void se_engine_function_call_invoke_all_arg( t_engine_function_list *list
         SL_TIMER_ENTRY(efl->timer);
         efl->invocation_count++;
         ((t_engine_callback_arg_fn)(efl->callback_fn))( efl->handle, arg );
+        SL_TIMER_EXIT(efl->timer);
+    }
+}
+
+/*f se_engine_function_call_invoke_all_argp
+ */
+extern void se_engine_function_call_invoke_all_argp( t_engine_function_list *list, void *arg )
+{
+    t_engine_function_list *efl;
+    for (efl=list; efl; efl=efl->next_in_list)
+    {
+        SL_TIMER_ENTRY(efl->timer);
+        efl->invocation_count++;
+        ((t_engine_callback_argp_fn)(efl->callback_fn))( efl->handle, arg );
         SL_TIMER_EXIT(efl->timer);
     }
 }

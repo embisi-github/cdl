@@ -897,7 +897,10 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
                   output_push_usage_type( model, output, handle, md_usage_type_assert );
                   output( handle, indent+1, "default:\n");
                   output( handle, indent+2, "begin\n");
-                  output( handle, indent+2, "$display($time,\"*********CDL ASSERTION FAILURE:%s:%s: Full switch statement did not cover all values\");\n", code_block->module->output_name, code_block->name);
+                  output( handle, indent+3, "%s\n", (options.assert_delay_string) ? options.assert_delay_string : "if (1)" );
+                  output( handle, indent+3, "begin\n");
+                  output( handle, indent+4, "$display($time,\"*********CDL ASSERTION FAILURE:%s:%s: Full switch statement did not cover all values\");\n", code_block->module->output_name, code_block->name);
+                  output( handle, indent+3, "end\n");
                   output( handle, indent+2, "end\n");
                   output_pop_usage_type( model, output, handle );
                   output_set_usage_type( model, output, handle );
@@ -1337,6 +1340,15 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                             else
                             {
                                 output( handle, -1, " or\n" );
+                                output_pop_usage_type( model, output, handle );
+                            }
+                            if (instance->reference.type==md_reference_type_signal)
+                            {
+                                output_push_usage_type( model, output, handle, instance->reference.data.signal->usage_type );
+                            }
+                            else
+                            {
+                                output_push_usage_type( model, output, handle, instance->reference.data.state->usage_type );
                             }
                             if (options.vmod_mode && !(instance->output_args[output_arg_vmod_is_indexed_by_runtime]))
                             {
@@ -1360,6 +1372,15 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                         else
                         {
                             output( handle, -1, " or\n" );
+                            output_pop_usage_type( model, output, handle );
+                        }
+                        if (instance->reference.type==md_reference_type_signal)
+                        {
+                            output_push_usage_type( model, output, handle, instance->reference.data.signal->usage_type );
+                        }
+                        else
+                        {
+                            output_push_usage_type( model, output, handle, instance->reference.data.state->usage_type );
                         }
                         output( handle, 2, "%s", instance->output_name );
                         first = 0;
@@ -1368,6 +1389,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
             }
             if (has_dependencies)
             {
+                output_pop_usage_type( model, output, handle );
                 output( handle, -1, " )\n" );
             }
             else
@@ -1851,6 +1873,7 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
     options.include_coverage = 0;
     options.clock_gate_module_instance_type = "clock_gate_module";
     options.clock_gate_module_instance_extra_ports = "";
+    options.assert_delay_string = NULL;
     options.verilog_comb_reg_suffix = "__var";
 
     if (options_in)
@@ -1861,6 +1884,7 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
         options.include_coverage = options_in->include_coverage;
         if (options_in->clock_gate_module_instance_extra_ports) { options.clock_gate_module_instance_extra_ports = options_in->clock_gate_module_instance_extra_ports; }
         if (options_in->clock_gate_module_instance_type)        { options.clock_gate_module_instance_type = options_in->clock_gate_module_instance_type; }
+        if (options_in->assert_delay_string)                    { options.assert_delay_string = options_in->assert_delay_string; }
         if (options_in->verilog_comb_reg_suffix)                { options.verilog_comb_reg_suffix = options_in->verilog_comb_reg_suffix; }
     }
 

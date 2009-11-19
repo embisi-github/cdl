@@ -61,10 +61,31 @@ static void free_level( t_sl_hier_mem *shm, t_sl_hier_mem_submem_ptr ptr, int le
  */
 static void init_memory( t_sl_hier_mem *shm, t_sl_hier_mem_data_ptr data, t_sl_uint64 base_address, int length )
 {
-    if (shm->unwritten_data_method == sl_hier_mem_unwritten_data_ones)
+    switch (shm->unwritten_data_method)
+    {
+    case sl_hier_mem_unwritten_data_ones:
     {
         memset( data, 0xff, length*shm->bytes_per_memory );
         return;
+    }
+    case sl_hier_mem_unwritten_data_lfsr_init_one:
+    case sl_hier_mem_unwritten_data_lfsr_init_address:
+    {
+        t_sl_uint64 lfsr;
+        int i;
+        lfsr = 1;
+        if (shm->unwritten_data_method==sl_hier_mem_unwritten_data_lfsr_init_address)
+        {
+            lfsr = base_address;
+        }
+        for (i=0; i<length*shm->bytes_per_memory; i++)
+        {
+            data[i] = (lfsr&0xff);
+            if (((lfsr>>39)^(lfsr>>35))&1) { lfsr = (lfsr << 1) | 1; } else { lfsr = lfsr<<1; }
+            if (lfsr==0) {lfsr=1;}
+        }
+        return;
+    }
     }
     memset( data, 0, length*shm->bytes_per_memory );
     return;

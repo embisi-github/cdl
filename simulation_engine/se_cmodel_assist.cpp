@@ -102,7 +102,7 @@ extern char *se_cmodel_assist_vsnprintf( char *buffer, int buffer_size, const ch
     va_list ap;
     int i, j, k;
     int ch;
-    int pos, text_size;
+    int pos;
     int done;
     t_sl_uint64 arguments[64];
 
@@ -117,7 +117,6 @@ extern char *se_cmodel_assist_vsnprintf( char *buffer, int buffer_size, const ch
     {
         if (pos>=buffer_size)
         {
-            pos = text_size-1;
             break;
         }
         switch (format[i])

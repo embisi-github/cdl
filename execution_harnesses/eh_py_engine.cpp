@@ -602,8 +602,8 @@ static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_eng, 
          type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &dummy, sizes );
          py_eng->engine->interrogation_handle_free( sub_ih );
          py_eng->engine->interrogation_handle_free( ih );
-         sizes[0] = 0;
-         sizes[1] = 0;
+         //sizes[0] = 0;
+         //sizes[1] = 0;
          py_engine_method_result_add_int( NULL, (int) type );
          py_engine_method_result_add_string( NULL, module );
          py_engine_method_result_add_string( NULL, prefix );

@@ -33,6 +33,49 @@
  */
 typedef t_sl_uint64 t_se_signal_value;
 
+/*t t_se_message_reason
+ */
+typedef enum
+{
+    se_message_reason_set_option = 1,           // ptrs[0] = const char *option_name, ptrs[1] = const char *value (or size_t value)
+    se_message_reason_force_reset = 2,          // ints[0] = pass
+    se_message_reason_add_callback = 3,
+    se_message_reason_remove_callback = 4,
+    se_message_reason_interrogate_state = 5,    // ptrs[0] = const char *name (interpreted by module)
+    se_message_reason_read = 8,                 // interpreted by module
+    se_message_reason_write = 9,                // interpreted by module
+    se_message_reason_action_one = 16,           // interpreted by module
+} t_se_message_reason;
+
+/*t t_se_message_response_type
+ */
+typedef enum
+{
+    se_message_response_type_none,
+    se_message_response_type_int,
+    se_message_response_type_values,
+    se_message_response_type_ptrs,
+    se_message_response_type_text,
+    se_message_response_type_other
+} t_se_message_response_type;
+
+/*t t_se_message
+ */
+typedef struct t_se_message
+{
+    int reason;
+    int response;
+    const char *text_request;
+    t_se_message_response_type response_type;
+    union
+    {
+        int               ints[8];
+        t_se_signal_value values[4];
+        void               *(ptrs[4]);
+        char              text[32];
+    } data;
+} t_se_message;
+
 /*t t_se_interrogation_handle
  */
 typedef struct t_se_interrogation_data *t_se_interrogation_handle;
@@ -70,6 +113,10 @@ typedef t_sl_error_level (*t_engine_log_event_callback_fn)( void *engine_handle,
 /*t t_engine_callback_arg_fn
  */
 typedef t_sl_error_level (*t_engine_callback_arg_fn)( void *handle, int pass );
+
+/*t t_engine_callback_argp_fn
+ */
+typedef t_sl_error_level (*t_engine_callback_argp_fn)( void *handle, void *arg );
 
 /*t t_engine_sim_function_type
  */
@@ -213,17 +260,22 @@ public:
      void register_input_signal( void *engine_handle, const char *name, int size, t_se_signal_value **value_ptr_ptr );
      void register_input_signal( void *engine_handle, const char *name, int size, t_se_signal_value **value_ptr_ptr, int may_be_unconnected );
      void register_output_signal( void *engine_handle, const char *name, int size, t_se_signal_value *value_ptr );
+     void register_clock_fns( void *engine_handle, void *handle, t_engine_callback_fn prepreclock_fn, t_engine_callback_fn clock_fn ); // for use with modules that just declare preclock for each clock signal
      void register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn posedge_clock_fn );
      void register_clock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn posedge_clock_fn, t_engine_callback_fn negedge_preclock_fn, t_engine_callback_fn negedge_clock_fn );
+     void register_preclock_fns( void *engine_handle, void *handle, const char *clock_name, t_engine_callback_fn posedge_preclock_fn, t_engine_callback_fn negedge_preclock_fn ); // for use with modules that support prepreclock
+     void register_prepreclock_fn( void *engine_handle, void *handle, t_engine_callback_fn propagate_fn );
      int register_clock_fn( void *engine_handle, void *handle, const char *clock_name, t_engine_sim_function_type type, t_engine_callback_fn x_clock_fn );
      void register_comb_fn( void *engine_handle, void *handle, t_engine_callback_fn comb_fn );
      void register_propagate_fn( void *engine_handle, void *handle, t_engine_callback_fn propagate_fn );
+     void register_message_function( void *engine_handle, void *handle, t_engine_callback_argp_fn message_fn );
      void register_input_used_on_clock( void *engine_handle, const char *name, const char *clock_name, int posedge );
      void register_output_generated_on_clock( void *engine_handle, const char *name, const char *clock_name, int posedge );
      void register_comb_input( void *engine_handle, const char *name );
      void register_comb_output( void *engine_handle, const char *name );
      void register_state_desc( void *engine_handle, int static_desc, t_engine_state_desc *state_desc, void *data, const char *prefix );
      int register_add_exec_file_enhancements( struct t_sl_exec_file_data *file_data, void *engine_handle );
+     int register_handle_exec_file_command( void *efl, struct t_sl_exec_file_cmd_cb *cmd_cb );
 
      /*b Cycle simulation operation methods
       */
@@ -237,9 +289,13 @@ public:
      struct t_se_engine_monitor *add_monitor_callback( const char *global_name, t_se_engine_monitor_callback_fn callback, void *handle, void *handle_b );
      struct t_se_engine_simulation_callback *simulation_add_callback( t_se_engine_simulation_callback_fn callback, void *handle, void *handle_b );
      void simulation_free_callback( struct t_se_engine_simulation_callback *scb );
+     int simulation_invoke_callbacks( void ); // Invoke all simulation callbacks that have been registered
+     void simulation_set_cycle( int n ); // Set the cycle number
      int cycle( void );
+     void simulation_assist_prepreclock_instance( void *engine_handle, int posedge );
      void simulation_assist_preclock_instance( void *engine_handle, int posedge, const char *clock_name );
      void simulation_assist_clock_instance( void *engine_handle, int posedge, const char *clock_name );
+     void simulation_assist_prepreclock_instance( void *engine_handle, int posedge, const char *clock_name );
      void simulation_assist_preclock_instance( void *engine_handle, int posedge );
      void simulation_assist_clock_instance( void *engine_handle, int posedge );
      void simulation_assist_reset_instance( void *engine_handle, int pass );
@@ -278,6 +334,7 @@ public:
      void *find_module_instance( void *parent, const char *name, int length ); // Find module instance from parent (NULL for global) and name/length
      void *find_module_instance( const char *name ); // Find module instance from global name
      void *find_module_instance( const char *name, int length ); // Find module instance from global name/length
+     int module_instance_send_message( void *module, t_se_message *message ); // Send a module instance (from handle) a message if the instance supports messages
      void *find_global( const char *name );
      int find_state( char *name, int *id );
      t_se_interrogation_handle interrogation_handle_create( void );
@@ -297,6 +354,7 @@ public:
      void *submodule_get_clock_handle( void *submodule_handle, const char *clock_name ); //   Get a handle for submodule clock calls
      int submodule_clock_has_edge( void *submodule_clock_handle, int posedge ); // Return 1 if the module uses the requested edge clock edge, and therefore should have that edge function invoked
      void submodule_call_reset( void *submodule_handle, int pass );
+     void submodule_call_prepreclock( void *submodule_handle ); // Call the submodule's prepreclock function
      void submodule_call_preclock( void *submodule_clock_handle, int posedge ); // Call the submodule's preclock function
      void submodule_call_clock( void *submodule_clock_handle, int posedge ); // Call the submodule's clock function
      void submodule_call_propagate( void *submodule_handle ); // Call the input propagation function of a submodule
@@ -304,9 +362,11 @@ public:
      t_engine_submodule_clock_set_ptr submodule_clock_set_declare( int n ); // Declare a set of functions to call, possibly in parallel
      int submodule_clock_set_entry( t_engine_submodule_clock_set_ptr scs, int n, void *submodule_handle ); // Declare an entry of the ser
      void submodule_clock_set_invoke( t_engine_submodule_clock_set_ptr scs, int *bitmask, t_engine_sim_function_type type ); // Possible parallel calling of multiple functions
+     int submodule_input_type( void *submodule_handle, const char *name, int *comb, int *size );
      t_sl_error_level submodule_drive_input( void *submodule_handle, const char *name, t_se_signal_value *signal, int size ); // Drive the input of a submodule with a signal
      t_sl_error_level submodule_drive_input_with_module_input( void *module_handle, const char *module_name, void *submodule_handle, const char *submodule_name ); // Drive the input of a submodule with the input of a module
      t_sl_error_level submodule_drive_input_with_submodule_output( void *submodule_output_handle, const char *submodule_output_name, void *submodule_input_handle, const char *submodule_input_name );
+     int submodule_output_type( void *submodule_handle, const char *name, int *comb, int *size );
      t_sl_error_level submodule_output_add_receiver( void *submodule_handle, const char *name, t_se_signal_value **signal, int size ); // Use an output of a submodule to drive a signal
      t_sl_error_level submodule_output_drive_module_output( void *submodule_output_handle, const char *submodule_output_name, void *module_output_handle, const char *module_output_name );
 

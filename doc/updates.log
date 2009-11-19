@@ -9,6 +9,37 @@ Overall to do
 
  Reset values (!) are of 32-bit width??? - not that I can see
 
+1.3.6
+=====
+Build:     Added compatiblity with VisualStudio 9.0
+
+1.3.5
+=====
+Simulation:     Added messages to models, and prepreclock assist function
+
+1.3.4
+=====
+Simulation:    Added simulation_invoke_callbacks, and fixed interrogation of clocks so python works
+
+1.3.3
+=====
+Backend:    Correct comb blocks always statements to translate_off asserted combs 
+
+1.3.2
+=====
+Support:    sl_hier_mem_find reset supports LFSR
+Backend:    verilog output with simulation asserts for full verilog
+
+
+1.0.29
+=====
+Backend:    Correct comb blocks always statements to translate_off asserted combs 
+
+1.0.28
+=====
+Support:    sl_hier_mem_find reset supports LFSR
+Backend:    verilog output with simulation asserts for full verilog
+
 v1.0.25
 =======
 Support:     Fixed sl_allocate_and_read_file 'no_file_okay'
