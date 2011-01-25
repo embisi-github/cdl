@@ -175,7 +175,7 @@ extern void sl_ef_lib_random_add_exec_file_enhancements( struct t_sl_exec_file_d
     *object_ptr = NULL;
 
     lib_desc.version = sl_ef_lib_version_initial;
-    lib_desc.library_name = "sys.random";
+    lib_desc.library_name = "sys_random";
     lib_desc.handle = (void *)object_ptr;
     lib_desc.cmd_handler = exec_file_cmd_handler_cb;
     lib_desc.file_cmds = sl_random_cmds;

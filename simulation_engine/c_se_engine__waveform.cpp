@@ -20,6 +20,7 @@
 #include <stdarg.h>
 #include "sl_general.h"
 #include "sl_debug.h"
+#include "sl_exec_file.h"
 #include "se_engine_function.h"
 #include "c_se_engine.h"
 #include "c_se_engine__internal_types.h"
@@ -751,7 +752,7 @@ int c_engine::waveform_add_exec_file_enhancements( struct t_sl_exec_file_data *f
 {
     t_sl_exec_file_lib_desc lib_desc;
     lib_desc.version = sl_ef_lib_version_cmdcb;
-    lib_desc.library_name = "cdlsim.wave";
+    lib_desc.library_name = "cdlsim_wave";
     lib_desc.handle = (void *) this;
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = sim_file_cmds;

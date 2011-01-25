@@ -14,7 +14,13 @@
 #a Global variables
 CYCLICITY = ..
 PREREQS = S
+
 include ${CYCLICITY}/scripts/makefile_hdr
+
+SPECIFIC_INCLUDES =
+ifeq ("$(BUILD_PYTHON)","yes")
+SPECIFIC_INCLUDES += -D SE_ENGINE_PYTHON -DSL_EXEC_FILE_PYTHON -I${PYTHON_INCLUDES}
+endif
 
 #a Source files
 ENGINE_SRCS = \
@@ -44,14 +50,15 @@ SRCS = ${ENGINE_SRCS}
 ENGINE_OBJS = $(call objs_from_srcs,${ENGINE_SRCS})
 
 #a Resultant 'libraries'
-SE_LIB = ${OS_DIR}/libse_simulation_engine.so
+SE_LIB = ${OS_DIR}/se_simulation_engine.o
 LIBRARIES = ${SE_LIB}
 
 #a Dependencies and build requirements
 ALL: ${LIBRARIES}
 
 ${SE_LIB}: ${ENGINE_OBJS}
-	${LINKDYNLIB} $@ ${ENGINE_OBJS} ${SUPPORT_OBJECTS}
+	${LINKASOBJ} $@ ${ENGINE_OBJS}
+	#	${LINKDYNLIB} $@ ${ENGINE_OBJS} ${SUPPORT_WITH_PYTHON_OBJECTS}
 
 #a Clean, depend, etc
 clean:

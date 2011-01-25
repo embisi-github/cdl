@@ -10,6 +10,63 @@
   but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
   for more details.
+
+
+
+#include <Python.h>
+
+static PyObject* Foo_init(PyObject *self, PyObject *args)
+{
+    printf("Foo.__init__ called\n");
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject* Foo_doSomething(PyObject *self, PyObject *args)
+{
+    printf("Foo.doSomething called\n");
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyMethodDef FooMethods[] = 
+{
+    {"__init__", Foo_init, METH_VARARGS, 
+	 "doc string"},
+    {"doSomething", Foo_doSomething, METH_VARARGS,
+	 "doc string"},
+    {NULL},
+};
+
+static PyMethodDef ModuleMethods[] = { {NULL} };
+
+#ifdef __cplusplus
+extern "C"
+#endif
+void initFoo()
+{
+    PyMethodDef *def;
+
+    // create a new module and class
+    PyObject *module = Py_InitModule("Foo", ModuleMethods);
+    PyObject *moduleDict = PyModule_GetDict(module);
+    PyObject *classDict = PyDict_New();
+    PyObject *className = PyString_FromString("Foo");
+    PyObject *fooClass = PyClass_New(NULL, classDict, className);
+    PyDict_SetItemString(moduleDict, "Foo", fooClass);
+    Py_DECREF(classDict);
+    Py_DECREF(className);
+    Py_DECREF(fooClass);
+    
+    // add methods to class
+    for (def = FooMethods; def->ml_name != NULL; def++) {
+	PyObject *func = PyCFunction_New(def, NULL);
+	PyObject *method = PyMethod_New(func, NULL, fooClass);
+	PyDict_SetItemString(classDict, def->ml_name, method);
+	Py_DECREF(func);
+	Py_DECREF(method);
+    }
+}
 */
 /*a Constraint compiler source code
  */
@@ -25,6 +82,7 @@
 #include "sl_cons.h"
 #include "sl_indented_file.h"
 #include "sl_general.h"
+#include "sl_exec_file.h"
 #include "model_list.h"
 #include "c_se_engine.h"
 
@@ -32,6 +90,13 @@
  */
 #define PY_DEBUG
 #undef PY_DEBUG
+#if 1
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
 
 /*a Types
  */
@@ -50,6 +115,7 @@ typedef struct {
  */
 static PyObject *py_engine_method_setenv( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_read_hw_file( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_describe_hw( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_read_gui_file( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_reset_errors( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_error_level( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
@@ -98,6 +164,7 @@ static PyMethodDef engine_methods[] =
 {
      {"setenv",                    (PyCFunction)py_engine_method_setenv,                  METH_VARARGS|METH_KEYWORDS, "Set environment for hardware file"},
      {"read_hw_file",              (PyCFunction)py_engine_method_read_hw_file,            METH_VARARGS|METH_KEYWORDS, "Read hardware file. Clears environment."},
+     {"describe_hw",               (PyCFunction)py_engine_method_describe_hw,             METH_VARARGS|METH_KEYWORDS, "Describe hardware"},
      {"read_gui_file",             (PyCFunction)py_engine_method_read_gui_file,           METH_VARARGS|METH_KEYWORDS, "Read gui file."},
      {"reset_errors",              (PyCFunction)py_engine_method_reset_errors,            METH_VARARGS|METH_KEYWORDS, "Gets the worst case error level." },
      {"get_error_level",           (PyCFunction)py_engine_method_get_error_level,         METH_VARARGS|METH_KEYWORDS, "Gets the worst case error level." },
@@ -139,7 +206,7 @@ static PyTypeObject py_engine_PyTypeObject_frame = {
 	py_engine_str, /*tp_str */
 };
 
-/*a Statics for py_engine
+/*a Statics for py_engine module
  */
 /*v py_engine_error
  */
@@ -150,7 +217,7 @@ static PyObject *result;
  */
 static PyMethodDef py_engine_methods[] =
 {
-    {"new", py_engine_new, METH_VARARGS, "Create a new engine object."},
+    {"py_engine", py_engine_new, METH_VARARGS, "Create a new engine object."},
     {"debug", (PyCFunction)py_engine_debug, METH_VARARGS|METH_KEYWORDS, "Enable debugging and set level."},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
@@ -384,6 +451,55 @@ static PyObject *py_engine_method_read_hw_file( t_py_engine_PyObject *py_eng, Py
           py_eng->env_options = NULL;
           return py_engine_method_return( py_eng, NULL );
      }
+     return NULL;
+}
+
+/*f py_engine_method_describe_hw
+ */
+static PyObject *py_engine_method_describe_hw( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+     PyObject *describer;
+     char desc[] = "describer";
+     char *kwdlist[] = { desc, NULL };
+     t_sl_error_level error_level, worst_error_level;
+
+     WHERE_I_AM;
+     py_engine_method_enter( py_eng, "describe_hw", args );
+     if (PyArg_ParseTupleAndKeywords( args, kwds, "O", kwdlist, &describer))
+     {
+     WHERE_I_AM;
+          py_eng->engine->delete_instances_and_signals();
+     WHERE_I_AM;
+          error_level = py_eng->engine->read_and_interpret_py_object( describer, (t_sl_get_environment_fn)sl_option_get_string, (void *)py_eng->env_options );
+     WHERE_I_AM;
+          worst_error_level = error_level;
+     WHERE_I_AM;
+          if ((int)error_level <= (int)error_level_warning)
+          {
+     WHERE_I_AM;
+               error_level = py_eng->engine->check_connectivity();
+     WHERE_I_AM;
+               worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
+          }
+     WHERE_I_AM;
+          if ((int)error_level <= (int)error_level_warning)
+          {
+     WHERE_I_AM;
+               error_level = py_eng->engine->build_schedule();
+     WHERE_I_AM;
+               worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
+     WHERE_I_AM;
+          }
+     WHERE_I_AM;
+          py_engine_method_result_add_int( NULL, (int) worst_error_level );
+     WHERE_I_AM;
+          sl_option_free_list(py_eng->env_options);
+     WHERE_I_AM;
+          py_eng->env_options = NULL;
+     WHERE_I_AM;
+          return py_engine_method_return( py_eng, NULL );
+     }
+     WHERE_I_AM;
      return NULL;
 }
 
@@ -887,7 +1003,9 @@ extern "C" void initpy_engine( void )
 	PyObject *m;
     int i;
     se_c_engine_init();
-    m = Py_InitModule("py_engine", py_engine_methods );
+    m = Py_InitModule3("py_engine", py_engine_methods, "Python interface to CDL simulation engine" );
+
+    sl_exec_file_python_add_class_object( m );
 
     for (i=0; model_init_fns[i]; i++)
     {

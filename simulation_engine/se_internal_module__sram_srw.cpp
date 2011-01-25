@@ -457,15 +457,15 @@ t_sl_error_level c_sram_srw::message( t_se_message *message )
         }
         else if (!strcmp(option_name,"reset_type"))
         {
-            reset_type = (int)message->data.ptrs[1];
+            reset_type = (int)(t_sl_uint64)message->data.ptrs[1];
         }
         else if (!strcmp(option_name,"reset_value"))
         {
-            reset_value = (int)message->data.ptrs[1];
+            reset_value = (int)(t_sl_uint64)message->data.ptrs[1];
         }
         else if (!strcmp(option_name,"verbose"))
         {
-            verbose = (int)message->data.ptrs[1];
+            verbose = (int)(t_sl_uint64)message->data.ptrs[1];
         }
         else
         {

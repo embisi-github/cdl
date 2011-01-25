@@ -207,7 +207,7 @@ extern void sl_ef_lib_fifo_add_exec_file_enhancements( struct t_sl_exec_file_dat
     *object_ptr = NULL;
 
     lib_desc.version = sl_ef_lib_version_initial;
-    lib_desc.library_name = "sys.fifo";
+    lib_desc.library_name = "sys_fifo";
     lib_desc.handle = (void *)object_ptr;
     lib_desc.cmd_handler = exec_file_cmd_handler_cb;
     lib_desc.file_cmds = sl_fifo_cmds;

@@ -21,10 +21,10 @@
 /*a Defines
  */
 #define __CDL__VERSION 1
-#define __CDL__SUBVERSION 3
-#define __CDL__SUBSUBVERSION 6
-#define __CDL__VERSION_STRING "1.3.6"
-#define __CDL__VERSION_COPYRIGHT_STRING "Copyright (C) 2002-9 Gavin J Stark\nThis is free software; see the source for copying conditions.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
+#define __CDL__SUBVERSION 4
+#define __CDL__SUBSUBVERSION 0
+#define __CDL__VERSION_STRING "1.4.0"
+#define __CDL__VERSION_COPYRIGHT_STRING "Copyright (C) 2002-10 Gavin J Stark\nThis is free software; see the source for copying conditions.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
 
 /*a Wrapper
  */

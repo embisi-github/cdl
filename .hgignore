@@ -1,0 +1,10 @@
+syntax: glob
+*~
+.DS_Store
+*/*.log
+*/osx/*.o
+*/osx/*.P
+*/linux/*.o
+*/linux/*.P
+*/build/osx/*.cpp
+*/build/linux/*.cpp

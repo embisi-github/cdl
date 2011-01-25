@@ -30,6 +30,7 @@ enum
     option_type_int,
     option_type_int64,
     option_type_string,
+    option_type_object,
 };
 
 /*t t_sl_option
@@ -41,6 +42,7 @@ typedef struct t_sl_option
     int integer;
     t_sl_uint64 integer64;
     char *string;
+    void *object;
     char keyword[1];
 } t_sl_option;
 
@@ -79,6 +81,7 @@ extern int sl_option_get_int( t_sl_option *list, const char *keyword, int which,
      case option_type_int:    *value=opt->integer; return 1;
      case option_type_int64:  *value=(int)(opt->integer64); return 1;
      case option_type_string: return (sscanf(opt->string,"%d",value)==1);
+     case option_type_object: *value=0; return 1;
      }
      return 0;
 }
@@ -107,6 +110,7 @@ extern int sl_option_get_int64( t_sl_option *list, const char *keyword, int whic
      case option_type_int:    *value=(t_sl_uint64)opt->integer; return 1;
      case option_type_int64:  *value=(t_sl_uint64)(opt->integer64); return 1;
      case option_type_string: return (sscanf(opt->string,"%lld",value)==1);
+     case option_type_object: *value=0; return 1;
      }
      return 0;
 }
@@ -172,6 +176,35 @@ extern const char *sl_option_get_string( void *list, const char *keyword )
     t_sl_option *olist;
     olist = (t_sl_option *)list;
     return sl_option_get_string( olist, keyword );
+}
+
+/*f sl_option_get_object( list, keyword ) - return value or NULL
+ */
+extern void *sl_option_get_object( t_sl_option *list, const char *keyword )
+{
+    t_sl_option *opt;
+    //fprintf(stderr,"Find int option %s\n", keyword);
+    opt = sl_option_find( list, keyword, 0 );
+    if (!opt)
+        return NULL;
+    switch (opt->type)
+    {
+    case option_type_object: return opt->object;
+    }
+    return NULL;
+}
+
+/*f sl_option_list (object)
+ */
+extern t_sl_option *sl_option_list( t_sl_option *list, const char *keyword, void *object )
+{
+     t_sl_option *opt;
+     opt = (t_sl_option *)malloc(sizeof(t_sl_option)+strlen(keyword)+1);
+     opt->next_in_list = list;
+     opt->type = option_type_object;
+     strcpy( opt->keyword, keyword );
+     opt->object = object;
+     return opt;
 }
 
 /*f sl_option_list (integer)

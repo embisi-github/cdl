@@ -19,6 +19,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include "sl_debug.h"
+#include "sl_exec_file.h"
 #include "se_errors.h"
 #include "se_engine_function.h"
 #include "c_se_engine.h"
@@ -553,7 +554,7 @@ int c_engine::register_add_exec_file_enhancements( struct t_sl_exec_file_data *f
     efl->engine_handle = engine_handle;
     efl->messages = NULL;
     lib_desc.version = sl_ef_lib_version_cmdcb;
-    lib_desc.library_name = "cdlsim.reg";
+    lib_desc.library_name = "cdlsim_reg";
     lib_desc.handle = (void *) efl;
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = sim_file_cmds;

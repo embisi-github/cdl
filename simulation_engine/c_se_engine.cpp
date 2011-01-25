@@ -260,6 +260,16 @@ t_engine_clock *c_engine::create_clock( const char *name )
 
 /*a Option handling methods
  */
+/*f c_engine::get_option_object
+ */
+void *c_engine::get_option_object( void *handle, const char *keyword )
+{
+     t_engine_module_instance *emi;
+
+     emi = (t_engine_module_instance *)handle;
+     return sl_option_get_object( emi->option_list, keyword );
+}
+
 /*f c_engine::get_option_int
  */
 int c_engine::get_option_int( void *handle, const char *keyword, int default_value )

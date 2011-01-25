@@ -22,6 +22,11 @@
 #include "sl_general.h"
 #include "sl_cons.h"
 #include "sl_ef_lib_event.h"
+#ifdef SL_EXEC_FILE_PYTHON
+#include <Python.h>
+#else
+typedef void PyObject;
+#endif
 
 /*a Defines
  */
@@ -226,6 +231,7 @@ typedef enum
      sl_exec_file_value_type_string,
      sl_exec_file_value_type_variable,
      sl_exec_file_value_type_label,
+     sl_exec_file_value_type_object,
      sl_exec_file_value_type_any=100,
      sl_exec_file_value_type_integer_or_double,
      sl_exec_file_value_type_none
@@ -317,8 +323,8 @@ extern void *sl_exec_file_add_object_instance( struct t_sl_exec_file_data *file_
 extern void sl_exec_file_object_instance_register_state( struct t_sl_exec_file_cmd_cb *cmd_cb, const char *object_name, const char *state_name, void *data, int width, int size );
 extern void sl_exec_file_object_instance_register_state_desc( struct t_sl_exec_file_cmd_cb *cmd_cb, const char *object_name, t_sl_exec_file_state_desc_entry *state_desc_entry_array, void *base_data );
 
-extern int sl_exec_file_add_file_commands( struct t_sl_exec_file_data *file_data, t_sl_exec_file_cmd *file_cmds );
-extern int sl_exec_file_add_file_functions( struct t_sl_exec_file_data *file_data, t_sl_exec_file_fn *file_fns, void *handle );
+//extern int sl_exec_file_add_file_commands( struct t_sl_exec_file_data *file_data, t_sl_exec_file_cmd *file_cmds ); Deprecated - use libraries instead
+//extern int sl_exec_file_add_file_functions( struct t_sl_exec_file_data *file_data, t_sl_exec_file_fn *file_fns, void *handle ); Deprecated - use libraries instead
 extern int sl_exec_file_send_message_to_object( struct t_sl_exec_file_data *file_data, const char *object_name, const char *message, void *handle );
 extern void sl_exec_file_send_message_to_all_objects( struct t_sl_exec_file_data *file_data, const char *message, void *handle );
 
@@ -334,6 +340,15 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
                                                                   const char *user,
                                                                   t_sl_exec_file_cmd *file_cmds,
                                                                   t_sl_exec_file_fn *file_fns );
+extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *error,
+                                                                  c_sl_error *message,
+                                                                  t_sl_exec_file_callback_fn callback_fn,
+                                                                  void *callback_handle,
+                                                                  const char *id,
+                                                                  PyObject *py_object,
+                                                                  struct t_sl_exec_file_data **file_data_ptr,
+                                                                  const char *user,
+                                                                  int clocked );
 extern void sl_exec_file_free( t_sl_exec_file_data *file_data );
 
 /*b Execution functions
@@ -357,6 +372,10 @@ extern c_sl_error *sl_exec_file_error( struct t_sl_exec_file_data *file_data );
 extern c_sl_error *sl_exec_file_message( struct t_sl_exec_file_data *file_data );
 extern c_sl_error *sl_exec_file_message( struct t_sl_exec_file_data *file_data );
 extern t_sl_exec_file_completion *sl_exec_file_completion( struct t_sl_exec_file_data *file_data );
+
+/*b Python-specific functions
+ */
+extern int sl_exec_file_python_add_class_object( PyObject *module );
 
 /*a Wrapper
  */

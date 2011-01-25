@@ -102,7 +102,7 @@ static t_sl_error_level internal_module_test_harness_reset( void *handle, int pa
  */
 static t_sl_error_level internal_module_test_harness_preclock( t_internal_module_test_harness_data *data )
 {
-    /*b Call BFM preclock function
+    /*b Call BFM preclock function - captures inputs (do only on first preclock of a clock event, which is okay as we only have one clock)
      */
     sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "preclock", NULL );
 
@@ -111,23 +111,33 @@ static t_sl_error_level internal_module_test_harness_preclock( t_internal_module
     return error_level_okay;
 }
 
-/*f internal_module_test_harness_clock
+/*f internal_module_test_harness_clock - do the bulk of the work
  */
 static t_sl_error_level internal_module_test_harness_clock( t_internal_module_test_harness_data *data )
 {
-    /*b Run the exec_file
+    /*b Run the exec_file - this should do the 'tick-start, tick-end' of an exec file
      */
     if (data->exec_file_data)
     {
         while (sl_exec_file_despatch_next_cmd( data->exec_file_data ));
     }
 
-    /*b Call BFM clock function
+    /*b Call BFM clock function - copies to outputs
      */
     sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "clock", NULL );
 
     /*b Done
      */
+    return error_level_okay;
+}
+
+/*f internal_module_test_harness_prepreclock_fn
+ */
+static t_sl_error_level internal_module_test_harness_prepreclock_fn( void *handle )
+{
+    t_internal_module_test_harness_data *data;
+
+    data = (t_internal_module_test_harness_data *)handle;
     return error_level_okay;
 }
 
@@ -209,7 +219,7 @@ static void internal_module_test_harness_exec_file_instantiate_callback( void *h
     sl_exec_file_set_environment_interrogation( file_data, (t_sl_get_environment_fn)sl_option_get_string, (void *)data->engine->get_option_list( data->engine_handle ) );
 
     lib_desc.version = sl_ef_lib_version_cmdcb;
-    lib_desc.library_name = "cdlsim.th";
+    lib_desc.library_name = "cdlsim_th";
     lib_desc.handle = (void *)data;
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = test_harness_file_cmds;
@@ -223,14 +233,19 @@ static void internal_module_test_harness_exec_file_instantiate_callback( void *h
 /*f internal_module__test_harness_instantiate
   Currently requires a clock. Don't think we can avoid that. But maybe we could make it combinatorial on all inputs, if no clock is specified.
 */
+// This include should move to the exec file
 extern t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *engine, void *engine_handle )
 {
     const char *clock, *filename;
     t_internal_module_test_harness_data *data;
+    PyObject *obj;
     int posedge;
 
     clock = engine->get_option_string( engine_handle, "clock", "" );
     filename = engine->get_option_string( engine_handle, "filename", "test_harness.txt" );
+    obj = (PyObject *)(engine->get_option_object( engine_handle, "object" ));
+
+    fprintf(stderr,"Object %p\n",obj);
 
     posedge=1;
     if (clock[0]=='!')
@@ -246,11 +261,25 @@ extern t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *
     data->posedge = posedge;
     data->exec_file_data = NULL;
 
+    engine->register_prepreclock_fn( engine_handle, (void *)data, internal_module_test_harness_prepreclock_fn );
     engine->register_clock_fns( engine_handle, (void *)data, clock, internal_module_test_harness_posedge_preclock_fn, internal_module_test_harness_posedge_clock_fn, internal_module_test_harness_negedge_preclock_fn, internal_module_test_harness_negedge_clock_fn );
 
     engine->register_reset_function( engine_handle, (void *)data, internal_module_test_harness_reset );
     engine->register_delete_function( engine_handle, (void *)data, internal_module_test_harness_delete_data );
 
+    if (obj)
+    {
+        t_sl_error_level error_level;
+        error_level = sl_exec_file_allocate_from_python_object( engine->error, engine->message, internal_module_test_harness_exec_file_instantiate_callback, (void *)data, "exec_file", obj, &data->exec_file_data, "Test harness", 1 );
+        // On reset and delete we should send a message to all subthreads to get them to die, then join() them
+        // Subthreads need a 'state' variable and a pair of conditions; lock needs to be shared between them
+        // To wait for a subthread to be in a state 'x' we have to claim the shared lock, transition to 'waiting', mark threads next state as 'x' and then wait to be notified.
+        // If the subthread is already in the desired state then it will be waiting to be notified
+        // To wait for many subthreads one does it one at a time.
+        // On preclock we need to wait for all subthreads to be ready, then transition to preclock, transition all subthreads to 'preclock_start', signal all subthreads (condition notify)
+        // On clock we need to wait for all subthreads to be clocked, then transition to clock, transition all subthreads to 'ready'
+        return error_level;
+    }
     return sl_exec_file_allocate_and_read_exec_file( engine->error, engine->message, internal_module_test_harness_exec_file_instantiate_callback, (void *)data, "exec_file", filename, &data->exec_file_data, "Test harness", NULL, NULL );
 }
 

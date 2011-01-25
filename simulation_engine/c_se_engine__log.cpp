@@ -35,6 +35,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include "sl_debug.h"
+#include "sl_exec_file.h"
 #include "se_engine_function.h"
 #include "c_se_engine.h"
 #include "c_se_engine__internal_types.h"
@@ -535,7 +536,7 @@ int c_engine::log_add_exec_file_enhancements( struct t_sl_exec_file_data *file_d
     log_event_ef_lib->log_event_array = NULL;
     if (!sl_exec_file_add_poststate_callback( file_data, ef_poststate_callback, (void *)log_event_ef_lib )) return 0;
     lib_desc.version = sl_ef_lib_version_cmdcb;
-    lib_desc.library_name = "cdlsim.log";
+    lib_desc.library_name = "cdlsim_log";
     lib_desc.handle = (void *) log_event_ef_lib;
     lib_desc.cmd_handler = exec_file_cmd_handler;
     lib_desc.file_cmds = sim_file_cmds;

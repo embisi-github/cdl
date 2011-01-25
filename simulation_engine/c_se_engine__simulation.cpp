@@ -377,6 +377,9 @@ static t_sl_error_level ef_bfm_support_object_message_handler( t_sl_exec_file_ob
 }
 
 /*f c_engine::simulation_add_exec_file_enhancements
+  Add inputs/outputs to a BFM (internal or external) such as the test_harness, based on options
+  Relies on the BFM having an sl_exec_file
+  Python-script BFMs do not
  */
 int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data *file_data, void *engine_handle, const char *clock, int posedge )
 {
@@ -536,7 +539,7 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
     {
         lib_data->engine = this;
         lib_data->lib_desc.version = sl_ef_lib_version_cmdcb;
-        lib_data->lib_desc.library_name = "cdlsim.sim";
+        lib_data->lib_desc.library_name = "cdlsim_sim";
         lib_data->lib_desc.handle = (void *) lib_data;
         lib_data->lib_desc.cmd_handler = exec_file_cmd_handler;
         lib_data->lib_desc.file_cmds = sim_file_cmds;

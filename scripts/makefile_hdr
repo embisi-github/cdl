@@ -77,6 +77,7 @@ endif
 ifneq (,$(findstring S,${PREREQS}))
 SUPPORT_INCLUDES := -I ${CYCLICITY}/support_libraries
 SUPPORT_OBJECTS := ${CYCLICITY_OBJ_DIR}/sl_support.o
+SUPPORT_WITH_PYTHON_OBJECTS := ${CYCLICITY_OBJ_DIR}/sl_support_with_python.o
 endif
 
 ifneq (,$(findstring h,${PREREQS}))
@@ -100,10 +101,12 @@ EXPORTED_INCLUDES := -I ${CYCLICITY}/include
 endif
 
 #a Default linux environment
+# Use '=' here as SPECIFIC_INCLUDES is set AFTER this file is included
 BUILD_FLAGS = ${CONFIG_OPTIMIZATION_FLAGS}
-CYCLICITY_INCLUDES := ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
-CYCLICITY_OBJS := ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
-CYCLICITY_LIBS := ${ENGINE_LIBS}
+CYCLICITY_INCLUDES     = ${SUPPORT_INCLUDES} ${BACKEND_INCLUDES} ${ENGINE_INCLUDES} ${HARNESS_INCLUDES} ${EXPORTED_INCLUDES}
+CYCLICITY_OBJS         = ${BACKEND_OBJECTS} ${SUPPORT_OBJECTS}
+CYCLICITY_PYTHON_OBJS  = ${BACKEND_OBJECTS} ${SUPPORT_WITH_PYTHON_OBJECTS}
+CYCLICITY_LIBS         = ${ENGINE_LIBS}
 
 LIBS = 
 LIB_DEP_EXT = so
@@ -161,13 +164,20 @@ ifeq (${BUILD_ARCH},osx)
 	  PYTHON_INCLUDES := /Developer/SDKs/MacOSX10.5.sdk/System/Library/Frameworks/Python.framework/Versions/2.5/include/${PYTHON}
 	endif
 	CC := gcc -dynamic
-	LINK := g++
+	LINK := gcc-4.0
 	LINKASOBJ := ld -r -o
-	LINKASBIN := g++ ${LINK_OPTIMIZATION_FLAGS} -o
-	LINKDYNLIB := g++ ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
 	# Python requires -bundle and a .so, with fred.so containing a function _initfred
 	# We build within the Python framework, which in macports is held in /opt/local/Library/Frameworks
-	PYTHONLINKLIB := g++ ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F/opt/local/Library/Frameworks -o 
+	#This does not seem to work on snowleopard PYTHONLINKLIB := g++ ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F/opt/local/Library/Frameworks -o 
+	ifeq (${BUILD_SUBARCH},snowleopard)
+		CC := gcc-4.0 -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
+		CXX := gcc-4.0 -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
+		LINK := gcc-4.0
+		LINKASOBJ := ld -r -o
+		LINKASBIN := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -o
+		LINKDYNLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
+		PYTHONLINKLIB := g++-4.0 -L/opt/local/lib -bundle -undefined dynamic_lookup -o
+	endif
 endif
 
 #a Default patterns

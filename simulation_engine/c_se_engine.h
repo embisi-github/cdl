@@ -23,6 +23,14 @@
 #include "c_sl_error.h"
 #include "sl_option.h"
 #include "sl_general.h"
+#ifndef Py_PYTHON_H
+#ifdef SE_ENGINE_PYTHON
+#include <Python.h>
+#endif
+#ifndef SE_ENGINE_PYTHON
+#define PyObject void
+#endif
+#endif
 
 /*a Defines
  */
@@ -224,6 +232,7 @@ public:
      t_sl_error_level instantiation_exec_file_cmd_handler( struct t_sl_exec_file_cmd_cb *cmd_cb );
      t_sl_error_level read_file( const char *filename );
      t_sl_error_level read_and_interpret_hw_file( const char *filename, t_sl_get_environment_fn env_fn, void *env_handle );
+     t_sl_error_level read_and_interpret_py_object( PyObject *describer, t_sl_get_environment_fn env_fn, void *env_handle );
      void free_forced_options( void );
      t_sl_error_level instance_add_forced_option( const char *full_module_name, t_sl_option_list option_list );
      t_sl_error_level instantiate( void *parent_engine_handle, const char *type, const char *name, t_sl_option_list option_list );
@@ -250,6 +259,7 @@ public:
       */
      int get_option_int( void *handle, const char *keyword, int default_value );
      const char *get_option_string( void *handle, const char *keyword, const char *default_value );
+     void *get_option_object( void *handle, const char *keyword );
      t_sl_option_list get_option_list( void *handle );
      t_sl_option_list set_option_list( void *handle, t_sl_option_list option_list );
 

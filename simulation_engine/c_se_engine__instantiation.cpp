@@ -56,6 +56,7 @@ enum
     cmd_module_force_option_string,
     cmd_option_int,
     cmd_option_string,
+    cmd_option_object,
     cmd_wire,
     cmd_assign,
     cmd_cmp,
@@ -79,6 +80,7 @@ static t_sl_exec_file_cmd file_cmds[] =
      {cmd_module_force_option_string,  3, "module_force_option_string", "sss", "module_force_option_string <full module instance name> <option> <value>"},
      {cmd_option_int,     2, "option_int", "si", "option_int <name> <value>"},
      {cmd_option_string,  2, "option_string", "ss", "option_string <name> <value>"},
+     {cmd_option_object,  2, "option_object", "so", "option_object <name> <object>"},
      {cmd_wire,           1, "wire", "sssssssssssssss",    "wire <names>* - up to 15"},
      {cmd_assign,         2, "assign", "siii", "assign <output_bus> <value> [<until time> [<after value>]]"},
      {cmd_cmp,            3, "cmp", "ssi", "cmp <output_signal> <bus> <value>"},
@@ -104,6 +106,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
     int i, j;
     int width;
     char *arg, *names[SL_EXEC_FILE_MAX_CMD_ARGS+1];
+    fprintf(stderr,"cmd_cb->cmd %d\n",cmd_cb->cmd);
     switch (cmd_cb->cmd)
     {
     case cmd_module:
@@ -122,10 +125,13 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
     case cmd_option_string:
         option_list = sl_option_list( option_list, cmd_cb->args[0].p.string, cmd_cb->args[1].p.string );
         break;
+    case cmd_option_object:
+        option_list = sl_option_list( option_list, cmd_cb->args[0].p.string, cmd_cb->args[1].p.ptr );
+        break;
     case cmd_wire:
         for (j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++)
         {
-            if (cmd_cb->args[j].p.ptr)
+            if (cmd_cb->args[j].type == sl_exec_file_value_type_string)
             {
                 arg = sl_str_alloc_copy(cmd_cb->args[j].p.string);
                 width=1;
@@ -212,6 +218,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
         generic_logic( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), j-2, names[0], names[1], (const char **)(names+2) );
         break;
     case cmd_clock:
+        fprintf(stderr,"Create clock %s %lld %lld %lld\n",cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         create_clock( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         break;
     case cmd_clock_divide:
@@ -304,7 +311,7 @@ static void exec_file_instantiate_callback( void *handle, struct t_sl_exec_file_
 
     sl_exec_file_set_environment_interrogation( file_data, static_env_fn, static_env_handle );
     lib_desc.version = sl_ef_lib_version_cmdcb;
-    lib_desc.library_name = "cdlsim.instantiation";
+    lib_desc.library_name = "cdlsim_instantiation";
     lib_desc.handle = handle;
     lib_desc.cmd_handler = exec_file_cmd_handler_cb;
     lib_desc.file_cmds = file_cmds;
@@ -325,6 +332,32 @@ t_sl_error_level c_engine::read_and_interpret_hw_file( const char *filename, t_s
      option_list= NULL;
 
      result = sl_exec_file_allocate_and_read_exec_file( error, message, exec_file_instantiate_callback, (void *)this, "hw_exec_file", filename, &exec_file_data, "hardware instantiation", NULL, NULL );
+
+     if (result!=error_level_okay)
+          return result;
+     if (!exec_file_data)
+     {
+          return error_level_fatal;
+     }
+
+     while (sl_exec_file_despatch_next_cmd( exec_file_data));
+     sl_exec_file_free( exec_file_data );
+
+     return error_level_okay;
+}
+
+/*f c_engine::read_and_interpret_py_object
+ */
+t_sl_error_level c_engine::read_and_interpret_py_object( PyObject *describer, t_sl_get_environment_fn env_fn, void *env_handle )
+{
+     t_sl_error_level result;
+     t_sl_exec_file_data *exec_file_data;
+
+     static_env_fn = env_fn;
+     static_env_handle = env_handle;
+     option_list= NULL;
+
+     result = sl_exec_file_allocate_from_python_object( error, message, exec_file_instantiate_callback, (void *)this, "hw_exec_file", describer, &exec_file_data, "hardware instantiation", 0 );
 
      if (result!=error_level_okay)
           return result;
