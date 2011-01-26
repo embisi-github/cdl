@@ -282,6 +282,9 @@ typedef struct t_sl_exec_file_data
 
 /*a Static function declarations
  */
+static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data );
+static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data );
+
 static t_sl_exec_file_eval_fn ef_fn_eval_env_int;
 static t_sl_exec_file_eval_fn ef_fn_eval_env_double;
 static t_sl_exec_file_eval_fn ef_fn_eval_env_string;
@@ -1955,8 +1958,6 @@ extern void sl_exec_file_free( t_sl_exec_file_data *file_data )
 
 /*f sl_exec_file_reset
  */
-static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data );
-static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data );
 extern void sl_exec_file_reset( struct t_sl_exec_file_data *file_data )
 {
     WHERE_I_AM;
@@ -3337,6 +3338,7 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
     for (j=0;j<SL_EXEC_FILE_MAX_CMD_ARGS;j++)
     {
         cmd_cb->args[j].type = sl_exec_file_value_type_none;
+        cmd_cb->args[j].p.ptr = NULL;
     }
     for (j=0; (j<SL_EXEC_FILE_MAX_CMD_ARGS) && (j<arg_len);j++)
     {
@@ -3486,8 +3488,9 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
     }
     barrier_thread = NULL;
     barrier_thread_data = NULL;
-    if (py_object->clocked)
+    if (py_object->clocked && (barrier_thread_obj!=Py_None))
     {
+        // If called from the main thread during init then barrier_thread_obj is Py_None
         barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
         if (barrier_thread)
             barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
@@ -3958,6 +3961,26 @@ extern int sl_exec_file_python_add_class_object( PyObject *module )
     return error_level_okay;
 }
 
+/*f sl_exec_file_py_add_object_instance
+ */
+static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data, t_sl_exec_file_object_chain *object_chain )
+{
+    t_py_object_exec_file_object *py_ef_obj;
+
+    WHERE_I_AM;
+    if (!file_data->py_object) return;
+
+    WHERE_I_AM;
+    fprintf(stderr,"Adding object %s to object (%p)\n",object_chain->object_desc.name,object_chain);
+    py_ef_obj = PyObject_New( t_py_object_exec_file_object, &py_object_exec_file_object );
+    py_ef_obj->py_object = PyObj(file_data);
+    py_ef_obj->file_data = file_data;
+    py_ef_obj->object_chain = object_chain;
+    WHERE_I_AM;
+    PyObject_SetAttrString( file_data->py_object, object_chain->object_desc.name, (PyObject *)py_ef_obj );
+    WHERE_I_AM;
+}
+
 /*f sl_exec_file_allocate_from_python_object
   opens the file
   reads it in to a temporary buffer
@@ -4047,27 +4070,6 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         }
     }
 
-    /*b Add in objects for each sl_exec_file object
-     */
-    {
-        t_sl_exec_file_object_chain *chain;
-        int j;
-
-        for (chain=(*file_data_ptr)->object_chain; chain; chain=chain->next_in_list)
-        {
-            WHERE_I_AM;
-            fprintf(stderr,"Adding object %s to object (%p)\n",chain->object_desc.name,chain);
-            t_py_object_exec_file_object *py_ef_obj;
-            py_ef_obj = PyObject_New( t_py_object_exec_file_object, &py_object_exec_file_object );
-            py_ef_obj->py_object = (t_py_object *)py_object;
-            py_ef_obj->file_data = *file_data_ptr;
-            py_ef_obj->object_chain = chain;
-            WHERE_I_AM;
-            PyObject_SetAttrString( py_object, chain->object_desc.name, (PyObject *)py_ef_obj );
-            WHERE_I_AM;
-        }
-    }
-
     /*b Find the py_interp we are in, and create a barrier thread, if clocked
      */
     WHERE_I_AM;
@@ -4092,6 +4094,18 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     (*file_data_ptr)->during_init = 0;
     if (result) Py_DECREF(result);
     if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
+
+    /*b Add in objects for each sl_exec_file object
+     */
+    {
+        t_sl_exec_file_object_chain *chain;
+        int j;
+
+        for (chain=(*file_data_ptr)->object_chain; chain; chain=chain->next_in_list)
+        {
+            sl_exec_file_py_add_object_instance( *file_data_ptr, chain );
+        }
+    }
 
     /*b Reset the file
      */
