@@ -3203,6 +3203,7 @@ typedef struct
 {
     PyObject_HEAD
     t_sl_exec_file_data *file_data;
+    t_py_object *py_object; // this is a copy of file_data->py_object
     t_sl_exec_file_object_chain *object_chain;
 } t_py_object_exec_file_object;
 
@@ -3450,29 +3451,42 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
 }
 
 /*f py_engine_cb
-  Called with a tuple of (py_thread, py_ef_lib, int type (0=>function, 1=>command), int offset (which cmd/function in the library))
+  Called with a tuple of (py_thread, py_ef_lib/py_ef_obj, int type (0=>function, 1=>command), int offset (which cmd/function in the library))
  */
 static PyObject *py_engine_cb( PyObject* self, PyObject* args )
 {
     WHERE_I_AM;
-    PyObject *barrier_thread_obj, *py_ef_lib_obj;
+    PyObject *barrier_thread_obj, *py_ef_lib_or_obj_obj;
+    t_py_object *py_object;
+    t_sl_exec_file_data *file_data;
     long type, offset;
-    t_sl_exec_file_lib_desc *lib_desc;
-    t_py_object_exec_file_library *py_ef_lib;
     t_sl_pthread_barrier_thread_ptr barrier_thread;
     t_py_thread_data *barrier_thread_data;
     t_sl_exec_file_cmd_cb cmd_cb;
     t_sl_exec_file_value cmd_cb_args[SL_EXEC_FILE_MAX_CMD_ARGS];
 
     barrier_thread_obj = PyTuple_GetItem(self, 0);
-    py_ef_lib_obj = PyTuple_GetItem(self, 1);
+    py_ef_lib_or_obj_obj = PyTuple_GetItem(self, 1);
     type = PyInt_AsLong(PyTuple_GetItem(self, 2));
     offset = PyInt_AsLong(PyTuple_GetItem(self, 3));
 
-    py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_obj;
+    if ((type>=0) && (type<=1))
+    {
+        t_py_object_exec_file_library *py_ef_lib;
+        py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_or_obj_obj;
+        file_data = py_ef_lib->file_data;
+        py_object = py_ef_lib->py_object;
+    }
+    else
+    {
+        t_py_object_exec_file_object *py_ef_obj;
+        py_ef_obj = (t_py_object_exec_file_object *)py_ef_lib_or_obj_obj;
+        file_data = py_ef_obj->file_data;
+        py_object = py_ef_obj->py_object;
+    }
     barrier_thread = NULL;
     barrier_thread_data = NULL;
-    if (py_ef_lib->py_object->clocked)
+    if (py_object->clocked)
     {
         barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
         if (barrier_thread)
@@ -3481,35 +3495,43 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
         //fprintf(stderr,"barrier_thread from obj %p %p\n", barrier_thread, barrier_thread_data );
     }
     
-    lib_desc = &(py_ef_lib->lib_chain->lib_desc);
     //fprintf(stderr,"self %p\n",self);
-    cmd_cb.file_data = py_ef_lib->file_data;
-    cmd_cb.error = py_ef_lib->file_data->error;
-    cmd_cb.filename = py_ef_lib->file_data->filename;
+    cmd_cb.file_data  = file_data;
+    cmd_cb.error      = file_data->error;
+    cmd_cb.filename   = file_data->filename;
     cmd_cb.line_number = 0;
     cmd_cb.cmd = 0;
     cmd_cb.args = cmd_cb_args;
-    cmd_cb.lib_desc = lib_desc;
+    cmd_cb.lib_desc = NULL;
     cmd_cb.execution = barrier_thread_data ? &(barrier_thread_data->execution) : NULL;
 
-    py_ef_lib->file_data->command_from_thread = NULL;
+    file_data->command_from_thread = NULL;
     if (type==0)
     {
+        t_py_object_exec_file_library *py_ef_lib;
+        t_sl_exec_file_lib_desc *lib_desc;
         t_sl_exec_file_fn *fn;
         WHERE_I_AM;
+        py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_or_obj_obj;
+        lib_desc = &(py_ef_lib->lib_chain->lib_desc);
+        cmd_cb.lib_desc = lib_desc;
         fn = &(lib_desc->file_fns[offset]);
         //fprintf(stderr,"call of function %d/%s\n", offset, fn->fn  );
         if (py_engine_cb_args( args, fn->args, &cmd_cb)<0)
-            return Py_None; // Should be NULL
-        py_ef_lib->file_data->eval_fn_result = &py_ef_lib->file_data->cmd_result;
-        py_ef_lib->file_data->eval_fn_result_ok = 0;
-        if ( !(fn->eval_fn)( lib_desc->handle, py_ef_lib->file_data, cmd_cb_args) )
         {
-            py_ef_lib->file_data->eval_fn_result_ok = 0;
+            Py_INCREF( Py_None );
+            return Py_None; // Should be NULL
         }
-        if (fn->result=='s') return PyString_FromString(py_ef_lib->file_data->cmd_result.p.string);
-        if (fn->result=='d') return PyFloat_FromDouble(py_ef_lib->file_data->cmd_result.real);
-        if (fn->result=='i') return PyInt_FromLong(py_ef_lib->file_data->cmd_result.integer);
+        file_data->eval_fn_result = &py_ef_lib->file_data->cmd_result;
+        file_data->eval_fn_result_ok = 0;
+        if ( !(fn->eval_fn)( lib_desc->handle, file_data, cmd_cb_args) )
+        {
+            file_data->eval_fn_result_ok = 0;
+        }
+        if (fn->result=='s') return PyString_FromString(file_data->cmd_result.p.string);
+        if (fn->result=='d') return PyFloat_FromDouble(file_data->cmd_result.real);
+        if (fn->result=='i') return PyInt_FromLong(file_data->cmd_result.integer);
+        Py_INCREF( Py_None );
         return Py_None;
     }
     else if (type==1)
@@ -3517,31 +3539,67 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
         // Must ensure that declaratives are only called during init; nondeclaratives can be called at any point
         // Declaratives should probably force adding of stuff to the dict...
         // Do not call them for now please
+        t_py_object_exec_file_library *py_ef_lib;
         t_sl_exec_file_lib_desc *lib_desc;
+        py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_or_obj_obj;
         WHERE_I_AM;
         lib_desc = &(py_ef_lib->lib_chain->lib_desc);
+        cmd_cb.lib_desc = lib_desc;
         //fprintf(stderr,"invocation of command %p/%d/%s\n", lib_desc, offset, lib_desc->file_cmds[offset].cmd );
         cmd_cb.cmd = lib_desc->file_cmds[offset].cmd_value;
         WHERE_I_AM;
         if (py_engine_cb_args( args, lib_desc->file_cmds[offset].args, &cmd_cb)<0)
         {
             fprintf(stderr,"Misparsed args\n");
+            Py_INCREF( Py_None );
             return Py_None; // Should be NULL
         }
         WHERE_I_AM;
         if (cmd_cb.num_args<lib_desc->file_cmds[offset].min_args)
         {
             fprintf(stderr,"Short of args %d/%d\n", cmd_cb.num_args,lib_desc->file_cmds[offset].min_args);
+            Py_INCREF( Py_None );
             return Py_None; // Should be NULL
         }
         WHERE_I_AM;
         lib_desc->cmd_handler( &cmd_cb, lib_desc->handle );
         WHERE_I_AM;
         // If not clocked, then barrier_thread and barrier_thread_data will be NULL
-        py_engine_cb_block_on_wait( py_ef_lib->py_object, barrier_thread, barrier_thread_data );
+        py_engine_cb_block_on_wait( py_object, barrier_thread, barrier_thread_data );
         WHERE_I_AM;
+        Py_INCREF( Py_None );
         return Py_None;
     }
+    else if (type==2)
+    {
+        t_py_object_exec_file_object *py_ef_obj;
+        t_sl_exec_file_object_desc *object_desc;
+        t_sl_exec_file_method *method;
+        WHERE_I_AM;
+        py_ef_obj = (t_py_object_exec_file_object *)py_ef_lib_or_obj_obj;
+        object_desc = &(py_ef_obj->object_chain->object_desc);
+        method = &(object_desc->methods[offset]);
+        //fprintf(stderr,"call of function %d/%s\n", offset, fn->fn  );
+        if (py_engine_cb_args( args, method->args, &cmd_cb)<0)
+        {
+            Py_INCREF( Py_None );
+            return Py_None; // Should be NULL
+        }
+        file_data->eval_fn_result = &file_data->cmd_result;
+        file_data->eval_fn_result_ok = 0;
+        if ( !(method->method_fn)( &cmd_cb, method->method_handle, object_desc, method) )
+        {
+            file_data->eval_fn_result_ok = 0;
+        }
+        if (method->result=='s') return PyString_FromString(file_data->cmd_result.p.string);
+        if (method->result=='d') return PyFloat_FromDouble(file_data->cmd_result.real);
+        if (method->result=='i') return PyInt_FromLong(file_data->cmd_result.integer);
+        py_engine_cb_block_on_wait( py_object, barrier_thread, barrier_thread_data );
+        Py_INCREF( Py_None );
+        return Py_None;
+    }
+
+    Py_INCREF( Py_None );
     return Py_None;
 }
 
@@ -3637,15 +3695,61 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
 
 /*f py_exec_file_object_getattro
  */
-static PyObject *py_exec_file_object_getattro( PyObject *o, PyObject *attr_name )
+static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject *attr_name )
 {
     char *name = PyString_AsString(attr_name);
-    t_py_object_exec_file_object *py_ef_obj = (t_py_object_exec_file_object *)o;
-    t_sl_exec_file_object_chain *chain;
+    t_py_object_exec_file_object *py_ef_obj = (t_py_object_exec_file_object *)py_ef_obj_obj;
+    t_sl_exec_file_object_desc *obj_desc;
+    int call_type; // 0 for function
+    int fn_or_cmd;
+
     WHERE_I_AM;
-    int j;
-    //fprintf(stderr,"object_getattro %s\n", name);
-    return PyObject_GenericGetAttr(o, attr_name);
+
+    obj_desc = &(py_ef_obj->object_chain->object_desc);
+    call_type = -1;
+    if (obj_desc->methods)
+    {
+        for (int j=0; obj_desc->methods[j].method; j++ )
+        {
+            if ( !strcmp(obj_desc->methods[j].method, name) )
+            {
+                call_type = 2;
+                fn_or_cmd = j;
+            }
+        }
+    }
+    if (call_type<0)
+    {
+        return PyObject_GenericGetAttr(py_ef_obj_obj, attr_name);
+    }
+    
+    static PyMethodDef method_def = { "exec_file_callback", py_engine_cb, METH_VARARGS, "sl_exec_file callback"};
+    PyObject *tuple;
+    PyObject *barrier_thread_object;
+    PyThreadState* py_thread;
+    t_py_exec_file_find_thread find_thread;
+
+    barrier_thread_object = Py_None;
+    if (py_ef_obj->py_object->clocked)
+    {
+        py_thread = PyThreadState_Get();
+        find_thread.py_thread = py_thread;
+        find_thread.barrier_thread_data = NULL;
+        sl_pthread_barrier_thread_iter( &py_ef_obj->py_object->barrier, py_exec_file_find_thread_cb, (void *)&find_thread );
+        if (find_thread.barrier_thread_data)
+        {
+            barrier_thread_object = find_thread.barrier_thread_data->barrier_thread_object;
+        }
+    }
+
+    Py_INCREF( barrier_thread_object );
+    Py_INCREF( py_ef_obj_obj );
+    tuple = PyTuple_New(4);
+    PyTuple_SetItem(tuple, 0, barrier_thread_object );
+    PyTuple_SetItem(tuple, 1, py_ef_obj_obj);
+    PyTuple_SetItem(tuple, 2, PyInt_FromLong(call_type));
+    PyTuple_SetItem(tuple, 3, PyInt_FromLong(fn_or_cmd));
+    return PyCFunction_New( &method_def, tuple );
 }
 
 /*v py_object_methods
@@ -3939,6 +4043,27 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
             py_ef_lib->lib_chain = chain;
             WHERE_I_AM;
             PyObject_SetAttrString( py_object, chain->lib_desc.library_name, (PyObject *)py_ef_lib );
+            WHERE_I_AM;
+        }
+    }
+
+    /*b Add in objects for each sl_exec_file object
+     */
+    {
+        t_sl_exec_file_object_chain *chain;
+        int j;
+
+        for (chain=(*file_data_ptr)->object_chain; chain; chain=chain->next_in_list)
+        {
+            WHERE_I_AM;
+            fprintf(stderr,"Adding object %s to object (%p)\n",chain->object_desc.name,chain);
+            t_py_object_exec_file_object *py_ef_obj;
+            py_ef_obj = PyObject_New( t_py_object_exec_file_object, &py_object_exec_file_object );
+            py_ef_obj->py_object = (t_py_object *)py_object;
+            py_ef_obj->file_data = *file_data_ptr;
+            py_ef_obj->object_chain = chain;
+            WHERE_I_AM;
+            PyObject_SetAttrString( py_object, chain->object_desc.name, (PyObject *)py_ef_obj );
             WHERE_I_AM;
         }
     }
