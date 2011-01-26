@@ -614,21 +614,29 @@ int c_engine::simulation_handle_exec_file_command( struct t_sl_exec_file_cmd_cb 
     case cmd_bfm_wait:
     {
         int timeout;
+        WHERE_I_AM;
         timeout = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
+        WHERE_I_AM;
         if (timeout>0)
         {
+        WHERE_I_AM;
             t_sim_ef_lib_data *lib_data;
             lib_data = ((t_sim_ef_lib_data *)(cmd_cb->lib_desc->handle));
+        WHERE_I_AM;
 
             t_sl_exec_file_wait_cb wait_cb;
+        WHERE_I_AM;
 
             wait_cb.args[ wait_cb_arg_lib_data ].pointer = (void *)lib_data;
             wait_cb.args[ wait_cb_arg_input ].pointer = NULL;
             wait_cb.args[ wait_cb_arg_value ].uint64 = 0;
             wait_cb.args[ wait_cb_arg_expect_value ].uint64 = 0;
             wait_cb.args[ wait_cb_arg_timeout ].uint64 = lib_data->cycle+timeout;
+        WHERE_I_AM;
             sl_exec_file_thread_wait_on_callback( cmd_cb, ef_input_object_event_callback, &wait_cb );
+        WHERE_I_AM;
         }
+        WHERE_I_AM;
         return 1;
     }
     case cmd_global_monitor_event:

@@ -106,10 +106,11 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
     int i, j;
     int width;
     char *arg, *names[SL_EXEC_FILE_MAX_CMD_ARGS+1];
-    fprintf(stderr,"cmd_cb->cmd %d\n",cmd_cb->cmd);
+    //fprintf(stderr,"cmd_cb->cmd %d\n",cmd_cb->cmd);
     switch (cmd_cb->cmd)
     {
     case cmd_module:
+        //fprintf(stderr,"Instantiate %s %s\n",cmd_cb->args[0].p.string, cmd_cb->args[1].p.string);
         instantiate( NULL, cmd_cb->args[0].p.string, cmd_cb->args[1].p.string, option_list );
         option_list = NULL;
         break;
@@ -218,7 +219,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
         generic_logic( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), j-2, names[0], names[1], (const char **)(names+2) );
         break;
     case cmd_clock:
-        fprintf(stderr,"Create clock %s %lld %lld %lld\n",cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
+        //fprintf(stderr,"Create clock %s %lld %lld %lld\n",cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         create_clock( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), cmd_cb->args[0].p.string, cmd_cb->args[1].integer, cmd_cb->args[2].integer, cmd_cb->args[3].integer);
         break;
     case cmd_clock_divide:

@@ -90,7 +90,7 @@ void initFoo()
  */
 #define PY_DEBUG
 #undef PY_DEBUG
-#if 1
+#if 0
 #include <sys/time.h>
 #include <pthread.h>
 #define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}

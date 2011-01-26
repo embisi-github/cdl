@@ -38,7 +38,6 @@ typedef enum
 typedef struct t_sl_pthread_barrier
 {
     struct t_sl_pthread_barrier_thread *threads;
-    char prot[4];
     struct t_sl_pthread_barrier_thread *gc_threads; // Threads to garbage collect when barrier is done with them
     t_sl_pthread_barrier_state state;
     pthread_mutex_t mutex;
@@ -62,9 +61,9 @@ typedef void (*t_sl_pthread_barrier_thread_iter_fn)( void *handle, t_sl_pthread_
 /*a External functions
  */
 extern int sl_pthread_barrier_init( t_sl_pthread_barrier *barrier );
-extern t_sl_pthread_barrier_thread *sl_pthread_barrier_thread_add( t_sl_pthread_barrier *barrier );
+extern t_sl_pthread_barrier_thread *sl_pthread_barrier_thread_add( t_sl_pthread_barrier *barrier, int user_data_size );
 extern void sl_pthread_barrier_thread_delete( t_sl_pthread_barrier *barrier, t_sl_pthread_barrier_thread_ptr thread );
-extern void sl_pthread_barrier_thread_set_user_state( t_sl_pthread_barrier_thread_ptr this_thread, int state, void *ptr );
+extern void sl_pthread_barrier_thread_set_user_state( t_sl_pthread_barrier_thread_ptr this_thread, int state );
 extern int sl_pthread_barrier_thread_get_user_state( t_sl_pthread_barrier_thread_ptr this_thread );
 extern void *sl_pthread_barrier_thread_get_user_ptr( t_sl_pthread_barrier_thread_ptr this_thread );
 extern void sl_pthread_barrier_thread_iter( t_sl_pthread_barrier *barrier, t_sl_pthread_barrier_thread_iter_fn iter_fn, void *handle );

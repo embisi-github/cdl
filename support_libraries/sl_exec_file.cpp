@@ -37,7 +37,7 @@
 
 /*a Defines
  */
-#if 1
+#if 0
 #include <sys/time.h>
 #include <pthread.h>
 #define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
@@ -185,7 +185,7 @@ typedef enum
 
 /*t t_sl_exec_file_thread_execution_data
  */
-typedef struct
+typedef struct t_sl_exec_file_thread_execution_data
 {
     t_sl_exec_file_thread_execution_type type;
     t_sl_exec_file_wait_callback_fn wait_callback;
@@ -1672,6 +1672,7 @@ static void handle_declarative_command( struct t_sl_exec_file_data *file_data, i
                  cmd_cb.line_number = line_number;
                  cmd_cb.cmd -= lib->base;
                  cmd_cb.lib_desc = &(lib->lib_desc);
+                 cmd_cb.execution = NULL;
                  cmd_cb.num_args = file_line->num_args;
                  cmd_cb.args = file_line->args;
                  err = lib->lib_desc.cmd_handler( &cmd_cb, lib->lib_desc.handle );
@@ -2153,7 +2154,7 @@ extern int sl_exec_file_evaluate_arguments( t_sl_exec_file_data *file_data, cons
                    cmd_cb.line_number = line_number;
                    cmd_cb.num_args = args[j].fn->num_args;
                    cmd_cb.cmd = 0;
-                   cmd_cb.lib_desc = NULL;
+                   cmd_cb.execution = NULL;
                    cmd_cb.args = args[j].fn->args;
                    if ( (args[j].fn->call.object.method->method_fn)( &cmd_cb,
                                                                      (void *)(args[j].fn->call.object.object),
@@ -2274,12 +2275,15 @@ extern int sl_exec_file_thread_wait_on_callback( t_sl_exec_file_cmd_cb *cmd_cb, 
      if (!cmd_cb)
           return 0;
 
-     if (!cmd_cb->file_data->command_from_thread)
+     WHERE_I_AM;
+     if (!cmd_cb->execution)
          return 0;
 
-     cmd_cb->file_data->command_from_thread->execution.type = sl_exec_file_thread_execution_type_waiting;
-     cmd_cb->file_data->command_from_thread->execution.wait_callback = callback;
-     cmd_cb->file_data->command_from_thread->execution.wait_cb = *wait_cb;
+     WHERE_I_AM;
+     cmd_cb->execution->type = sl_exec_file_thread_execution_type_waiting;
+     cmd_cb->execution->wait_callback = callback;
+     cmd_cb->execution->wait_cb = *wait_cb;
+     WHERE_I_AM;
      return 1;
 }
 
@@ -2360,7 +2364,7 @@ static int sl_exec_file_thread_execute( t_sl_exec_file_data *file_data, t_sl_exe
                   cmd_cb.filename = file_data->filename;
                   cmd_cb.line_number = thread->line_number;
                   cmd_cb.cmd = 0;
-                  cmd_cb.lib_desc = NULL;
+                  cmd_cb.execution = &(thread->execution);
                   cmd_cb.args = file_data->lines[i].args;
                   cmd_cb.num_args = file_data->lines[i].num_args;
                   file_data->command_from_thread = thread;
@@ -2906,6 +2910,7 @@ extern int sl_exec_file_despatch_next_cmd( t_sl_exec_file_data *file_data )
         cmd_cb.line_number = file_data->command_from_thread->line_number;
         cmd_cb.cmd -= lib->base;
         cmd_cb.lib_desc = &(lib->lib_desc);
+        cmd_cb.execution = &(file_data->command_from_thread->execution);
         cmd_cb.args = cmd_cb.args;
         cmd_cb.num_args = sl_exec_file_get_number_of_arguments( file_data, cmd_cb.args );
         file_data->eval_fn_result = &file_data->cmd_result;
@@ -3188,6 +3193,7 @@ typedef struct
 {
     PyObject_HEAD
     t_sl_exec_file_data *file_data;
+    t_py_object *py_object; // this is a copy of file_data->py_object
     t_sl_exec_file_lib_chain *lib_chain;
 } t_py_object_exec_file_library;
 
@@ -3208,6 +3214,16 @@ typedef enum
     py_barrier_thread_user_state_running,
     py_barrier_thread_user_state_die
 } t_py_barrier_thread_user_state;
+
+/*t t_py_thread_data
+ */
+typedef struct t_py_thread_data
+{
+    // This is inside the barrier thread data
+    PyThreadState *py_thread;
+    PyObject *barrier_thread_object; // A CObject that contains a pointer to this barrier thread, so this can be used as an element of a tuple arg to a PyMethod bound to this thread
+    t_sl_exec_file_thread_execution_data execution;
+} t_py_thread_data;
 
 /*f start_new_py_thread_started
  */
@@ -3301,22 +3317,12 @@ static int py_object_init( t_py_object *self, PyObject *args, PyObject *kwds )
 	return 0;
 }
 
-/*f py_object_new - unused as we override this for some reason
- */
-static PyObject *py_object_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
-{
-    WHERE_I_AM;
-    fprintf(stderr,"Noddy_new\n");
-    return subtype->tp_alloc(subtype,1);
-}
-
 /*f py_object_getattro
  */
 static PyObject *py_object_getattro( PyObject *o, PyObject *attr_name )
 {
     char *name = PyString_AsString(attr_name);
     WHERE_I_AM;
-    fprintf(stderr,"Noddy_getattro %s\n", name);
     return PyObject_GenericGetAttr(o, attr_name);
 }
 
@@ -3369,26 +3375,114 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
     return j;
 }
 
+/*f py_engine_cb_block_on_wait
+  If clocked...
+  We can either be in init here (in which case sl_exec_file_py_reset is waiting at the barrier for us if we block) OR we have just been running, so we are between tick-start and tick-done barriers.
+  If not clocked, barrier_thread and barrier_thread_data will be NULL - just return
+ */
+static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_barrier_thread_ptr barrier_thread, t_py_thread_data *barrier_thread_data )
+{
+    WHERE_I_AM;
+    if (!barrier_thread_data) return;
+
+    // First, if we are not waiting, then just keep going - our clock tick work or reset has not completed yet
+    WHERE_I_AM;
+    if (barrier_thread_data->execution.type == sl_exec_file_thread_execution_type_waiting)
+    {
+         if (barrier_thread_data->execution.wait_callback(&(barrier_thread_data->execution.wait_cb)))
+         {
+             barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
+         }
+    }
+    WHERE_I_AM;
+    if (barrier_thread_data->execution.type == sl_exec_file_thread_execution_type_running)
+        return;
+
+    WHERE_I_AM;
+    // First check to see if we are at the init barrier - in which case we move to init_done
+    // Note that we hold the Python GIL on entry...
+    if (sl_pthread_barrier_thread_get_user_state(barrier_thread)==py_barrier_thread_user_state_init)
+    {
+        sl_pthread_barrier_thread_set_user_state(barrier_thread,py_barrier_thread_user_state_running);
+    }
+    // Here we are either just after reset, in which case sl_exec_file_py_reset is waiting on post-reset barrier, or after doing a clock tick of work, so clock function is waiting on the tick-done barrier
+    WHERE_I_AM;
+    while (1)
+    {
+    WHERE_I_AM;
+        // Wait for post-reset barrier or tick-done barrier; then wait for tick-start barrier (or pre-finalize barrier if we are being killed off)
+        Py_BEGIN_ALLOW_THREADS;
+    WHERE_I_AM;
+        sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, NULL );
+    WHERE_I_AM;
+        sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, NULL );
+    WHERE_I_AM;
+        Py_END_ALLOW_THREADS;
+    WHERE_I_AM;
+        // Now we are after pre-finalize or tick-start; check for pre-finalize
+        if (sl_pthread_barrier_thread_get_user_state(barrier_thread)==py_barrier_thread_user_state_die)
+        {
+            PyEval_ReleaseThread(barrier_thread_data->py_thread);
+            PyEval_AcquireLock();
+            WHERE_I_AM;
+            sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
+            WHERE_I_AM;
+            Py_DECREF(barrier_thread_data->barrier_thread_object);
+            WHERE_I_AM;
+            PyThreadState_Clear(barrier_thread_data->py_thread);
+            WHERE_I_AM;
+            PyThreadState_Delete(barrier_thread_data->py_thread);
+            WHERE_I_AM;
+            PyEval_ReleaseLock();
+            WHERE_I_AM;
+            pthread_exit(NULL);
+        }
+        // Not told to die - just after tick-start, so check if we should return and do stuff
+    WHERE_I_AM;
+         if (barrier_thread_data->execution.wait_callback(&(barrier_thread_data->execution.wait_cb)))
+         {
+             barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
+    WHERE_I_AM;
+             return;
+         }
+         // Okay, tum-te-tum, waiting on the event still...
+    }
+}
+
 /*f py_engine_cb
+  Called with a tuple of (py_thread, py_ef_lib, int type (0=>function, 1=>command), int offset (which cmd/function in the library))
  */
 static PyObject *py_engine_cb( PyObject* self, PyObject* args )
 {
     WHERE_I_AM;
-    PyObject *o;
+    PyObject *barrier_thread_obj, *py_ef_lib_obj;
     long type, offset;
     t_sl_exec_file_lib_desc *lib_desc;
     t_py_object_exec_file_library *py_ef_lib;
+    t_sl_pthread_barrier_thread_ptr barrier_thread;
+    t_py_thread_data *barrier_thread_data;
     t_sl_exec_file_cmd_cb cmd_cb;
     t_sl_exec_file_value cmd_cb_args[SL_EXEC_FILE_MAX_CMD_ARGS];
 
-    o = PyTuple_GetItem(self, 0);
-    type = PyInt_AsLong(PyTuple_GetItem(self, 1));
-    offset = PyInt_AsLong(PyTuple_GetItem(self, 2));
+    barrier_thread_obj = PyTuple_GetItem(self, 0);
+    py_ef_lib_obj = PyTuple_GetItem(self, 1);
+    type = PyInt_AsLong(PyTuple_GetItem(self, 2));
+    offset = PyInt_AsLong(PyTuple_GetItem(self, 3));
 
-    py_ef_lib = (t_py_object_exec_file_library *)o;
+    py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_obj;
+    barrier_thread = NULL;
+    barrier_thread_data = NULL;
+    if (py_ef_lib->py_object->clocked)
+    {
+        barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
+        if (barrier_thread)
+            barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
+        WHERE_I_AM;
+        //fprintf(stderr,"barrier_thread from obj %p %p\n", barrier_thread, barrier_thread_data );
+    }
     
     lib_desc = &(py_ef_lib->lib_chain->lib_desc);
-    fprintf(stderr,"self %p\n",self);
+    //fprintf(stderr,"self %p\n",self);
     cmd_cb.file_data = py_ef_lib->file_data;
     cmd_cb.error = py_ef_lib->file_data->error;
     cmd_cb.filename = py_ef_lib->file_data->filename;
@@ -3396,24 +3490,37 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
     cmd_cb.cmd = 0;
     cmd_cb.args = cmd_cb_args;
     cmd_cb.lib_desc = lib_desc;
+    cmd_cb.execution = barrier_thread_data ? &(barrier_thread_data->execution) : NULL;
+
     py_ef_lib->file_data->command_from_thread = NULL;
-    py_ef_lib->file_data->eval_fn_result = &py_ef_lib->file_data->cmd_result;
-    py_ef_lib->file_data->eval_fn_result_ok = 0;
     if (type==0)
     {
+        t_sl_exec_file_fn *fn;
         WHERE_I_AM;
-        fprintf(stderr,"call of function %d/%s\n", offset, lib_desc->file_fns[offset].fn );
-        if (py_engine_cb_args( args, lib_desc->file_fns[offset].args, &cmd_cb)<0)
+        fn = &(lib_desc->file_fns[offset]);
+        //fprintf(stderr,"call of function %d/%s\n", offset, fn->fn  );
+        if (py_engine_cb_args( args, fn->args, &cmd_cb)<0)
             return Py_None; // Should be NULL
+        py_ef_lib->file_data->eval_fn_result = &py_ef_lib->file_data->cmd_result;
+        py_ef_lib->file_data->eval_fn_result_ok = 0;
+        if ( !(fn->eval_fn)( lib_desc->handle, py_ef_lib->file_data, cmd_cb_args) )
+        {
+            py_ef_lib->file_data->eval_fn_result_ok = 0;
+        }
+        if (fn->result=='s') return PyString_FromString(py_ef_lib->file_data->cmd_result.p.string);
+        if (fn->result=='d') return PyFloat_FromDouble(py_ef_lib->file_data->cmd_result.real);
+        if (fn->result=='i') return PyInt_FromLong(py_ef_lib->file_data->cmd_result.integer);
+        return Py_None;
     }
     else if (type==1)
     {
         // Must ensure that declaratives are only called during init; nondeclaratives can be called at any point
         // Declaratives should probably force adding of stuff to the dict...
+        // Do not call them for now please
         t_sl_exec_file_lib_desc *lib_desc;
         WHERE_I_AM;
         lib_desc = &(py_ef_lib->lib_chain->lib_desc);
-        fprintf(stderr,"invocation of command %d/%s\n", offset, lib_desc->file_cmds[offset].cmd );
+        //fprintf(stderr,"invocation of command %p/%d/%s\n", lib_desc, offset, lib_desc->file_cmds[offset].cmd );
         cmd_cb.cmd = lib_desc->file_cmds[offset].cmd_value;
         WHERE_I_AM;
         if (py_engine_cb_args( args, lib_desc->file_cmds[offset].args, &cmd_cb)<0)
@@ -3430,60 +3537,102 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
         WHERE_I_AM;
         lib_desc->cmd_handler( &cmd_cb, lib_desc->handle );
         WHERE_I_AM;
+        // If not clocked, then barrier_thread and barrier_thread_data will be NULL
+        py_engine_cb_block_on_wait( py_ef_lib->py_object, barrier_thread, barrier_thread_data );
+        WHERE_I_AM;
         return Py_None;
     }
     return Py_None;
 }
 
-/*f py_exec_file_library_getattro
+/*f py_exec_file_find_thread_cb
  */
-static PyObject *py_exec_file_library_getattro( PyObject *o, PyObject *attr_name )
+typedef struct t_py_exec_file_find_thread
+{
+    PyThreadState *py_thread;
+    t_py_thread_data *barrier_thread_data;
+} t_py_exec_file_find_thread;
+void py_exec_file_find_thread_cb( void *handle, t_sl_pthread_barrier_thread_ptr barrier_thread )
+{
+    t_py_exec_file_find_thread *find_thread = (t_py_exec_file_find_thread *)handle;
+    t_py_thread_data *barrier_thread_data;
+    barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
+    if (barrier_thread_data->py_thread == find_thread->py_thread)
+        find_thread->barrier_thread_data = barrier_thread_data;
+}
+
+/*f py_exec_file_library_getattro
+  If getting a function or command, build a bound method (bound to thread, library, cmd/function call, cmd/function number) and return that
+ */
+static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObject *attr_name )
 {
     char *name = PyString_AsString(attr_name);
-    t_py_object_exec_file_library *py_ef_lib = (t_py_object_exec_file_library *)o;
+    t_py_object_exec_file_library *py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_obj;
     t_sl_exec_file_lib_desc *lib_desc;
-    int j;
+    int call_type; // 0 for function
+    int fn_or_cmd;
 
     WHERE_I_AM;
 
     lib_desc = &(py_ef_lib->lib_chain->lib_desc);
+    call_type = -1;
     if (lib_desc->file_fns)
     {
-        for (j=0; lib_desc->file_fns[j].fn_value!=sl_exec_file_fn_none; j++ )
+        for (int j=0; lib_desc->file_fns[j].fn_value!=sl_exec_file_fn_none; j++ )
         {
             if ( !strcmp(lib_desc->file_fns[j].fn, name) )
             {
-                static PyMethodDef method_def = { "exec_file_callback", py_engine_cb, METH_VARARGS, "sl_exec_file callback"};
-                PyObject *tuple;
-                tuple = PyTuple_New(3);
-                PyTuple_SetItem(tuple, 0, o);
-                PyTuple_SetItem(tuple, 1, PyInt_FromLong(0));
-                PyTuple_SetItem(tuple, 2, PyInt_FromLong(j));
-                return PyCFunction_New( &method_def, tuple );
+                call_type = 0;
+                fn_or_cmd = j;
             }
         }
     }
-    if (lib_desc->file_cmds)
+    if ((call_type<0) && (lib_desc->file_cmds))
     {
-        for (j=0; lib_desc->file_cmds[j].cmd_value!=sl_exec_file_cmd_none; j++ )
+        for (int j=0; lib_desc->file_cmds[j].cmd_value!=sl_exec_file_cmd_none; j++ )
         {
             int ofs=0;
             if (lib_desc->file_cmds[j].cmd[0]=='!')
                 ofs=1;
             if ( !strcmp(lib_desc->file_cmds[j].cmd+ofs, name) )
             {
-                static PyMethodDef method_def = { "exec_file_callback", py_engine_cb, METH_VARARGS, "sl_exec_file callback"};
-                PyObject *tuple;
-                tuple = PyTuple_New(3);
-                PyTuple_SetItem(tuple, 0, o);
-                PyTuple_SetItem(tuple, 1, PyInt_FromLong(1));
-                PyTuple_SetItem(tuple, 2, PyInt_FromLong(j));
-                return PyCFunction_New( &method_def, tuple );
+                call_type = 1;
+                fn_or_cmd = j;
             }
         }
     }
-    fprintf(stderr,"object_getattro %s\n", name);
-    return PyObject_GenericGetAttr(o, attr_name);
+    if (call_type<0)
+    {
+        return PyObject_GenericGetAttr(py_ef_lib_obj, attr_name);
+    }
+    
+    static PyMethodDef method_def = { "exec_file_callback", py_engine_cb, METH_VARARGS, "sl_exec_file callback"};
+    PyObject *tuple;
+    PyObject *barrier_thread_object;
+    PyThreadState* py_thread;
+    t_py_exec_file_find_thread find_thread;
+
+    barrier_thread_object = Py_None;
+    if (py_ef_lib->py_object->clocked)
+    {
+        py_thread = PyThreadState_Get();
+        find_thread.py_thread = py_thread;
+        find_thread.barrier_thread_data = NULL;
+        sl_pthread_barrier_thread_iter( &py_ef_lib->py_object->barrier, py_exec_file_find_thread_cb, (void *)&find_thread );
+        if (find_thread.barrier_thread_data)
+        {
+            barrier_thread_object = find_thread.barrier_thread_data->barrier_thread_object;
+        }
+    }
+
+    Py_INCREF( barrier_thread_object );
+    Py_INCREF( py_ef_lib_obj );
+    tuple = PyTuple_New(4);
+    PyTuple_SetItem(tuple, 0, barrier_thread_object );
+    PyTuple_SetItem(tuple, 1, py_ef_lib_obj);
+    PyTuple_SetItem(tuple, 2, PyInt_FromLong(call_type));
+    PyTuple_SetItem(tuple, 3, PyInt_FromLong(fn_or_cmd));
+    return PyCFunction_New( &method_def, tuple );
 }
 
 /*f py_exec_file_object_getattro
@@ -3495,7 +3644,7 @@ static PyObject *py_exec_file_object_getattro( PyObject *o, PyObject *attr_name 
     t_sl_exec_file_object_chain *chain;
     WHERE_I_AM;
     int j;
-    fprintf(stderr,"object_getattro %s\n", name);
+    //fprintf(stderr,"object_getattro %s\n", name);
     return PyObject_GenericGetAttr(o, attr_name);
 }
 
@@ -3550,7 +3699,7 @@ static PyTypeObject py_class_object__exec_file = {
     0, /*tp_dictoffset */
     (initproc)py_object_init, /*tp_init */
     PyType_GenericAlloc, /*tp_alloc */
-    (newfunc)py_object_new, /*tp_new - does not seem to be called*/
+    0, /*tp_new - does not seem to be called*/
     0, /*tp_free; Low-level free-memory routine  */
     0, /*tp_is_gc; For PyObject_IS_GC  */
     0, /**tp_bases */
@@ -3623,24 +3772,35 @@ static void sl_exec_file_py_thread( t_py_object *py_object )
     PyThreadState* py_thread;
     PyObject *py_callable = NULL;
     t_sl_pthread_barrier_thread_ptr barrier_thread;
+    t_py_thread_data *barrier_thread_data;
     int running;
     int loop_count;
 
     WHERE_I_AM;
     fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
-    barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier );
+    barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier, sizeof(t_py_thread_data) );
+    barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
     WHERE_I_AM;
 
-    sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_init, NULL );
+    sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_init );
 
     PyEval_AcquireLock();
     py_thread = PyThreadState_New(py_object->py_interp);
     PyThreadState_Clear(py_thread);
+    barrier_thread_data->py_thread = py_thread;
+    barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, NULL ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
     PyEval_ReleaseLock();
 
     start_new_py_thread_started( py_object );
 
     // Invoke callable (or 'run' if none given)
+    // This is expected to call numerous waits
+    // It might also spawn more subthreads
+    // If it does so, those subthreads will be added to the barrier, before this one hits the barrier
+    // This breaks if this thread spawns subthreads and then finishes - as this thread will not hit a barrier at all but die gracefully
+    // However, before this one can die the subthreads will have added themselves to the barrier also - so that barrier will still work cleanly.
+    // Basically, this means that sl_exec_file_py_reset should launch threads and then barrier wait - all subthreads should either have died or hit the barrier in state 'init_done'.
+    // Then the world is synchronized
     PyObject *py_obj;
     PyEval_AcquireThread(py_thread);
     if (py_callable)
@@ -3651,8 +3811,11 @@ static void sl_exec_file_py_thread( t_py_object *py_object )
     }
     else
     {
+        WHERE_I_AM;
         py_obj = PyObject_CallMethod( (PyObject *)py_object, "exec_run", NULL );
     }
+    WHERE_I_AM;
+    if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
     if (py_obj)
     {
         WHERE_I_AM;
@@ -3667,6 +3830,7 @@ static void sl_exec_file_py_thread( t_py_object *py_object )
 
     WHERE_I_AM;
     PyEval_AcquireLock();
+    Py_DECREF(barrier_thread_data->barrier_thread_object);
     PyThreadState_Clear(py_thread);
     PyThreadState_Delete(py_thread);
     PyEval_ReleaseLock();
@@ -3709,108 +3873,110 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
                                                                   const char *user,
                                                                   int clocked )
 {
-     WHERE_I_AM;
+    WHERE_I_AM;
 
-     /*b Check the object is derived from the sl_exec_file class
-      */
-     if (!PyObject_IsInstance(py_object, (PyObject *)&py_class_object__exec_file))
-     {
-          return error->add_error( (void *)user, error_level_fatal, error_number_general_error_s, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, "Object provided is not a subclass of the sl_exec_file class", error_arg_type_none );
-     }
+    /*b Check the object is derived from the sl_exec_file class
+     */
+    if (!PyObject_IsInstance(py_object, (PyObject *)&py_class_object__exec_file))
+    {
+        return error->add_error( (void *)user, error_level_fatal, error_number_general_error_s, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, "Object provided is not a subclass of the sl_exec_file class", error_arg_type_none );
+    }
 
-     /*b Allocate structure for the file data
-      */
-     WHERE_I_AM;
+    /*b Allocate structure for the file data
+     */
+    WHERE_I_AM;
 
-     *file_data_ptr = (t_sl_exec_file_data *)malloc(sizeof(t_sl_exec_file_data));
-     if (!*file_data_ptr)
-     {
-          return error->add_error( (void *)user, error_level_fatal, error_number_general_malloc_failed, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, user, error_arg_type_none );
-     }
-     sl_exec_file_data_init( *file_data_ptr, error, message, id, user );
-     (*file_data_ptr)->py_object = py_object;
+    *file_data_ptr = (t_sl_exec_file_data *)malloc(sizeof(t_sl_exec_file_data));
+    if (!*file_data_ptr)
+    {
+        return error->add_error( (void *)user, error_level_fatal, error_number_general_malloc_failed, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, user, error_arg_type_none );
+    }
+    sl_exec_file_data_init( *file_data_ptr, error, message, id, user );
+    (*file_data_ptr)->py_object = py_object;
 
-     /*b Add default commands and functions
-      */
-     WHERE_I_AM;
+    /*b Add default commands and functions
+     */
+    WHERE_I_AM;
 
-     sl_exec_file_data_add_default_cmds( *file_data_ptr );
+    sl_exec_file_data_add_default_cmds( *file_data_ptr );
 
-     /*b Invoke callback to fill in extra functions and add other libraries; old exec file declared objects, not sure what to do about that here
-      */
-     WHERE_I_AM;
+    /*b Invoke callback to fill in extra functions and add other libraries; old exec file declared objects, not sure what to do about that here
+     */
+    WHERE_I_AM;
 
-     if (callback_fn)
-     {
-         WHERE_I_AM;
-         callback_fn( callback_handle, *file_data_ptr );
-     }
+    if (callback_fn)
+    {
+        WHERE_I_AM;
+        callback_fn( callback_handle, *file_data_ptr );
+    }
 
-     /*b Finish registering state
-      */
-     WHERE_I_AM;
-     {
-         t_sl_exec_file_callback *efc;
-         for (efc=(*file_data_ptr)->poststate_callbacks; efc; efc=efc->next_in_list)
-         {
-             (efc->callback_fn)( efc->handle );
-         }
-     }
+    /*b Finish registering state
+     */
+    WHERE_I_AM;
+    {
+        t_sl_exec_file_callback *efc;
+        for (efc=(*file_data_ptr)->poststate_callbacks; efc; efc=efc->next_in_list)
+        {
+            (efc->callback_fn)( efc->handle );
+        }
+    }
 
-     /*b Add in objects for each sl_exec_file library
-      */
-     {
-         t_sl_exec_file_lib_chain *chain;
-         int j;
+    /*b Add in objects for each sl_exec_file library
+     */
+    {
+        t_sl_exec_file_lib_chain *chain;
+        int j;
 
-         WHERE_I_AM;
-         for (chain=(*file_data_ptr)->lib_chain; chain; chain=chain->next_in_list)
-         {
-         WHERE_I_AM;
-             fprintf(stderr,"Adding library %s to object (%p)\n",chain->lib_desc.library_name,chain);
-             t_py_object_exec_file_library *py_ef_lib;
-             py_ef_lib = PyObject_New( t_py_object_exec_file_library, &py_object_exec_file_library );
-             py_ef_lib->file_data = *file_data_ptr;
-             py_ef_lib->lib_chain = chain;
-         WHERE_I_AM;
-             PyObject_SetAttrString( py_object, chain->lib_desc.library_name, (PyObject *)py_ef_lib );
-         WHERE_I_AM;
-         }
-     }
+        WHERE_I_AM;
+        for (chain=(*file_data_ptr)->lib_chain; chain; chain=chain->next_in_list)
+        {
+            WHERE_I_AM;
+            fprintf(stderr,"Adding library %s to object (%p)\n",chain->lib_desc.library_name,chain);
+            t_py_object_exec_file_library *py_ef_lib;
+            py_ef_lib = PyObject_New( t_py_object_exec_file_library, &py_object_exec_file_library );
+            py_ef_lib->py_object = (t_py_object *)py_object;
+            py_ef_lib->file_data = *file_data_ptr;
+            py_ef_lib->lib_chain = chain;
+            WHERE_I_AM;
+            PyObject_SetAttrString( py_object, chain->lib_desc.library_name, (PyObject *)py_ef_lib );
+            WHERE_I_AM;
+        }
+    }
 
-     /*b Find the py_interp we are in, and create a barrier thread, if clocked
-      */
-     WHERE_I_AM;
-     if (clocked)
-     {
-         PyThreadState* py_thread;
+    /*b Find the py_interp we are in, and create a barrier thread, if clocked
+     */
+    WHERE_I_AM;
+    if (clocked)
+    {
+        PyThreadState* py_thread;
          
-         WHERE_I_AM;
-         ((t_py_object *)py_object)->clocked = 1;
-         PyEval_InitThreads();
-         py_thread = PyThreadState_Get();
-         ((t_py_object *)py_object)->py_interp = py_thread->interp;
-         sl_pthread_barrier_init( &((t_py_object *)py_object)->barrier );
-         ((t_py_object *)py_object)->barrier_thread = sl_pthread_barrier_thread_add( &((t_py_object *)py_object)->barrier );
-     }
+        WHERE_I_AM;
+        ((t_py_object *)py_object)->clocked = 1;
+        PyEval_InitThreads();
+        py_thread = PyThreadState_Get();
+        ((t_py_object *)py_object)->py_interp = py_thread->interp;
+        sl_pthread_barrier_init( &((t_py_object *)py_object)->barrier );
+        ((t_py_object *)py_object)->barrier_thread = sl_pthread_barrier_thread_add( &((t_py_object *)py_object)->barrier, sizeof(t_py_thread_data) );
+    }
 
-     /*b Invoke 'exec_init' method
-      */
-     WHERE_I_AM;
-     PyObject *result;
-     result = PyObject_CallMethod( (*file_data_ptr)->py_object, (char *)"exec_init", NULL );
-     (*file_data_ptr)->during_init = 0;
-     if (result) Py_DECREF(result);
+    /*b Invoke 'exec_init' method
+     */
+    WHERE_I_AM;
+    PyObject *result;
+    result = PyObject_CallMethod( (*file_data_ptr)->py_object, (char *)"exec_init", NULL );
+    (*file_data_ptr)->during_init = 0;
+    if (result) Py_DECREF(result);
+    if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
 
-     /*b Reset the file
-      */
-     WHERE_I_AM;
-     sl_exec_file_reset( *file_data_ptr );
-     SL_DEBUG( sl_debug_level_info,
+    /*b Reset the file
+     */
+    WHERE_I_AM;
+    sl_exec_file_reset( *file_data_ptr );
+    SL_DEBUG( sl_debug_level_info,
               "pyobject %s complete for user",user ) ;
 
-     WHERE_I_AM;
-     return error_level_okay;
+    WHERE_I_AM;
+    return error_level_okay;
 }
 
 /*f sl_exec_file_py_kill_subthreads_cb
@@ -3821,7 +3987,7 @@ void sl_exec_file_py_kill_subthreads_cb( void *handle, t_sl_pthread_barrier_thre
     py_object = py_object;
     WHERE_I_AM;
 
-    sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_die, NULL );
+    sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_die );
     WHERE_I_AM;
 }
 
@@ -3832,7 +3998,6 @@ static void sl_exec_file_py_kill_subthreads( t_sl_exec_file_data *file_data )
     t_py_object *py_object = PyObj(file_data);
     WHERE_I_AM;
 
-    fprintf(stderr, "obj %p clocked %x\n", py_object, py_object->clocked);
     if (!py_object->clocked) return;
 
     // We want to kill all subthreads - we don't really care about the order
@@ -3842,9 +4007,11 @@ static void sl_exec_file_py_kill_subthreads( t_sl_exec_file_data *file_data )
     WHERE_I_AM;
     sl_pthread_barrier_thread_iter( &py_object->barrier, sl_exec_file_py_kill_subthreads_cb, py_object );
     WHERE_I_AM;
+    Py_BEGIN_ALLOW_THREADS;
     sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
     WHERE_I_AM;
     sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
+    Py_END_ALLOW_THREADS;
     WHERE_I_AM;
 }
 
@@ -3855,7 +4022,13 @@ static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data )
     t_py_object *py_object = PyObj(file_data);
     if (py_object->clocked)
     {
-        // Here we should 'tick' the barrier, in case threads are waiting on it; increment cycle also
+        WHERE_I_AM;
+        Py_BEGIN_ALLOW_THREADS;
+        sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
+        WHERE_I_AM;
+        sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
+        WHERE_I_AM;
+        Py_END_ALLOW_THREADS;
         return 0;
     }
     else
@@ -3867,6 +4040,7 @@ static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data )
             WHERE_I_AM;
             Py_DECREF(result);
         }
+        if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
         return 0;
     }
 }
@@ -3882,6 +4056,7 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
     {
         PyObject *result;
         result = PyObject_CallMethod( (PyObject *)py_object, (char *)"exec_reset", NULL );
+        if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
         if (result) Py_DECREF(result);
         return;
     }
@@ -3891,8 +4066,7 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
     sl_exec_file_py_kill_subthreads( file_data );
     WHERE_I_AM;
 
-    // Create new subthread and execute 'exec_run' method in that
-    fprintf(stderr,"sl_exec_file_py_reset:%p:%p\n",py_object,file_data);
+    // Create new subthread and execute 'exec_run' method in that - the subthread hits reset complete barrier after the exec_run completes
     if (!start_new_py_thread( (void (*)())sl_exec_file_py_thread, py_object ))
     {
     WHERE_I_AM;
@@ -3900,13 +4074,15 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
         exit(4);
     }
     WHERE_I_AM;
+
+    // Reset complete barrier - all subthreads will have started and changed state to 'init_done'
 }
 
 /*f Wrapper ELSE
  */
 #else
 static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data ){}
-static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data ){}
+static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data ){return 0;}
 
 /*f Wrapper End
  */

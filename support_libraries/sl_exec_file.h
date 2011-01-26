@@ -290,6 +290,7 @@ typedef struct t_sl_exec_file_cmd_cb
     int line_number; // For errors
     int cmd;
     t_sl_exec_file_lib_desc *lib_desc;
+    struct t_sl_exec_file_thread_execution_data *execution; // thread etc the cmd is called from
     int num_args;
     t_sl_exec_file_value *args;
 } t_sl_exec_file_cmd_cb;

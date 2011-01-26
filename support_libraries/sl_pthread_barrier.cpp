@@ -12,7 +12,7 @@
 
 /*a Defines
  */
-#if 1
+#if 0
 #include <sys/time.h>
 #include <pthread.h>
 #define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
@@ -41,9 +41,9 @@ typedef struct t_sl_pthread_barrier_thread
 {
     struct t_sl_pthread_barrier_thread *next;
     t_sl_pthread_barrier_thread_state state;
-    void *user_ptr;
     int  user_state;
     pthread_cond_t cond;
+    void *user_data_start; // This should be suitably aligned
 } t_sl_pthread_barrier_thread;
 
 /*f sl_pthread_barrier_init
@@ -52,10 +52,7 @@ typedef struct t_sl_pthread_barrier_thread
 extern int sl_pthread_barrier_init( t_sl_pthread_barrier *barrier )
 {
     int rc;
-    WHERE_I_AM;
-    strcpy(barrier->prot,"pro");
-    WHERE_I_AM;
-    fprintf(stderr,"Barrier %p %s\n",barrier, barrier->prot);
+
     barrier->threads = NULL;
     barrier->gc_threads = NULL;
     barrier->state = barrier_state_idle;
@@ -68,13 +65,11 @@ extern int sl_pthread_barrier_init( t_sl_pthread_barrier *barrier )
 
 /*f sl_pthread_barrier_thread_add - call with barrier mutex NOT locked
  */
-extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthread_barrier *barrier )
+extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthread_barrier *barrier, int user_data_size )
 {
     t_sl_pthread_barrier_thread *thread;
-    thread = (t_sl_pthread_barrier_thread *)malloc(sizeof(t_sl_pthread_barrier_thread));
+    thread = (t_sl_pthread_barrier_thread *)malloc(sizeof(t_sl_pthread_barrier_thread)+user_data_size);
 
-    WHERE_I_AM;
-    fprintf(stderr,"Barrier %p %s\n",barrier, barrier->prot);
     WHERE_I_AM;
     pthread_mutex_lock( &barrier->mutex );
 
@@ -95,7 +90,7 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
         barrier->restart_loop = 1;
     }
     WHERE_I_AM;
-    fprintf(stderr,"Added barrier thread %p\n",thread);
+    //fprintf(stderr,"Added barrier thread %p\n",thread);
     pthread_mutex_unlock( &barrier->mutex );
     WHERE_I_AM;
     return thread;
@@ -107,8 +102,6 @@ extern void sl_pthread_barrier_thread_delete( t_sl_pthread_barrier *barrier, t_s
 {
     t_sl_pthread_barrier_thread **prev_thread_ptr;
 
-    WHERE_I_AM;
-    fprintf(stderr,"Barrier %p %s\n",barrier, barrier->prot);
     WHERE_I_AM;
     // Note that danger lurks if the barrier is already waiting for this thread - we pull the thread off the barrier here first
     pthread_mutex_lock( &barrier->mutex );
@@ -131,17 +124,16 @@ extern void sl_pthread_barrier_thread_delete( t_sl_pthread_barrier *barrier, t_s
         pthread_cond_signal( &thread->cond );
     }
     WHERE_I_AM;
-    fprintf(stderr,"Deleted barrier thread %p\n",thread);
+    //fprintf(stderr,"Deleted barrier thread %p\n",thread);
     pthread_mutex_unlock( &barrier->mutex );
     WHERE_I_AM;
 }
 
 /*f sl_pthread_barrier_thread_set_user_state
  */
-extern void sl_pthread_barrier_thread_set_user_state( t_sl_pthread_barrier_thread_ptr this_thread, int state, void *ptr )
+extern void sl_pthread_barrier_thread_set_user_state( t_sl_pthread_barrier_thread_ptr this_thread, int state )
 {
     this_thread->user_state = state;
-    this_thread->user_ptr   = ptr;
 }
 
 /*f sl_pthread_barrier_thread_get_user_state
@@ -155,15 +147,13 @@ extern int sl_pthread_barrier_thread_get_user_state( t_sl_pthread_barrier_thread
  */
 extern void *sl_pthread_barrier_thread_get_user_ptr( t_sl_pthread_barrier_thread_ptr this_thread )
 {
-    return this_thread->user_ptr;
+    return (void *)(&this_thread->user_data_start);
 }
 
 /*f sl_pthread_barrier_thread_iter
  */
 extern void sl_pthread_barrier_thread_iter( t_sl_pthread_barrier *barrier, t_sl_pthread_barrier_thread_iter_fn iter_fn, void *handle )
 {
-    WHERE_I_AM;
-    fprintf(stderr,"Barrier %p %s\n",barrier, barrier->prot);
     /*b Claim mutex
      */
     WHERE_I_AM;
@@ -213,8 +203,6 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
     //      2c.2) Mark thread in barrier as 'pending idle'
     //      2c.3) Condition wait on the barrier condition
     //  3) Release mutex
-    WHERE_I_AM;
-    fprintf(stderr,"Barrier %p %s\n",barrier, barrier->prot);
 
     /*b Claim mutex
      */
@@ -251,7 +239,7 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
             while (thread)
             {
                 WHERE_I_AM_TH;
-                fprintf(stderr,"Thread %p this_thread %p\n", thread, this_thread);
+                //fprintf(stderr,"Thread %p this_thread %p\n", thread, this_thread);
                 if (thread->state==barrier_thread_state_will_be_waiting) // Thread still not hit barrier
                 {
                     WHERE_I_AM_TH;
