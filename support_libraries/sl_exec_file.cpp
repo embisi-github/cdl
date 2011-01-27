@@ -3500,7 +3500,7 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
         if (barrier_thread)
             barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
         WHERE_I_AM;
-        //fprintf(stderr,"barrier_thread from obj %p %p\n", barrier_thread, barrier_thread_data );
+        fprintf(stderr,"barrier_thread from obj %p %p\n", barrier_thread, barrier_thread_data );
     }
     
     //fprintf(stderr,"self %p\n",self);
