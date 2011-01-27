@@ -186,6 +186,7 @@ int c_engine::get_state_value_string( void *engine_handle, char *buffer, int buf
      {
          ptr = *((void **)ptr);
      }
+     n=0;
      switch (desc->type)
      {
      case engine_state_desc_type_none:
@@ -1193,6 +1194,7 @@ int c_engine::interrogate_get_entity_value_string( t_se_interrogation_handle ent
      int sizes[4];
 
      type = interrogate_get_data_sizes_and_type( entity, datas, sizes );
+     n=0;
      switch (type)
      {
      case engine_state_desc_type_none:

@@ -111,7 +111,7 @@ static t_sl_uint64 bit_mask[] = {
      ((1LL<<52)-1), ((1LL<<53)-1), ((1LL<<54)-1), ((1LL<<55)-1), 
      ((1LL<<56)-1), ((1LL<<57)-1), ((1LL<<58)-1), ((1LL<<59)-1), 
      ((1LL<<60)-1), ((1LL<<61)-1), ((1LL<<62)-1), ((1ULL<<63)-1), 
-     (-1LL)
+     ((0LL)-1)
 };
 
 /*v expr_subtype_strings - must match enum in c_co_expression.h
@@ -1090,7 +1090,6 @@ int c_co_expression::coerce( class c_cyclicity *cyclicity, t_type_value required
 */
 static int check_operand( c_cyclicity *cyclicity, t_co_scope *types, t_co_scope *variables, int table_index, int subentry, int arg, c_co_expression *expression, int reevaluate )
 {
-    t_type_value type;
     t_expression_arg_type type_to_match;
 
     if (expression_fn_list[table_index].subentry[subentry].args[arg] == expression_arg_type_none)
@@ -1134,7 +1133,7 @@ static int check_operand( c_cyclicity *cyclicity, t_co_scope *types, t_co_scope 
             return -1;
         break;
     case expression_arg_type_string:
-        if (type!=type_value_string)
+        //if (type!=type_value_string)
             return -1;
         break;
     case expression_arg_type_bit_vector:
