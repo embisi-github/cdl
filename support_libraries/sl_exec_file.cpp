@@ -3390,6 +3390,7 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
 {
     WHERE_I_AM;
     if (!barrier_thread_data) return;
+    if (!barrier_thread_data->py_thread) return; // If init thread
 
     // First, if we are not waiting, then just keep going - our clock tick work or reset has not completed yet
     WHERE_I_AM;
@@ -3767,7 +3768,7 @@ static PyMethodDef py_object_methods[] = { {NULL} };
 /*v py_class_object__exec_file
  */
 static PyTypeObject py_class_object__exec_file = {
-    PyObject_HEAD_INIT(NULL)
+    PyObject_HEAD_INIT(&PyType_Type)
     0,                         /*ob_size*/
     "py_engine.exec_file",             /*tp_name*/
     sizeof(t_py_object), /*tp_basicsize*/
@@ -4081,6 +4082,8 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     if (clocked)
     {
         PyThreadState* py_thread;
+        t_sl_pthread_barrier_thread_ptr barrier_thread;
+        t_py_thread_data *barrier_thread_data;
          
         WHERE_I_AM;
         ((t_py_object *)py_object)->clocked = 1;
@@ -4088,7 +4091,10 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         py_thread = PyThreadState_Get();
         ((t_py_object *)py_object)->py_interp = py_thread->interp;
         sl_pthread_barrier_init( &((t_py_object *)py_object)->barrier );
-        ((t_py_object *)py_object)->barrier_thread = sl_pthread_barrier_thread_add( &((t_py_object *)py_object)->barrier, sizeof(t_py_thread_data) );
+        barrier_thread = sl_pthread_barrier_thread_add( &((t_py_object *)py_object)->barrier, sizeof(t_py_thread_data) );
+        barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
+        barrier_thread_data->py_thread = NULL;
+        ((t_py_object *)py_object)->barrier_thread = barrier_thread;
     }
 
     /*b Invoke 'exec_init' method
