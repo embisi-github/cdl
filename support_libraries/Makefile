@@ -59,7 +59,7 @@ ${PYTHON_LIBRARY}: ${PYTHON_LIB_OBJS}
 
 #a Special build objects
 ${OS_DIR}/sl_exec_file_python.o: sl_exec_file.cpp
-	$(Q)$(CC) -I${PYTHON_INCLUDES} -DSL_EXEC_FILE_PYTHON -c sl_exec_file.cpp -o ${OS_DIR}/sl_exec_file_python.o
+	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_EXEC_FILE_PYTHON -c sl_exec_file.cpp -o ${OS_DIR}/sl_exec_file_python.o
 
 #a Clean etc
 clean:

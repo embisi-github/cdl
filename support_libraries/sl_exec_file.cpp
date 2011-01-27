@@ -2318,6 +2318,7 @@ static int sl_exec_file_thread_execute( t_sl_exec_file_data *file_data, t_sl_exe
 
      file_data->current_thread = thread;
      loops = 0;
+     i = 0;
      while ( (thread->execution.type == sl_exec_file_thread_execution_type_running) &&
              (loops<SL_EXEC_FILE_MAX_OPS_PER_CMD) )
      {
@@ -3767,7 +3768,7 @@ static PyMethodDef py_object_methods[] = { {NULL} };
 /*v py_class_object__exec_file
  */
 static PyTypeObject py_class_object__exec_file = {
-    PyObject_HEAD_INIT(NULL)
+    PyObject_HEAD_INIT(&PyType_Type)
     0,                         /*ob_size*/
     "py_engine.exec_file",             /*tp_name*/
     sizeof(t_py_object), /*tp_basicsize*/
@@ -3982,7 +3983,7 @@ static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data,
     py_ef_obj->file_data = file_data;
     py_ef_obj->object_chain = object_chain;
     WHERE_I_AM;
-    PyObject_SetAttrString( file_data->py_object, object_chain->object_desc.name, (PyObject *)py_ef_obj );
+    PyObject_SetAttrString( file_data->py_object, (char *)(object_chain->object_desc.name), (PyObject *)py_ef_obj );
     WHERE_I_AM;
 }
 
@@ -4070,7 +4071,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
             py_ef_lib->file_data = *file_data_ptr;
             py_ef_lib->lib_chain = chain;
             WHERE_I_AM;
-            PyObject_SetAttrString( py_object, chain->lib_desc.library_name, (PyObject *)py_ef_lib );
+            PyObject_SetAttrString( py_object, (char *)(chain->lib_desc.library_name), (PyObject *)py_ef_lib );
             WHERE_I_AM;
         }
     }
