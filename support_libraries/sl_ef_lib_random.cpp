@@ -17,6 +17,16 @@
 #include "sl_random.h"
 #include "sl_exec_file.h"
 
+/*a Defines
+ */
+#if 0
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
+
 /*a Types
  */
 /*t t_sl_random_object
@@ -112,12 +122,14 @@ static t_sl_random_object *add_object( t_sl_random_object **object_ptr, const ch
     return object;
 }
 
-/*f static exec_file_cmd_handler_cb
+/*f exec_file_cmd_handler_cb
  */
 static t_sl_error_level exec_file_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *cmd_cb, void *handle )
 {
     t_sl_random_object *rnd;
 
+    WHERE_I_AM;
+    //fprintf(stderr, "%p:%p:%p:%p\n",cmd_cb,handle,cmd_cb->args,cmd_cb->args[0].p.ptr);
     switch (cmd_cb->cmd)
     {
     case cmd_random_cyclic: // Declarative command - creates an object

@@ -2250,7 +2250,7 @@ extern double sl_exec_file_eval_fn_get_argument_double( struct t_sl_exec_file_da
  */
 extern const char *sl_exec_file_eval_fn_get_argument_string( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args, int number )
 {
-     WHERE_I_AM;
+    WHERE_I_AM;
     return args[number].p.string;
 }
 
@@ -3347,6 +3347,11 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
         {
             const char *value;
             value = PyString_AsString(obj);
+            if (!value)
+            {
+                fprintf(stderr,"Error occurred parsing string\n");
+                return -1;
+            }
             cmd_cb->args[j].type = sl_exec_file_value_type_string;
             cmd_cb->args[j].p.string = sl_str_alloc_copy( value );
         }
@@ -3356,8 +3361,6 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
             cmd_cb->args[j].integer = PyInt_AsLong(obj);
             if (PyErr_Occurred())
             {
-                const char *value;
-                value = PyString_AsString(obj);
                 fprintf(stderr,"Error occurred parsing int\n");
                 return -1;
             }
@@ -3590,6 +3593,8 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
         }
         file_data->eval_fn_result = &file_data->cmd_result;
         file_data->eval_fn_result_ok = 0;
+        WHERE_I_AM;
+        //fprintf(stderr,"%p,%p,%d\n",&cmd_cb,&cmd_cb_args,cmd_cb.num_args);
         if ( !(method->method_fn)( &cmd_cb, method->method_handle, object_desc, method) )
         {
             file_data->eval_fn_result_ok = 0;
