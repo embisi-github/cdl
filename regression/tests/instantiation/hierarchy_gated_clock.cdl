@@ -1,0 +1,96 @@
+/*a Copyright
+  
+  This file 'hierarchy_test_harness.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Includes
+ */
+
+/*a Constants
+ */
+constant integer width=16;
+
+/*a Module
+ */
+module hierarchy_gated_clock_add( clock io_clock,
+                                  input bit io_reset,
+                                  input bit[width] a,
+                                  input bit[width] b,
+                                  output bit[width] c )
+{
+    default clock io_clock;
+    default  reset active_high io_reset;
+    clocked bit[width] c=0;
+    add_logic "":
+        {
+            c <= a+b;
+            print("a %d0% b %d1% c %d2%", a, b, c );
+        }
+}
+
+module hierarchy_gated_clock( clock io_clock,
+                              input bit io_reset,
+                              input bit[width] vector_input_0,
+                              input bit[width] vector_input_1,
+                              output bit[width] vector_output_0,
+                              output bit[width] vector_output_1 )
+    "Test gated clocks in a hierarchy"
+{
+    default clock io_clock;
+    default  reset active_high io_reset;
+
+    gated_clock clock io_clock active_high clock_enable_0 gated_clock_0;
+    clocked clock io_clock reset active_high io_reset bit[2] clock_divider_0 = 0;
+    comb bit clock_enable_0;
+    comb bit[width] in_a;
+    comb bit[width] in_b;
+    net bit[width+8] out_c;
+    comb bit[width] out_hold_c;
+    clock_dividers "" :
+        {
+            clock_enable_0 = (clock_divider_0==3);
+            clock_divider_0 <= clock_divider_0+1;
+            print("Clock div %d0%", clock_divider_0);
+
+            in_a=0; in_b=0;
+            if (clock_enable_0)
+            {
+                in_a = vector_input_0;
+                in_b = vector_input_1;
+            }
+        }
+
+    instances "Instances":
+        {
+            hierarchy_gated_clock_add hgca( io_clock<-gated_clock_0,
+                                        io_reset<=io_reset,
+                                        a <= in_a,
+                                        b <= in_b,
+                                            c => out_c[width;0] );
+        }
+    drive_outputs "Drive outputs":
+        {
+            out_hold_c = out_c[width;0];
+            vector_output_1 = out_hold_c;
+            vector_output_0 = 0;
+            vector_output_0[2;0] = clock_divider_0;
+            vector_output_0[2] = clock_enable_0;
+        }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

@@ -1,0 +1,91 @@
+/*a Copyright
+  
+  This file 'hierarchy_test_harness.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Includes
+ */
+
+/*a Constants
+ */
+constant integer width=16;
+
+/*a Module
+ */
+module hierarchy_comb_and_clocked_add( clock io_clock,
+                                       input bit io_reset,
+                                       input bit[width] diff,
+                                       input bit[width] comb_in,
+                                       output bit[width] comb_out,
+                                       input bit[width] data_in,
+                                       output bit[width] data_out )
+{
+    default clock io_clock;
+    default  reset active_high io_reset;
+    clocked bit[width] data_out=0;
+    comb bit[width] comb_in_inc;
+    comb bit[width] data_in_inc;
+    add_logic "":
+        {
+            comb_in_inc = comb_in + diff;
+            comb_out = comb_in_inc;
+
+            data_in_inc = data_in + 256;
+            data_out <= data_in_inc;
+            print("comb_in %d0% comb_in_inc %d1% comb_out %d2% data_in %d3% data_in_inc %d4% data_out %d5%",
+                  comb_in, comb_in_inc, comb_out,
+                  data_in, data_in_inc, data_out );
+        }
+}
+
+module hierarchy_comb_and_clocked( clock io_clock,
+                                   input bit io_reset,
+                                   input bit[width] vector_input_0,
+                                   input bit[width] vector_input_1,
+                                   output bit[width] vector_output_0,
+                                   output bit[width] vector_output_1 )
+    "Test submodule that has comb path AND further combs prior to clock internally"
+{
+    default clock io_clock;
+    default  reset active_high io_reset;
+
+    net bit[width] data_out;
+    net bit[width] comb_out;
+    comb bit[width] data_out_copy;
+    comb bit[width] comb_out_copy;
+
+    instances "Instances":
+        {
+            hierarchy_comb_and_clocked_add hccca( io_clock<-io_clock,
+                                                  io_reset<=io_reset,
+                                                  diff <= vector_input_0, // if this changes then the post-clock prop is invalid
+                                                  comb_in <= data_out_copy,
+                                                  comb_out => comb_out,
+                                                  data_in <= comb_out_copy,
+                                                  data_out => data_out );
+        }
+    drive_outputs "Drive outputs":
+        {
+            vector_output_1 = 0; // Cannot have a comb output or it will start to pass comb_out;
+            vector_output_0 = data_out;
+            data_out_copy = data_out;
+            comb_out_copy = comb_out;
+        }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

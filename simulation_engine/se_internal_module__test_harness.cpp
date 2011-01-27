@@ -245,8 +245,6 @@ extern t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *
     filename = engine->get_option_string( engine_handle, "filename", "test_harness.txt" );
     obj = (PyObject *)(engine->get_option_object( engine_handle, "object" ));
 
-    fprintf(stderr,"Object %p\n",obj);
-
     posedge=1;
     if (clock[0]=='!')
     {
@@ -269,16 +267,7 @@ extern t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *
 
     if (obj)
     {
-        t_sl_error_level error_level;
-        error_level = sl_exec_file_allocate_from_python_object( engine->error, engine->message, internal_module_test_harness_exec_file_instantiate_callback, (void *)data, "exec_file", obj, &data->exec_file_data, "Test harness", 1 );
-        // On reset and delete we should send a message to all subthreads to get them to die, then join() them
-        // Subthreads need a 'state' variable and a pair of conditions; lock needs to be shared between them
-        // To wait for a subthread to be in a state 'x' we have to claim the shared lock, transition to 'waiting', mark threads next state as 'x' and then wait to be notified.
-        // If the subthread is already in the desired state then it will be waiting to be notified
-        // To wait for many subthreads one does it one at a time.
-        // On preclock we need to wait for all subthreads to be ready, then transition to preclock, transition all subthreads to 'preclock_start', signal all subthreads (condition notify)
-        // On clock we need to wait for all subthreads to be clocked, then transition to clock, transition all subthreads to 'ready'
-        return error_level;
+        return sl_exec_file_allocate_from_python_object( engine->error, engine->message, internal_module_test_harness_exec_file_instantiate_callback, (void *)data, "exec_file", obj, &data->exec_file_data, "Test harness", 1 );
     }
     return sl_exec_file_allocate_and_read_exec_file( engine->error, engine->message, internal_module_test_harness_exec_file_instantiate_callback, (void *)data, "exec_file", filename, &data->exec_file_data, "Test harness", NULL, NULL );
 }

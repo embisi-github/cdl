@@ -40,6 +40,16 @@
 #include "c_se_engine.h"
 #include "c_se_engine__internal_types.h"
 
+/*a Defines
+ */
+#if 0
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
+
 /*a Types
  */
 /*t t_engine_log_event_callback_fn_instance
@@ -598,6 +608,8 @@ int c_engine::log_handle_exec_file_command( t_log_event_ef_lib *log_event_ef_lib
     t_sl_exec_file_object_desc object_desc;
     int i;
 
+    WHERE_I_AM;
+    fprintf(stderr, "%p:%p:%d:%d:%p\n", log_event_ef_lib, exec_file_data, cmd, num_args, args );
     leeo = (t_log_event_ef_object *)malloc(sizeof(t_log_event_ef_object));
     if (!leeo)
     {
