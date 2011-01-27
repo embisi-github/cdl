@@ -609,7 +609,6 @@ int c_engine::log_handle_exec_file_command( t_log_event_ef_lib *log_event_ef_lib
     int i;
 
     WHERE_I_AM;
-    fprintf(stderr, "%p:%p:%d:%d:%p\n", log_event_ef_lib, exec_file_data, cmd, num_args, args );
     leeo = (t_log_event_ef_object *)malloc(sizeof(t_log_event_ef_object));
     if (!leeo)
     {
@@ -644,12 +643,17 @@ static t_sl_error_level ef_method_eval_occurred( t_sl_exec_file_cmd_cb *cmd_cb, 
     t_log_event_ef_object *leeo;
     int i;
 
+    WHERE_I_AM;
     leeo = (t_log_event_ef_object *)object_desc->handle;
+    WHERE_I_AM;
     for (i=0; i<cmd_cb->num_args; i++)
     {
+    WHERE_I_AM;
         leeo->ef_lib->values[leeo->arg_offset+i] = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, i );
     }
+    WHERE_I_AM;
     leeo->ef_lib->engine->log_event_occurred( leeo->ef_lib->engine_handle, leeo->ef_lib->log_event_array, leeo->event_number );
+    WHERE_I_AM;
     return error_level_okay;
 }
 

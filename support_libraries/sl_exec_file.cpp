@@ -3500,7 +3500,6 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
         if (barrier_thread)
             barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
         WHERE_I_AM;
-        fprintf(stderr,"barrier_thread from obj %p %p\n", barrier_thread, barrier_thread_data );
     }
     
     //fprintf(stderr,"self %p\n",self);
@@ -4046,17 +4045,6 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         callback_fn( callback_handle, *file_data_ptr );
     }
 
-    /*b Finish registering state
-     */
-    WHERE_I_AM;
-    {
-        t_sl_exec_file_callback *efc;
-        for (efc=(*file_data_ptr)->poststate_callbacks; efc; efc=efc->next_in_list)
-        {
-            (efc->callback_fn)( efc->handle );
-        }
-    }
-
     /*b Add in objects for each sl_exec_file library
      */
     {
@@ -4108,6 +4096,17 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     (*file_data_ptr)->during_init = 0;
     if (result) Py_DECREF(result);
     if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
+
+    /*b Finish registering state
+     */
+    WHERE_I_AM;
+    {
+        t_sl_exec_file_callback *efc;
+        for (efc=(*file_data_ptr)->poststate_callbacks; efc; efc=efc->next_in_list)
+        {
+            (efc->callback_fn)( efc->handle );
+        }
+    }
 
     /*b Add in objects for each sl_exec_file object
      */

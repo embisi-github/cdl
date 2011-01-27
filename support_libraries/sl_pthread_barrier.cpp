@@ -211,10 +211,12 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
 
     /*b Garbage collect dead threads
      */
-    for (t_sl_pthread_barrier_thread *thread=barrier->gc_threads; thread; thread=thread->next)
+    for (t_sl_pthread_barrier_thread *thread=barrier->gc_threads; thread; )
     {
+        t_sl_pthread_barrier_thread *next_thread=thread->next;
         pthread_cond_destroy( &thread->cond );
         free(thread);
+        thread = next_thread;
     }
     barrier->gc_threads = NULL;
 
