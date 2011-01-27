@@ -48,11 +48,11 @@ typedef struct t_sl_pthread_barrier_thread
 
 /*f sl_pthread_barrier_init
  */
-#include <string.h>
 extern int sl_pthread_barrier_init( t_sl_pthread_barrier *barrier )
 {
     int rc;
 
+    WHERE_I_AM;
     barrier->threads = NULL;
     barrier->gc_threads = NULL;
     barrier->state = barrier_state_idle;

@@ -4003,16 +4003,17 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
                                                                   t_sl_exec_file_callback_fn callback_fn,
                                                                   void *callback_handle,
                                                                   const char *id,
-                                                                  PyObject *py_object,
+                                                                  PyObject *py_object_obj,
                                                                   struct t_sl_exec_file_data **file_data_ptr,
                                                                   const char *user,
                                                                   int clocked )
 {
     WHERE_I_AM;
+    t_py_object *py_object = (t_py_object *)py_object_obj;
 
     /*b Check the object is derived from the sl_exec_file class
      */
-    if (!PyObject_IsInstance(py_object, (PyObject *)&py_class_object__exec_file))
+    if (!PyObject_IsInstance(py_object_obj, (PyObject *)&py_class_object__exec_file))
     {
         return error->add_error( (void *)user, error_level_fatal, error_number_general_error_s, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, "Object provided is not a subclass of the sl_exec_file class", error_arg_type_none );
     }
@@ -4027,7 +4028,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         return error->add_error( (void *)user, error_level_fatal, error_number_general_malloc_failed, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, user, error_arg_type_none );
     }
     sl_exec_file_data_init( *file_data_ptr, error, message, id, user );
-    (*file_data_ptr)->py_object = py_object;
+    (*file_data_ptr)->py_object = py_object_obj;
 
     /*b Add default commands and functions
      */
@@ -4069,11 +4070,11 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
             fprintf(stderr,"Adding library %s to object (%p)\n",chain->lib_desc.library_name,chain);
             t_py_object_exec_file_library *py_ef_lib;
             py_ef_lib = PyObject_New( t_py_object_exec_file_library, &py_object_exec_file_library );
-            py_ef_lib->py_object = (t_py_object *)py_object;
+            py_ef_lib->py_object = py_object;
             py_ef_lib->file_data = *file_data_ptr;
             py_ef_lib->lib_chain = chain;
             WHERE_I_AM;
-            PyObject_SetAttrString( py_object, (char *)(chain->lib_desc.library_name), (PyObject *)py_ef_lib );
+            PyObject_SetAttrString( py_object_obj, (char *)(chain->lib_desc.library_name), (PyObject *)py_ef_lib );
             WHERE_I_AM;
         }
     }
@@ -4088,15 +4089,15 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         t_py_thread_data *barrier_thread_data;
          
         WHERE_I_AM;
-        ((t_py_object *)py_object)->clocked = 1;
+        py_object->clocked = 1;
         PyEval_InitThreads();
         py_thread = PyThreadState_Get();
-        ((t_py_object *)py_object)->py_interp = py_thread->interp;
-        sl_pthread_barrier_init( &((t_py_object *)py_object)->barrier );
-        barrier_thread = sl_pthread_barrier_thread_add( &((t_py_object *)py_object)->barrier, sizeof(t_py_thread_data) );
+        py_object->py_interp = py_thread->interp;
+        sl_pthread_barrier_init( &py_object->barrier );
+        barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier, sizeof(t_py_thread_data) );
         barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
         barrier_thread_data->py_thread = NULL;
-        ((t_py_object *)py_object)->barrier_thread = barrier_thread;
+        py_object->barrier_thread = barrier_thread;
     }
 
     /*b Invoke 'exec_init' method
