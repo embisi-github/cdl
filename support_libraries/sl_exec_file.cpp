@@ -3902,6 +3902,7 @@ static void sl_exec_file_py_thread( t_py_object *py_object )
     py_thread = PyThreadState_New(py_object->py_interp);
     PyThreadState_Clear(py_thread);
     barrier_thread_data->py_thread = py_thread;
+    barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
     barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, NULL ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
     PyEval_ReleaseLock();
 
