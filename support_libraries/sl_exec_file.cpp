@@ -3324,7 +3324,6 @@ static int py_object_init( t_py_object *self, PyObject *args, PyObject *kwds )
  */
 static PyObject *py_object_getattro( PyObject *o, PyObject *attr_name )
 {
-    char *name = PyString_AsString(attr_name);
     WHERE_I_AM;
     return PyObject_GenericGetAttr(o, attr_name);
 }
@@ -3881,13 +3880,10 @@ static PyTypeObject py_object_exec_file_object =
  */
 static void sl_exec_file_py_thread( t_py_object *py_object )
 {
-    PyInterpreterState* py_interp;
     PyThreadState* py_thread;
     PyObject *py_callable = NULL;
     t_sl_pthread_barrier_thread_ptr barrier_thread;
     t_py_thread_data *barrier_thread_data;
-    int running;
-    int loop_count;
 
     WHERE_I_AM;
     fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
@@ -4049,7 +4045,6 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
      */
     {
         t_sl_exec_file_lib_chain *chain;
-        int j;
 
         WHERE_I_AM;
         for (chain=(*file_data_ptr)->lib_chain; chain; chain=chain->next_in_list)
@@ -4112,8 +4107,6 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
      */
     {
         t_sl_exec_file_object_chain *chain;
-        int j;
-
         for (chain=(*file_data_ptr)->object_chain; chain; chain=chain->next_in_list)
         {
             sl_exec_file_py_add_object_instance( *file_data_ptr, chain );

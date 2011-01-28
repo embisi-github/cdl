@@ -522,7 +522,7 @@ typedef struct t_md_port_lvar
 
 /*t t_md_expr_type
  */
-typedef enum t_md_expr_type
+typedef enum
 {
     md_expr_type_value,
     md_expr_type_lvar,
@@ -530,12 +530,12 @@ typedef enum t_md_expr_type
     md_expr_type_bundle,
     md_expr_type_fn,
     md_expr_type_none
-};
+} t_md_expr_type;
 
 /*t t_md_expr_fn
   add lsl, lsr, query
 */
-typedef enum t_md_expr_fn
+typedef enum
 {
     md_expr_fn_neg,
     md_expr_fn_add,
@@ -557,7 +557,7 @@ typedef enum t_md_expr_fn
     md_expr_fn_logical_or,
     md_expr_fn_query,
     md_expr_fn_none
-};
+} t_md_expr_fn;
 
 /*t t_md_expression
  */
