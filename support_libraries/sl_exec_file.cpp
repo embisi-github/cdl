@@ -45,7 +45,8 @@
 #define WHERE_I_AM {}
 #endif
 #ifndef SL_EXEC_FILE_PYTHON
-#define PyObject void
+struct _object;
+typedef struct _object PyObject; // To make non-Python builds link
 #define Py_DECREF(x) {}
 #define PyObject_CallMethod(a,...) (NULL)
 #endif
@@ -4228,6 +4229,19 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
 #else
 static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data ){}
 static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data ){return 0;}
+extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *error,
+                                                                  c_sl_error *message,
+                                                                  t_sl_exec_file_callback_fn callback_fn,
+                                                                  void *callback_handle,
+                                                                  const char *id,
+                                                                  PyObject *py_object_obj,
+                                                                  struct t_sl_exec_file_data **file_data_ptr,
+                                                                  const char *user,
+                                                                  int clocked )
+{
+    return error->add_error( (void *)user, error_level_fatal, error_number_general_error_s, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, "Cannot allocate exec file from Python object in non-Python build", error_arg_type_none );
+}
+
 
 /*f Wrapper End
  */

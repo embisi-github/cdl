@@ -28,7 +28,8 @@
 #include <Python.h>
 #endif
 #ifndef SE_ENGINE_PYTHON
-#define PyObject void
+struct _object;
+typedef struct _object PyObject; // To make non-Python builds link
 #endif
 #endif
 
