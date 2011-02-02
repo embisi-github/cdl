@@ -168,7 +168,6 @@ ifeq (${BUILD_ARCH},osx)
 	LINKASOBJ := ld -r -o
 	# Python requires -bundle and a .so, with fred.so containing a function _initfred
 	# We build within the Python framework, which in macports is held in /opt/local/Library/Frameworks
-	#This does not seem to work on snowleopard PYTHONLINKLIB := g++ ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F/opt/local/Library/Frameworks -o 
 	ifeq (${BUILD_SUBARCH},snowleopard)
 		CC := gcc-4.0 -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
 		CXX := gcc-4.0 -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
@@ -177,6 +176,9 @@ ifeq (${BUILD_ARCH},osx)
 		LINKASBIN := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -o
 		LINKDYNLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
 		PYTHONLINKLIB := g++-4.0 -L/opt/local/lib -bundle -undefined dynamic_lookup -o
+	else
+		LINKDYNLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
+		PYTHONLINKLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F/opt/local/Library/Frameworks -o 
 	endif
 endif
 
