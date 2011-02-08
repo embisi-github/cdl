@@ -157,11 +157,14 @@ ifeq (${BUILD_ARCH},osx)
 	# We require macports
 	# We use port install python, port install gtk2
 	# We need X11 for this to work
+	ifndef FRAMEWORK_PATH
+          FRAMEWORK_PATH = /opt/local/Library/Frameworks
+        endif
 	BISON_TAIL := .h
 	ifeq (${BUILD_SUBARCH},tiger)
 	  PYTHON_INCLUDES := /opt/local/include/python2.5
 	else
-	  PYTHON_INCLUDES := /Developer/SDKs/MacOSX10.5.sdk/System/Library/Frameworks/Python.framework/Versions/2.5/include/${PYTHON}
+	  PYTHON_INCLUDES := ${FRAMEWORK_PATH}/Python.framework/Versions/Current/include/${PYTHON}
 	endif
 	CC := gcc -dynamic
 	LINK := gcc-4.0
@@ -178,7 +181,7 @@ ifeq (${BUILD_ARCH},osx)
 		PYTHONLINKLIB := g++-4.0 -L/opt/local/lib -bundle -undefined dynamic_lookup -o
 	else
 		LINKDYNLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
-		PYTHONLINKLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F/opt/local/Library/Frameworks -o 
+		PYTHONLINKLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} -o 
 	endif
 endif
 

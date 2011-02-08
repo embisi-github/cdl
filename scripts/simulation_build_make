@@ -47,7 +47,7 @@ ${CMDLINE_PROG}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_CO
 	@echo "Building command line simulation ${CMDLINE_PROG}"
 	${Q}${LINKASBIN} ${CMDLINE_PROG} $(C_MODEL_OBJS) $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${MODEL_LIBS} ${LD_LIBS}
 
-${PYTHON_LIB}: ${C_MODEL_OBJS}  $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS}
+${PYTHON_LIB}: ${C_MODEL_OBJS}  $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${ENGINE_OBJECTS}
 	@echo "Building Python simulation library for GUI sims ${PYTHON_LIB}"
 	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${CYCLICITY_LIBS}
 

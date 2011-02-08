@@ -617,13 +617,17 @@ static PyObject *py_engine_method_reset( t_py_engine_PyObject *py_eng, PyObject 
 static PyObject *py_engine_method_step( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
      int n;
+     int show_msg = 0;
      char cy[] = "cycles";
-     char *kwdlist[] = { cy, NULL };
+     char msg[] = "msg";
+     char *kwdlist[] = { cy, msg, NULL };
 
      py_engine_method_enter( py_eng, "step", args );
-     if (PyArg_ParseTupleAndKeywords( args, kwds, "i", kwdlist, &n ))
+     if (PyArg_ParseTupleAndKeywords( args, kwds, "i|i", kwdlist, &n, &show_msg ))
      {
           py_eng->engine->step_cycles( n );
+	  if (show_msg)
+	    py_eng->engine->message->check_errors_and_reset( stdout, error_level_info, error_level_info );
           return py_engine_method_return( py_eng, NULL );
      }
      return NULL;

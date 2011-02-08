@@ -21,6 +21,17 @@
 #define WHERE_I_AM {}
 #define WHERE_I_AM_TH {}
 #endif
+#if 0
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d:%s\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__,s );}
+#define WHERE_I_AM_TH_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%d:%s\n",tp.tv_sec,tp.tv_usec,pthread_self(),this_thread,__func__,__LINE__,s );}
+#undef WHERE_I_AM_TH_STR(s)
+#define WHERE_I_AM_TH_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%.*s:%s\n",tp.tv_sec,tp.tv_usec,pthread_self(),this_thread,(char*)barrier_sync_callback_handle,(((unsigned int)pthread_self())>>4) & 31,"                                ",s );}
+#else
+#define WHERE_I_AM_STR(s) {}
+#define WHERE_I_AM_TH_STR(s) {}
+#endif
 
 /*a pthread barriers
  */
@@ -71,6 +82,7 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
     thread = (t_sl_pthread_barrier_thread *)malloc(sizeof(t_sl_pthread_barrier_thread)+user_data_size);
 
     WHERE_I_AM;
+    WHERE_I_AM_STR("thread_add entry");
     pthread_mutex_lock( &barrier->mutex );
 
     WHERE_I_AM;
@@ -80,12 +92,14 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
     WHERE_I_AM;
     if (barrier->state == barrier_state_idle)
     {
-    WHERE_I_AM;
+        WHERE_I_AM;
+	WHERE_I_AM_STR("adding as running");
         thread->state = barrier_thread_state_running;
     }
     else if (barrier->state == barrier_state_gathering)
     {
         WHERE_I_AM;
+	WHERE_I_AM_STR("adding as will_be_waiting");
         thread->state = barrier_thread_state_will_be_waiting;
         barrier->restart_loop = 1;
     }
@@ -93,6 +107,7 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
     //fprintf(stderr,"Added barrier thread %p\n",thread);
     pthread_mutex_unlock( &barrier->mutex );
     WHERE_I_AM;
+    WHERE_I_AM_STR("thread_add exit");
     return thread;
 }
 
@@ -103,6 +118,7 @@ extern void sl_pthread_barrier_thread_delete( t_sl_pthread_barrier *barrier, t_s
     t_sl_pthread_barrier_thread **prev_thread_ptr;
 
     WHERE_I_AM;
+    WHERE_I_AM_STR("thread_delete entry");
     // Note that danger lurks if the barrier is already waiting for this thread - we pull the thread off the barrier here first
     pthread_mutex_lock( &barrier->mutex );
 
@@ -207,6 +223,7 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
     /*b Claim mutex
      */
     WHERE_I_AM_TH;
+    WHERE_I_AM_TH_STR("barrier_wait+");
     pthread_mutex_lock( &barrier->mutex );
 
     /*b Garbage collect dead threads
@@ -225,14 +242,15 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
     switch (barrier->state)
     {
     case barrier_state_idle:
-    WHERE_I_AM_TH;
+        WHERE_I_AM_TH;
+        WHERE_I_AM_TH_STR("gathering+");
         barrier->state = barrier_state_gathering;
         for (t_sl_pthread_barrier_thread *thread=barrier->threads; thread; thread=thread->next)
             if (thread->state==barrier_thread_state_pending_idle) // Thread must have run around to its barrier before the last 'master' thread reached idle
                 thread->state=barrier_thread_state_ready;
             else
                 thread->state=barrier_thread_state_will_be_waiting; // Thread has not hit barrier yet (must be running) (as if it had it would be pending_idle or the barrier would not be idle)
-    WHERE_I_AM_TH;
+	WHERE_I_AM_TH;
         this_thread->state = barrier_thread_state_ready;
         WHERE_I_AM_TH;
         {
@@ -246,7 +264,9 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
                 {
                     WHERE_I_AM_TH;
                     thread->state=barrier_thread_state_waiting; // When it hits the barrier make it notify us
+		    WHERE_I_AM_TH_STR("waitother+");
                     pthread_cond_wait( &thread->cond, &barrier->mutex ); // When this returns we have the mutex, and the thread must be in 'ready' state - or it is finalizing and freed
+		    WHERE_I_AM_TH_STR("waitother-");
                 }
                 // If thread disappeared or thread was added it will have set barrier->restart_loop
                 if (barrier->restart_loop)
@@ -261,28 +281,40 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
             }
         }
         // All threads except this one must now be ready, waiting for the barrier condition to be signaled
-    WHERE_I_AM_TH;
+	WHERE_I_AM_TH;
         for (t_sl_pthread_barrier_thread *thread=barrier->threads; thread; thread=thread->next)
             thread->state = barrier_thread_state_running;
         barrier->state = barrier_state_idle;
-    WHERE_I_AM_TH;
+        WHERE_I_AM_TH_STR("gathering-");
+	WHERE_I_AM_TH;
         if (barrier_sync_callback)
+	{
+	    WHERE_I_AM_TH_STR("callback+");
             barrier_sync_callback( barrier, barrier_sync_callback_handle );
-    WHERE_I_AM_TH;
+	    WHERE_I_AM_TH_STR("callback-");
+	}
+	WHERE_I_AM_TH;
+	WHERE_I_AM_TH_STR("broadcast+");
         pthread_cond_broadcast( &barrier->cond );
-    WHERE_I_AM_TH;
+	WHERE_I_AM_TH_STR("broadcast-");
+	WHERE_I_AM_TH;
         break;
     case barrier_state_gathering: // Another thread is gathering - it should have kicked us to 'will_be_waiting' or 'waiting'
-    WHERE_I_AM_TH;
+        WHERE_I_AM_TH;
+        WHERE_I_AM_TH_STR("waitgathering");
         if (this_thread->state==barrier_thread_state_waiting)
         {
-    WHERE_I_AM_TH;
+	    WHERE_I_AM_TH;
+	    WHERE_I_AM_TH_STR("signalother+");
             pthread_cond_signal( &this_thread->cond );
+	    WHERE_I_AM_TH_STR("signalother-");
         }
-    WHERE_I_AM_TH;
+	WHERE_I_AM_TH;
         this_thread->state = barrier_thread_state_ready;
+	WHERE_I_AM_TH_STR("waitbarrier+");
         pthread_cond_wait( &barrier->cond, &barrier->mutex ); // When this returns the barrier state must now be idle and all threads are running
-    WHERE_I_AM_TH;
+	WHERE_I_AM_TH_STR("waitbarrier-");
+	WHERE_I_AM_TH;
         break;
     }
 
@@ -290,6 +322,7 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
      */
     WHERE_I_AM_TH;
     pthread_mutex_unlock( &barrier->mutex );
+    WHERE_I_AM_TH_STR("barrier_wait-");
     WHERE_I_AM_TH;
 }
 

@@ -3421,9 +3421,9 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
         // Wait for post-reset barrier or tick-done barrier; then wait for tick-start barrier (or pre-finalize barrier if we are being killed off)
         Py_BEGIN_ALLOW_THREADS;
     WHERE_I_AM;
-        sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, NULL );
+    sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, (void*)"PyBoW1" );
     WHERE_I_AM;
-        sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, NULL );
+        sl_pthread_barrier_wait( &py_object->barrier, barrier_thread, NULL, (void*)"PyBoW2" );
     WHERE_I_AM;
         Py_END_ALLOW_THREADS;
     WHERE_I_AM;
@@ -4154,9 +4154,9 @@ static void sl_exec_file_py_kill_subthreads( t_sl_exec_file_data *file_data )
     sl_pthread_barrier_thread_iter( &py_object->barrier, sl_exec_file_py_kill_subthreads_cb, py_object );
     WHERE_I_AM;
     Py_BEGIN_ALLOW_THREADS;
-    sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
+    sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, (void*)"PyKST1" );
     WHERE_I_AM;
-    sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
+    sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, (void*)"PyKST2" );
     Py_END_ALLOW_THREADS;
     WHERE_I_AM;
 }
@@ -4170,9 +4170,9 @@ static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data )
     {
         WHERE_I_AM;
         Py_BEGIN_ALLOW_THREADS;
-        sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
+        sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, (void*)"PyDes1" );
         WHERE_I_AM;
-        sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, NULL );
+        sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, (void*)"PyDes2" );
         WHERE_I_AM;
         Py_END_ALLOW_THREADS;
         return 0;
@@ -4222,6 +4222,7 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
     WHERE_I_AM;
 
     // Reset complete barrier - all subthreads will have started and changed state to 'init_done'
+    sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, (void*)"PyPRST" );
 }
 
 /*f Wrapper ELSE
