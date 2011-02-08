@@ -29,6 +29,13 @@ for more details.
 
 /*a Defines
  */
+#if 1
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
 
 /*a Types
  */
@@ -104,6 +111,7 @@ static t_sl_error_level internal_module_test_harness_preclock( t_internal_module
 {
     /*b Call BFM preclock function - captures inputs (do only on first preclock of a clock event, which is okay as we only have one clock)
      */
+    WHERE_I_AM;
     sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "preclock", NULL );
 
     /*b Done
@@ -117,14 +125,18 @@ static t_sl_error_level internal_module_test_harness_clock( t_internal_module_te
 {
     /*b Run the exec_file - this should do the 'tick-start, tick-end' of an exec file
      */
+    WHERE_I_AM;
     if (data->exec_file_data)
     {
         while (sl_exec_file_despatch_next_cmd( data->exec_file_data ));
     }
+    WHERE_I_AM;
 
     /*b Call BFM clock function - copies to outputs
      */
+    WHERE_I_AM;
     sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "clock", NULL );
+    WHERE_I_AM;
 
     /*b Done
      */
