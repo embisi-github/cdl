@@ -130,6 +130,9 @@ LINKFLAGS = ${LINK_OPTIMIZATION_FLAGS} -L${CYCLICITY}/lib/${OS_DIR}             
 LD_LIBS = ${CYCLICITY_LIBS} -lm -lc
 
 #a Os-specific overrides - libs for python and DLL generation issues
+ifndef PYTHON_ROOT
+  PYTHON_ROOT := /usr
+endif
 os_lib_hdr = 
 CC := g++
 LINK := g++
@@ -137,7 +140,7 @@ LINKASOBJ := g++ -nostdlib -r ${LINKFLAGS} -o
 LINKDYNLIB := ${LINK} -shared -export-dynamic ${LINKFLAGS} -o 
 LINKASBIN := ${LINK} ${LINKFLAGS} -o
 BISON_TAIL := .h
-PYTHON_INCLUDES := /usr/include/${PYTHON}
+PYTHON_INCLUDES := ${PYTHON_ROOT}/include/${PYTHON}
 PYTHONLINKLIB := ${LINK} ${LINK_FLAGS} -shared -export-dynamic -o 
 VPI_INCLUDES := ${VERILOG_ROOT}/include
 ifeq (${BUILD_ARCH},cygwin)
