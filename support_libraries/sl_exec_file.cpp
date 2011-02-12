@@ -40,7 +40,7 @@
 #if 0
 #include <sys/time.h>
 #include <pthread.h>
-#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,(int)tp.tv_usec,(void*)pthread_self(),__func__,__LINE__ );}
 #else
 #define WHERE_I_AM {}
 #endif
@@ -3229,7 +3229,56 @@ typedef struct t_py_thread_data
     t_sl_exec_file_thread_execution_data execution;
 } t_py_thread_data;
 
+/*t t_py_thread_start_data
+ */
+typedef struct t_py_thread_start_data
+{
+    // This data exists to get Python threads started.
+    t_py_object *py_object;
+    PyObject *callable;
+    PyObject *args;
+} t_py_thread_start_data;
+
+/*f sl_exec_file_py_thread
+ * Forward declaration
+ */
+static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data );
+static int sl_exec_file_create_python_thread( t_sl_exec_file_data *file_data, PyObject *callable, PyObject *args );
+
+/*v cmd_*
+ */
+enum
+{
+    cmd_pyspawn,
+};
+
+/*v py_internal_cmds
+ */
+static t_sl_exec_file_cmd py_internal_cmds[] = 
+{
+     {cmd_pyspawn,       2, "pyspawn", "oo",    "spawn <function> <args>" },
+     {sl_exec_file_cmd_none, 0, NULL, NULL, NULL},
+};
+
+/*f static py_cmd_handler_cb
+ */
+static t_sl_error_level py_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *cmd_cb, void *handle )
+{
+    switch (cmd_cb->cmd)
+    {
+    case cmd_pyspawn:
+        sl_exec_file_create_python_thread( cmd_cb->file_data, (PyObject*)cmd_cb->args[0].p.ptr, (PyObject*)cmd_cb->args[1].p.ptr );
+        break;
+    default:
+        return error_level_serious;
+    }
+    return error_level_okay;
+}
+
+
+
 /*f start_new_py_thread_started
+ * Important: must be called with GIL _not_ held (otherwise deadlock)
  */
 static void start_new_py_thread_started( t_py_object *py_object )
 {
@@ -3256,55 +3305,61 @@ static void start_new_py_thread_started( t_py_object *py_object )
 }
 
 /*f start_new_py_thread
+ * incoming references are _borrowed_
  */
-static int start_new_py_thread( void (*thread_fn)(), t_py_object *py_object )
+static int start_new_py_thread( t_py_object *py_object, PyObject *callable, PyObject *args )
 {
     pthread_t th;
     int status;
     int result = 1;
+    t_py_thread_start_data *py_start_data;
+
     WHERE_I_AM;
-    int        rc=pthread_mutex_init( &py_object->thread_sync_mutex, NULL );
-    if (rc==0) rc=pthread_cond_init(  &py_object->thread_sync_cond, NULL );
-    if (rc!=0)
+    py_start_data = (t_py_thread_start_data *)malloc(sizeof(t_py_thread_start_data));
+    if (py_start_data == NULL)
         return 0;
-
+    py_start_data->py_object = py_object;
+    py_start_data->callable = callable;
+    py_start_data->args = args;
+    Py_INCREF(py_object);
+    Py_INCREF(callable);
+    Py_XINCREF(args);
+    // (corresponding DECREFs for these are at the end of the spawned thread)
+    Py_BEGIN_ALLOW_THREADS;
     WHERE_I_AM;
-    py_object->thread_spawn_state = 0;
-
     pthread_mutex_lock( &py_object->thread_sync_mutex );
     WHERE_I_AM;
-    status = pthread_create(&th, (pthread_attr_t*)NULL, (void* (*)(void *))thread_fn, (void *)py_object );
+    py_object->thread_spawn_state = 0;
+    Py_END_ALLOW_THREADS;
+    WHERE_I_AM;
+    status = pthread_create(&th, (pthread_attr_t*)NULL, (void* (*)(void *))sl_exec_file_py_thread, (void *)py_start_data );
     WHERE_I_AM;
     if (status==0)
     {
-    WHERE_I_AM;
+        WHERE_I_AM;
         pthread_detach(th);
         if (py_object->thread_spawn_state==0)
         {
-    WHERE_I_AM;
+            WHERE_I_AM;
             py_object->thread_spawn_state=1;
             Py_BEGIN_ALLOW_THREADS;
-    WHERE_I_AM;
+            WHERE_I_AM;
             pthread_cond_wait( &py_object->thread_sync_cond, &py_object->thread_sync_mutex );
-    WHERE_I_AM;
+            WHERE_I_AM;
             py_object->thread_spawn_state=5;
-    WHERE_I_AM;
+            WHERE_I_AM;
             Py_END_ALLOW_THREADS;
-    WHERE_I_AM;
+            WHERE_I_AM;
         }
         else
         {
-    WHERE_I_AM;
+            WHERE_I_AM;
             py_object->thread_spawn_state=2;
-    WHERE_I_AM;
+            WHERE_I_AM;
         }
     }
     WHERE_I_AM;
     pthread_mutex_unlock(  &py_object->thread_sync_mutex );
-    WHERE_I_AM;
-    pthread_mutex_destroy( &py_object->thread_sync_mutex );
-    WHERE_I_AM;
-    pthread_cond_destroy(  &py_object->thread_sync_cond );
     WHERE_I_AM;
     return result;
 }
@@ -3318,7 +3373,22 @@ static int py_object_init( t_py_object *self, PyObject *args, PyObject *kwds )
     self->file_data = NULL;
     self->py_interp = NULL;
     self->clocked = 0;
-	return 0;
+    WHERE_I_AM;
+    int        rc=pthread_mutex_init( &self->thread_sync_mutex, NULL );
+    if (rc==0) rc=pthread_cond_init(  &self->thread_sync_cond, NULL );
+    if (rc!=0)
+        return -1;
+    return 0;
+}
+
+/*f py_object_dealloc
+ */
+static void py_object_dealloc( t_py_object *self )
+{
+    WHERE_I_AM;
+    fprintf(stderr,"Object dealloc %p\n",self);
+    pthread_mutex_destroy( &self->thread_sync_mutex );
+    pthread_cond_destroy(  &self->thread_sync_cond  );
 }
 
 /*f py_object_getattro
@@ -3778,7 +3848,7 @@ static PyTypeObject py_class_object__exec_file = {
     "py_engine.exec_file",             /*tp_name*/
     sizeof(t_py_object), /*tp_basicsize*/
     0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
+    (destructor)py_object_dealloc, /*tp_dealloc*/
     0,                         /*tp_print*/
     0,                         /*tp_getattr*/
     0,                         /*tp_setattr*/
@@ -3796,7 +3866,7 @@ static PyTypeObject py_class_object__exec_file = {
     Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE | 
     Py_TPFLAGS_HAVE_CLASS,        /*tp_flags*/
-    "Noddy objects",           /* tp_doc */
+    "exec_file objects",           /* tp_doc */
     0, /* tp_traverse*/
     0, /*tp_clear */
 
@@ -3884,15 +3954,18 @@ static PyTypeObject py_object_exec_file_object =
 
 /*f sl_exec_file_py_thread
  */
-static void sl_exec_file_py_thread( t_py_object *py_object )
+static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
 {
     PyThreadState* py_thread;
-    PyObject *py_callable = NULL;
+    PyObject *py_callable = py_start_data->callable;
+    PyObject *py_args = py_start_data->args;
     t_sl_pthread_barrier_thread_ptr barrier_thread;
     t_py_thread_data *barrier_thread_data;
+    t_py_object *py_object = py_start_data->py_object;
 
     WHERE_I_AM;
     fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
+    free(py_start_data);
     barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier, sizeof(t_py_thread_data) );
     barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
     WHERE_I_AM;
@@ -3907,9 +3980,10 @@ static void sl_exec_file_py_thread( t_py_object *py_object )
     barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, NULL ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
     PyEval_ReleaseLock();
 
+    // Important: must be called with GIL _not_ held (otherwise deadlock)
     start_new_py_thread_started( py_object );
 
-    // Invoke callable (or 'run' if none given)
+    // Invoke callable 
     // This is expected to call numerous waits
     // It might also spawn more subthreads
     // If it does so, those subthreads will be added to the barrier, before this one hits the barrier
@@ -3919,17 +3993,10 @@ static void sl_exec_file_py_thread( t_py_object *py_object )
     // Then the world is synchronized
     PyObject *py_obj;
     PyEval_AcquireThread(py_thread);
-    if (py_callable)
-    {
-        WHERE_I_AM;
-        py_obj = PyObject_CallObject( py_callable, (PyObject *)py_object );
-        Py_DECREF(py_callable);
-    }
-    else
-    {
-        WHERE_I_AM;
-        py_obj = PyObject_CallMethod( (PyObject *)py_object, "exec_run", NULL );
-    }
+    WHERE_I_AM;
+    py_obj = PyObject_CallObject( py_callable, py_args );
+    Py_DECREF(py_callable);
+    Py_XDECREF(py_args);
     WHERE_I_AM;
     if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
     if (py_obj)
@@ -3947,13 +4014,14 @@ static void sl_exec_file_py_thread( t_py_object *py_object )
     WHERE_I_AM;
     PyEval_AcquireLock();
     Py_DECREF(barrier_thread_data->barrier_thread_object);
+    Py_DECREF(py_object);
     PyThreadState_Clear(py_thread);
     PyThreadState_Delete(py_thread);
     PyEval_ReleaseLock();
     WHERE_I_AM;
 
     WHERE_I_AM;
-    pthread_exit((void *)py_object);
+    pthread_exit(NULL);
     WHERE_I_AM;
 }
 
@@ -3988,6 +4056,19 @@ static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data,
     WHERE_I_AM;
     PyObject_SetAttrString( file_data->py_object, (char *)(object_chain->object_desc.name), (PyObject *)py_ef_obj );
     WHERE_I_AM;
+}
+
+/*f sl_exec_file_create_python_thread
+  takes file data, a callable and args
+  spawns a new Python thread
+  kicks it into life
+  returns 1 if OK, 0 if something bad happened
+  incoming references are borrowed, must INCREF them to keep them
+ */
+static int sl_exec_file_create_python_thread( t_sl_exec_file_data *file_data, PyObject *callable, PyObject *args )
+{
+    if (!file_data->py_object) return 0;
+    return start_new_py_thread( PyObj(file_data), callable, args );
 }
 
 /*f sl_exec_file_allocate_from_python_object
@@ -4037,6 +4118,18 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     WHERE_I_AM;
 
     sl_exec_file_data_add_default_cmds( *file_data_ptr );
+
+    /*b Add Python-specific commands and functions
+     */
+    t_sl_exec_file_lib_desc lib_desc;
+    lib_desc.version = sl_ef_lib_version_cmdcb;
+    lib_desc.library_name = "py";
+    lib_desc.handle = NULL;
+    lib_desc.cmd_handler = py_cmd_handler_cb;
+    lib_desc.file_cmds = py_internal_cmds;
+    lib_desc.file_fns = NULL;
+    sl_exec_file_add_library( *file_data_ptr, &lib_desc );
+
 
     /*b Invoke callback to fill in extra functions and add other libraries; old exec file declared objects, not sure what to do about that here
      */
@@ -4220,13 +4313,21 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
     WHERE_I_AM;
 
     // Create new subthread and execute 'exec_run' method in that - the subthread hits reset complete barrier after the exec_run completes
-    if (!start_new_py_thread( (void (*)())sl_exec_file_py_thread, py_object ))
+    PyObject *exec_run_obj = PyObject_GetAttrString((PyObject*)py_object, "exec_run");
+    if (PyErr_Occurred()) 
+    {
+        PyErr_Print();
+        PyErr_Clear();
+        return;
+    }
+    if (!start_new_py_thread( py_object, exec_run_obj, NULL ))
     {
     WHERE_I_AM;
         fprintf(stderr,"Failed to start new subthread in sl_exec_file.cpp - argh\n");
         exit(4);
     }
     WHERE_I_AM;
+    Py_DECREF(exec_run_obj);
 
     // Reset complete barrier - all subthreads will have started and changed state to 'init_done'
     Py_BEGIN_ALLOW_THREADS;
