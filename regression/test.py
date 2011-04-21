@@ -1,7 +1,7 @@
 #!/usr/bin/env python
+import unittest
 import py_engine
 import sys
-x = py_engine.py_engine()
 
 class c_tb(py_engine.exec_file):
     def __init__(self):
@@ -112,20 +112,26 @@ class c_sim(py_engine.exec_file):
         self.cdlsim_instantiation.drive( "test_harness_0.invert_chain_6", "invert_chain_6" )
         self.cdlsim_instantiation.drive( "test_harness_0.invert_chain_7", "invert_chain_7" )
 
-print >>sys.stderr, "Create y as a c_sim"
-y=c_sim()
-print >>sys.stderr, "Created y"
-x.describe_hw(y)
-for i in range(1000):
-    n = x.get_error(i)
-    if n==None:
-        break
-    print >>sys.stderr, n
-x.reset()
-print >>sys.stderr, "Stepping 10"
-x.step(10)
-print >>sys.stderr, "Stepping another 10"
-x.step(10)
-print >>sys.stderr, "Stepping last 50"
-x.step(50)
-x.step(5000)
+class TestPyEngine(unittest.TestCase):
+    def test_py_engine(self):
+        x = py_engine.py_engine()
+        print >>sys.stderr, "Create y as a c_sim"
+        y=c_sim()
+        print >>sys.stderr, "Created y"
+        x.describe_hw(y)
+        for i in range(1000):
+            n = x.get_error(i)
+            if n==None:
+                break
+            print >>sys.stderr, n
+        x.reset()
+        print >>sys.stderr, "Stepping 10"
+        x.step(10)
+        print >>sys.stderr, "Stepping another 10"
+        x.step(10)
+        print >>sys.stderr, "Stepping last 50"
+        x.step(50)
+        x.step(5000)
+
+if __name__ == '__main__':
+    unittest.main()
