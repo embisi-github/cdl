@@ -1,0 +1,16 @@
+# OS Snow Leopard
+PYTHON := python2.6
+FRAMEWORK_PATH := /Library/Frameworks
+BUILD_ARCH := osx
+BUILD_SUBARCH := snowleopard
+
+OS_CFLAGS := 
+OS_CXXFLAGS := 
+OS_LINKFLAGS := 
+
+# Edit the following for your system configuration
+# Build the Python stuff if you want the Python GUI for simulations
+# Buld the VPI stuff if you want to incorporate simulation models in Verilog simulations through the VPI
+BUILD_PYTHON := yes
+BUILD_VPI := no
+DEBUG_BUILD := yes
