@@ -21,13 +21,14 @@ if os.environ["OSTYPE"] == "darwin":
     ospath = "osx"
 
 bin_directory = os.path.join("build", ospath)
-test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "." ]
+test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate" ]
 debug_level = 0
 
 #a Find the tests
 # We assume that there is a file 'test.py' in each subdirectory, containing
 # all the tests. The code below grabs it and imports it.
-sys.path = [] + sys.path
+test_dirs = [ os.path.join("tests", i) for i in test_dirs] + ["."]
+sys.path = ["", os.path.abspath(bin_directory)] + [os.environ["CYCLICITY_ROOT"]] + sys.path[1:]
 test_modules = {}
 suite = unittest.TestSuite()
 for i in test_dirs:
