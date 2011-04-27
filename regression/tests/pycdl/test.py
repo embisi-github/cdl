@@ -23,6 +23,7 @@ class and_gate_test_harness(pycdl.th):
 
 class test_basic_hw(pycdl.hw):
     def __init__(self):
+        self.clk = pycdl.clock(0, 1, 1)
         self.and_in_0 = pycdl.wire()
         self.and_in_1 = pycdl.wire()
         self.and_out_0 = pycdl.wire()
@@ -44,7 +45,7 @@ class TestPyCDL(unittest.TestCase):
         engine = pycdl.engine(hw)
         engine.reset()
         engine.step(50)
-        self.assertThat(engine.passed())
+        self.assertTrue(engine.passed())
 
 if __name__ == '__main__':
     unittest.main()

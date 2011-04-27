@@ -23,7 +23,7 @@ code to CDL's py_engine interface.
 # will have put it in the PYTHONPATH or it will have set the CDL_BUILD_DIR
 # environment variable.
 import sys, os
-import itertools
+import itertools, collections
 
 if "CDL_BUILD_DIR" in os.environ:
     oldpath = sys.path
@@ -48,7 +48,7 @@ class _namegiver(object):
     An object that gives nameable objects a name.
     """
     def __setattr__(self, name, value):
-        if isinstance(_nameable, value) and (not value.hasattr("_name") or value._name is None):
+        if isinstance(value, _nameable) and (not hasattr(value, "_name") or value._name is None):
             value._name = name
             value._owner = self
         object.__setattr__(self, name, value)
@@ -151,6 +151,14 @@ class wire(_nameable):
         if not driven_something:
             raise WireError # nothing to drive!
 
+class clock(wire):
+    def __init__(self, value=0, reset_period=1, period=1, name=None, owner=None):
+        self._init_value = value
+        self._reset_period = period
+        self._period = period
+        # FINISHME!!!
+        wire.__init__(self, 1, name, owner)
+
 class wirebundle(_nameable):
     """
     The object that represents a bundle of wires.
@@ -176,10 +184,10 @@ class wirebundle(_nameable):
         # Yay! Now we know what signals we have! If we hooked up signals
         # anonymously, we now need to put together our bundle and check it.
         for i in other._dict:
-            if isinstance(wirebundle, other._dict[i]):
+            if isinstance(other._dict[i], wirebundle):
                 self._dict[i] = wirebundle()
                 self._dict[i]._populate_dict(other._dict[i])
-            elif isinstance(wire, other._dict[i]):
+            elif isinstance(other._dict[i], wire):
                 self._dict[i] = wire(other._dict[i].size())
             else:
                 raise WireError # what on earth is in this thing?
@@ -232,7 +240,7 @@ class _clockable(_namegiver, _nameable):
     """
     def __init__(self, children):
         # Flatten the list of children.
-        self._children = list(itertools.chain.from_iterable(children))
+        self._children = list(itertools.chain.from_iterable([children]))
 
     def _clock(self):
         for i in self._children:
@@ -246,7 +254,6 @@ class th(_clockable):
         self._clocks = clocks
         self._inputs = inputs
         self._outputs = outputs
-        raise NotImplementedError
 
 class module(_clockable):
     """
@@ -257,30 +264,73 @@ class module(_clockable):
         self._clocks = clocks
         self._inputs = inputs
         self._outputs = outputs
-        raise NotImplementedError
+
+class _thfile(py_engine.exec_file):
+    def __init__(self, th):
+        self._th = th
+        print "self=%s, self._th=%s, doing _thfile.__init__" % (repr(self), repr(self._th))
+        print "self.__dict__=%s" % repr(self.__dict__)
+        py_engine.exec_file.__init__(self)
+        print "After init, self.__dict__=%s" % repr(self.__dict__)
+    def exec_init(self):
+        print "At exec_init, self.__dict__=%s" % repr(self.__dict__)
+        pass
+    def exec_reset(self):
+        print "At exec_reset, self.__dict__=%s" % repr(self.__dict__)
+        pass
+    def exec_run(self):
+        print "self=%s, doing _thfile.exec_run" % repr(self)
+        print "self.__dict__=%s" % repr(self.__dict__)
+        self._th.run()
 
 class _hwexfile(py_engine.exec_file):
     def __init__(self, hw):
         self._hw = hw
         py_engine.exec_file.__init__(self)
 
-    def _connect_wire(self, name, wire, connectedwires, inputs):
-        # FINISHME
-        pass
-        
+    def _connect_wire(self, name, wireinst, connectedwires, inputs):
+        if wireinst._owner is self._hw:
+            # This is a top-level wire.
+            if wireinst not in connectedwires:
+                self.cdlsim_instantiation.wire(name)
+                connectedwires.append(wireinst)
+                wireinst._cdl_signal = getattr(self, name)
+            return name
+        if inputs:
+            # This is an input to the module so we look for a named driver.
+            if wireinst._driven_by:
+                drivername = _connect_wire(self, wireinst._driven_by._name, wireinst._driven_by, connectedwires, True)
+                if wireinst not in connectedwires:
+                    self.cdlsim_instantiation.drive(name, drivername)
+                    connectedwires.append(wireinst)
+                return drivername
+            else:
+                raise WireError # unconnected input
+        else:
+            # This is an output to the module so hopefully something named is
+            # driven by it.
+            if wireinst not in connectedwires:
+                for i in wireinst._drives:
+                    drivenname = _connect_wire(self, i._name, i, connectedwires, False)
+                    self.cdlsim_instantiation.drive(drivenname, name)
+                connectedwires.append(wireinst)
+            return name
 
     def _connect_wires(self, name, wiredict, connectedwires, inputs):
         for i in wiredict:
-            if wiredict[i] in connectedwires:
-                continue
-            connectedwires.append(wiredict[i])
-            if isinstance(wire, wiredict[i]):
-                self._connect_wire(self, wiredict[i], connectedwires, inputs)
-            elif isinstance(wirebundle, wiredict[i]):
-                self._connect_wires(self.wiredict[i]._dict, connectedwires, inputs)
+            if isinstance(wiredict[i], wire):
+                self._connect_wire(name+i, wiredict[i], connectedwires, inputs)
+            elif isinstance(wiredict[i], wirebundle):
+                if wiredict[i] in connectedwires:
+                    continue
+                self._connect_wires(name+i+"__", self.wiredict[i]._dict, connectedwires, inputs)
             else:
                 raise WireError # what the blank is this?
 
+    def exec_init(self):
+        pass
+    def exec_reset(self):
+        pass
     def exec_run(self):
         anonid = 1
         for i in self._hw._children:
@@ -288,21 +338,21 @@ class _hwexfile(py_engine.exec_file):
                 i._name = "__anon%3d" % anonid
                 i._owner = self._hw
                 anonid += 1
-            if isinstance(module, i):
+            if isinstance(i, module):
                 self.cdlsim_instantiation.module(i._type, i._name)
-            elif isinstance(th, i):
+            elif isinstance(i, th):
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
                 self.cdlsim_instantiation.option_string("inputs", " ".join(i._inputs.keys()))
                 self.cdlsim_instantiation.option_string("outputs", " ".join(i._outputs.keys()))
-                self.cdlsim_instantiation.option_object("object", i._thfile)
+                self.cdlsim_instantiation.option_object("object", _thfile(i))
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
             else:
                 raise NotImplementedError
         connectedwires = set()
         for i in self._hw._children:
-            self._connect_wires(self, i._name, i._clocks, connectedwires, inputs=True)
-            self._connect_wires(self, i._name, i._inputs, connectedwires, inputs=True)
-            self._connect_wires(self, i._name, i._outputs, connectedwires, inputs=False)
+            self._connect_wires(self, i._name+".", i._clocks, connectedwires, inputs=True)
+            self._connect_wires(self, i._name+".", i._inputs, connectedwires, inputs=True)
+            self._connect_wires(self, i._name+".", i._outputs, connectedwires, inputs=False)
                     
                     
 
@@ -333,7 +383,7 @@ class engine(object):
         Initialize the engine, given some hardware.
         """
         self._engine = py_engine.py_engine()
-        self._engine.describe_hw(hw)
+        self._engine.describe_hw(_hwexfile(hw))
 
     def reset(self):
         """
