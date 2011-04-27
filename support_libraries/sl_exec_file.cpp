@@ -3391,14 +3391,6 @@ static void py_object_dealloc( t_py_object *self )
     pthread_cond_destroy(  &self->thread_sync_cond  );
 }
 
-/*f py_object_getattro
- */
-static PyObject *py_object_getattro( PyObject *o, PyObject *attr_name )
-{
-    WHERE_I_AM;
-    return PyObject_GenericGetAttr(o, attr_name);
-}
-
 /*f py_engine_cb_args
  */
 static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_file_cmd_cb *cmd_cb )
@@ -3860,7 +3852,7 @@ static PyTypeObject py_class_object__exec_file = {
     0,                         /*tp_hash */
     0,                         /*tp_call*/
     0,                         /*tp_str*/
-    py_object_getattro,            /*tp_getattro*/
+    0,                         /*tp_getattro*/
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT |
@@ -4029,7 +4021,10 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
  */
 extern int sl_exec_file_python_add_class_object( PyObject *module )
 {
-    py_class_object__exec_file.tp_new = PyType_GenericNew; // Why is this an override here?
+    // Apparently some platforms/compilers complain about static initialization
+    // of a structure member with an external function. So we initialize here.
+    // Sounds like FUD to me but that's what the Python manual states.
+    py_class_object__exec_file.tp_new = PyType_GenericNew; 
     if (PyType_Ready(&py_class_object__exec_file) < 0)
         return error_level_fatal;
 

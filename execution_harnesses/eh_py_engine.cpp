@@ -11,65 +11,7 @@
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
   for more details.
 
-
-
-#include <Python.h>
-
-static PyObject* Foo_init(PyObject *self, PyObject *args)
-{
-    printf("Foo.__init__ called\n");
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyObject* Foo_doSomething(PyObject *self, PyObject *args)
-{
-    printf("Foo.doSomething called\n");
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyMethodDef FooMethods[] = 
-{
-    {"__init__", Foo_init, METH_VARARGS, 
-	 "doc string"},
-    {"doSomething", Foo_doSomething, METH_VARARGS,
-	 "doc string"},
-    {NULL},
-};
-
-static PyMethodDef ModuleMethods[] = { {NULL} };
-
-#ifdef __cplusplus
-extern "C"
-#endif
-void initFoo()
-{
-    PyMethodDef *def;
-
-    // create a new module and class
-    PyObject *module = Py_InitModule("Foo", ModuleMethods);
-    PyObject *moduleDict = PyModule_GetDict(module);
-    PyObject *classDict = PyDict_New();
-    PyObject *className = PyString_FromString("Foo");
-    PyObject *fooClass = PyClass_New(NULL, classDict, className);
-    PyDict_SetItemString(moduleDict, "Foo", fooClass);
-    Py_DECREF(classDict);
-    Py_DECREF(className);
-    Py_DECREF(fooClass);
-    
-    // add methods to class
-    for (def = FooMethods; def->ml_name != NULL; def++) {
-	PyObject *func = PyCFunction_New(def, NULL);
-	PyObject *method = PyMethod_New(func, NULL, fooClass);
-	PyDict_SetItemString(classDict, def->ml_name, method);
-	Py_DECREF(func);
-	Py_DECREF(method);
-    }
-}
 */
-/*a Constraint compiler source code
- */
 
 /*a Includes
  */
@@ -1004,11 +946,12 @@ static void py_engine_dealloc( PyObject* self )
  */
 extern "C" void initpy_engine( void )
 {
-	PyObject *m;
+    PyObject *m;
     int i;
     se_c_engine_init();
     m = Py_InitModule3("py_engine", py_engine_methods, "Python interface to CDL simulation engine" );
 
+    // This creates the class py_engine.exec_file, defined in sl_exec_file.cpp
     sl_exec_file_python_add_class_object( m );
 
     for (i=0; model_init_fns[i]; i++)

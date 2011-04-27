@@ -21,7 +21,7 @@ if os.environ["OSTYPE"] == "darwin":
     ospath = "osx"
 
 bin_directory = os.path.join("build", ospath)
-test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate" ]
+test_dirs = [ "simple", "vector", "instantiation", "memory", "event", "bugs", "clock_gate", "pycdl" ]
 debug_level = 0
 
 #a Find the tests

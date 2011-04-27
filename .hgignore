@@ -1,5 +1,7 @@
 syntax: glob
 *~
+*.pyc
+*.orig
 .DS_Store
 */*.log
 */osx/*.o

@@ -56,7 +56,8 @@ class partial_ports_hw(pycdl.hw):
                                              outputs={ "chain_in": self.wirein }
                                              )
 
-        self.assign(self.rst, 1, 30, 0)
+        self.rst_seq = self.timed_assign(self.rst, 1, 30, 0)
+	pycdl.hw.__init__(self, self.pp, self.th, self.clk, self.rst_seq)
 
 class bundle_width_test_harness(pycdl.th):
     def __init__(self, clocks, inputs, outputs):
@@ -103,7 +104,8 @@ class bundle_width_hw(pycdl.hw):
                                             outputs={ "in": self.wirein }
                                             )
 
-        self.assign(self.rst, 1, 30, 0)
+        self.rst_seq = self.timed_assign(self.rst, 1, 30, 0)
+	pycdl.hw.__init__(self, self.bw, self.th, self.clk, self.rst_seq)
 
 class check_64bits_test_harness(pycdl.th):
     def __init__(self, clocks, inputs, outputs):
@@ -232,7 +234,8 @@ class check_64bits_hw(pycdl.hw):
                                                       "select": self.select }
                                             )
 
-        self.assign(self.rst, 1, 30, 0)
+        self.rst_seq = self.timed_assign(self.rst, 1, 30, 0)
+	pycdl.hw.__init__(self, self.check_64bits, self.th, self.clk, self.rst_seq)
 
 
 
@@ -240,7 +243,7 @@ class TestBugs(unittest.TestCase):
     def test_partial_ports(self):
         hw = partial_ports_hw()
         engine = pycdl.engine(hw)
-        waves = pycdl.waves()
+        waves = pycdl.waves(engine)
         waves.reset()
         waves.open("pp.vcd")
         waves.add_hierarchy(hw.pp, hw.th)
@@ -252,7 +255,7 @@ class TestBugs(unittest.TestCase):
     def test_bundle_width(self):
         hw = bundle_width_hw()
         engine = pycdl.engine(hw)
-        waves = pycdl.waves()
+        waves = pycdl.waves(engine)
         waves.reset()
         #waves.open("bw.vcd")
         waves.add_hierarchy(hw.bw, hw.th)
@@ -264,7 +267,7 @@ class TestBugs(unittest.TestCase):
     def test_check_64bits(self):
         hw = check_64bits_hw()
         engine = pycdl.engine(hw)
-        waves = pycdl.waves()
+        waves = pycdl.waves(engine)
         waves.reset()
         waves.open("check_64bits.vcd")
         waves.add_hierarchy(hw.check_64bits, hw.th)
