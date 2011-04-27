@@ -44,12 +44,6 @@
 #else
 #define WHERE_I_AM {}
 #endif
-#ifndef SL_EXEC_FILE_PYTHON
-struct _object;
-typedef struct _object PyObject; // To make non-Python builds link
-#define Py_DECREF(x) {}
-#define PyObject_CallMethod(a,...) (NULL)
-#endif
 
 /*a Types
  */
@@ -3165,11 +3159,11 @@ extern t_sl_exec_file_completion *sl_exec_file_completion( t_sl_exec_file_data *
     return &(file_data->completion);
 }
 
-/*a Python extensions - only if SL_EXEC_FILE_PYTHON is defined
+/*a Python extensions - only if SL_PYTHON is defined
  */
 /*f Wrapper
  */
-#ifdef SL_EXEC_FILE_PYTHON
+#ifdef SL_PYTHON
 
 /*t Local defines
  */
@@ -3369,7 +3363,6 @@ static int start_new_py_thread( t_py_object *py_object, PyObject *callable, PyOb
 static int py_object_init( t_py_object *self, PyObject *args, PyObject *kwds )
 {
     WHERE_I_AM;
-    fprintf(stderr,"Object init %p\n",self);
     self->file_data = NULL;
     self->py_interp = NULL;
     self->clocked = 0;
@@ -3386,7 +3379,6 @@ static int py_object_init( t_py_object *self, PyObject *args, PyObject *kwds )
 static void py_object_dealloc( t_py_object *self )
 {
     WHERE_I_AM;
-    fprintf(stderr,"Object dealloc %p\n",self);
     pthread_mutex_destroy( &self->thread_sync_mutex );
     pthread_cond_destroy(  &self->thread_sync_cond  );
 }
@@ -3956,7 +3948,7 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     t_py_object *py_object = py_start_data->py_object;
 
     WHERE_I_AM;
-    fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
+    //fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
     free(py_start_data);
     barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier, sizeof(t_py_thread_data) );
     barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
@@ -4043,7 +4035,7 @@ static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data,
     if (!file_data->py_object) return;
 
     WHERE_I_AM;
-    fprintf(stderr,"Adding object %s to object (%p)\n",object_chain->object_desc.name,object_chain);
+    //fprintf(stderr,"Adding object %s to object (%p)\n",object_chain->object_desc.name,object_chain);
     py_ef_obj = PyObject_New( t_py_object_exec_file_object, &py_object_exec_file_object );
     py_ef_obj->py_object = PyObj(file_data);
     py_ef_obj->file_data = file_data;
@@ -4145,7 +4137,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         for (chain=(*file_data_ptr)->lib_chain; chain; chain=chain->next_in_list)
         {
             WHERE_I_AM;
-            fprintf(stderr,"Adding library %s to object (%p)\n",chain->lib_desc.library_name,chain);
+            //fprintf(stderr,"Adding library %s to object (%p)\n",chain->lib_desc.library_name,chain);
             t_py_object_exec_file_library *py_ef_lib;
             py_ef_lib = PyObject_New( t_py_object_exec_file_library, &py_object_exec_file_library );
             Py_INCREF(py_object);
@@ -4351,7 +4343,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
 
 /*f Wrapper End
  */
-#endif // ifdef SL_EXEC_FILE_PYTHON
+#endif // ifdef SL_PYTHON
 
 /*a Editor preferences and notes
 mode: c ***

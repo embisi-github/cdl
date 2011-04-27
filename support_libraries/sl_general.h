@@ -70,6 +70,19 @@ extern int sl_integer_from_token( char *token, int *data );
 extern int sl_integer_from_token( char *token, t_sl_uint64 *data );
 extern double sl_double_from_token( char *token, double *data );
 
+/*a Python compatibility
+ */
+#ifdef SL_PYTHON
+#include <Python.h>
+#else
+struct _object;
+typedef struct _object PyObject; // To make non-Python builds link
+#define Py_INCREF(x) {}
+#define Py_XINCREF(x) {}
+#define Py_DECREF(x) {}
+#define Py_XDECREF(x) {}
+#define PyObject_CallMethod(a,...) (NULL)
+#endif
 /*a Wrapper
  */
 #endif

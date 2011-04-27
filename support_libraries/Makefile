@@ -17,7 +17,6 @@ include ${CYCLICITY}/scripts/makefile_hdr
 #a Source files
 BASIC_LIB_SRCS := \
 		sl_debug.cpp \
-		sl_option.cpp \
 		c_sl_error.cpp \
 		sl_cons.cpp \
 		sl_token.cpp \
@@ -38,8 +37,8 @@ SRCS = ${BASIC_LIB_SRCS}
 
 #a Objects
 BASIC_LIB_OBJS  := $(call objs_from_srcs,${BASIC_LIB_SRCS})
-PLAIN_LIB_OBJS  := ${BASIC_LIB_OBJS} ${OS_DIR}/sl_exec_file.o
-PYTHON_LIB_OBJS := ${BASIC_LIB_OBJS} ${OS_DIR}/sl_exec_file_python.o
+PLAIN_LIB_OBJS  := ${BASIC_LIB_OBJS} ${OS_DIR}/sl_exec_file.o ${OS_DIR}/sl_option.o 
+PYTHON_LIB_OBJS := ${BASIC_LIB_OBJS} ${OS_DIR}/sl_exec_file_python.o ${OS_DIR}/sl_option_python.o
 
 #a Resultant 'libraries'
 PLAIN_LIBRARY  := ${OS_DIR}/sl_support.o
@@ -59,7 +58,9 @@ ${PYTHON_LIBRARY}: ${PYTHON_LIB_OBJS}
 
 #a Special build objects
 ${OS_DIR}/sl_exec_file_python.o: sl_exec_file.cpp
-	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_EXEC_FILE_PYTHON -c sl_exec_file.cpp -o ${OS_DIR}/sl_exec_file_python.o
+	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_exec_file.cpp -o ${OS_DIR}/sl_exec_file_python.o
+${OS_DIR}/sl_option_python.o: sl_option.cpp
+	$(Q)$(CC) ${CXXFLAGS} -I${PYTHON_INCLUDES} -DSL_PYTHON -c sl_option.cpp -o ${OS_DIR}/sl_option_python.o
 
 #a Clean etc
 clean:

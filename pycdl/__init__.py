@@ -255,6 +255,10 @@ class th(_clockable):
         self._inputs = inputs
         self._outputs = outputs
 
+    def bfm_wait(self, cycles):
+        self._thfile.cdlsim_sim.bfm_wait(cycles)
+
+
 class module(_clockable):
     """
     The object that represents a CDL module.
@@ -268,19 +272,12 @@ class module(_clockable):
 class _thfile(py_engine.exec_file):
     def __init__(self, th):
         self._th = th
-        print "self=%s, self._th=%s, doing _thfile.__init__" % (repr(self), repr(self._th))
-        print "self.__dict__=%s" % repr(self.__dict__)
         py_engine.exec_file.__init__(self)
-        print "After init, self.__dict__=%s" % repr(self.__dict__)
     def exec_init(self):
-        print "At exec_init, self.__dict__=%s" % repr(self.__dict__)
         pass
     def exec_reset(self):
-        print "At exec_reset, self.__dict__=%s" % repr(self.__dict__)
         pass
     def exec_run(self):
-        print "self=%s, doing _thfile.exec_run" % repr(self)
-        print "self.__dict__=%s" % repr(self.__dict__)
         self._th.run()
 
 class _hwexfile(py_engine.exec_file):
@@ -341,10 +338,11 @@ class _hwexfile(py_engine.exec_file):
             if isinstance(i, module):
                 self.cdlsim_instantiation.module(i._type, i._name)
             elif isinstance(i, th):
+                i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
                 self.cdlsim_instantiation.option_string("inputs", " ".join(i._inputs.keys()))
                 self.cdlsim_instantiation.option_string("outputs", " ".join(i._outputs.keys()))
-                self.cdlsim_instantiation.option_object("object", _thfile(i))
+                self.cdlsim_instantiation.option_object("object", i._thfile)
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
             else:
                 raise NotImplementedError
