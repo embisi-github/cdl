@@ -289,9 +289,9 @@ class _hwexfile(py_engine.exec_file):
         if wireinst._owner is self._hw:
             # This is a top-level wire.
             if wireinst not in connectedwires:
-                self.cdlsim_instantiation.wire(name)
-                connectedwires.append(wireinst)
-                wireinst._cdl_signal = getattr(self, name)
+                self.cdlsim_instantiation.wire(wireinst._name)
+                connectedwires.add(wireinst)
+                wireinst._cdl_signal = getattr(self, wireinst._name)
             return name
         if inputs:
             # This is an input to the module so we look for a named driver.
@@ -299,7 +299,7 @@ class _hwexfile(py_engine.exec_file):
                 drivername = _connect_wire(self, wireinst._driven_by._name, wireinst._driven_by, connectedwires, True)
                 if wireinst not in connectedwires:
                     self.cdlsim_instantiation.drive(name, drivername)
-                    connectedwires.append(wireinst)
+                    connectedwires.add(wireinst)
                 return drivername
             else:
                 raise WireError # unconnected input
@@ -310,7 +310,7 @@ class _hwexfile(py_engine.exec_file):
                 for i in wireinst._drives:
                     drivenname = _connect_wire(self, i._name, i, connectedwires, False)
                     self.cdlsim_instantiation.drive(drivenname, name)
-                connectedwires.append(wireinst)
+                connectedwires.add(wireinst)
             return name
 
     def _connect_wires(self, name, wiredict, connectedwires, inputs):
@@ -348,9 +348,9 @@ class _hwexfile(py_engine.exec_file):
                 raise NotImplementedError
         connectedwires = set()
         for i in self._hw._children:
-            self._connect_wires(self, i._name+".", i._clocks, connectedwires, inputs=True)
-            self._connect_wires(self, i._name+".", i._inputs, connectedwires, inputs=True)
-            self._connect_wires(self, i._name+".", i._outputs, connectedwires, inputs=False)
+            self._connect_wires(i._name+".", i._clocks, connectedwires, inputs=True)
+            self._connect_wires(i._name+".", i._inputs, connectedwires, inputs=True)
+            self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False)
                     
                     
 
