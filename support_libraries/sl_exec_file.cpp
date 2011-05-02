@@ -3244,6 +3244,9 @@ static int sl_exec_file_create_python_thread( t_sl_exec_file_data *file_data, Py
 enum
 {
     cmd_pyspawn,
+    cmd_pypass,
+    cmd_pyfail,
+    cmd_pypassed,
 };
 
 /*v py_internal_cmds
@@ -3251,7 +3254,19 @@ enum
 static t_sl_exec_file_cmd py_internal_cmds[] = 
 {
      {cmd_pyspawn,       2, "pyspawn", "oo",    "spawn <function> <args>" },
+     {cmd_pypass,        2, "pypass",  "is",    "pass <integer> <message>" },
+     {cmd_pyfail,        2, "pyfail",  "is",    "fail <integer> <message>" },
      {sl_exec_file_cmd_none, 0, NULL, NULL, NULL},
+};
+
+static t_sl_exec_file_eval_fn py_fn_handler_pypassed;
+
+/*v py_internal_fns
+ */
+static t_sl_exec_file_fn py_internal_fns[] =
+{
+     {cmd_pypassed,                   "pypassed",            'i', "", "pypassed()", py_fn_handler_pypassed },
+     {sl_exec_file_fn_none, NULL,     0,   NULL, NULL },
 };
 
 /*f static py_cmd_handler_cb
@@ -3263,13 +3278,47 @@ static t_sl_error_level py_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *cmd_cb,
     case cmd_pyspawn:
         sl_exec_file_create_python_thread( cmd_cb->file_data, (PyObject*)cmd_cb->args[0].p.ptr, (PyObject*)cmd_cb->args[1].p.ptr );
         break;
+    case cmd_pypass: // Use malloc for the string as the exec_file may be freed before the error comes out
+        cmd_cb->file_data->message->add_error( (void *)cmd_cb->file_data->user,
+                                       error_level_serious,
+                                       error_number_sl_pass, error_id_sl_exec_file_get_next_cmd,
+                                       error_arg_type_uint64, cmd_cb->args[0].integer,
+                                       error_arg_type_malloc_string, cmd_cb->args[1].p.string,
+                                       error_arg_type_malloc_string, 0,
+                                       error_arg_type_malloc_filename, cmd_cb->file_data->filename,
+                                       error_arg_type_line_number, 0,
+                                       error_arg_type_none );
+        cmd_cb->file_data->completion.passed = 1;
+        cmd_cb->file_data->completion.return_code = cmd_cb->args[0].integer;
+        break;
+    case cmd_pyfail: // Use malloc for the string as the exec_file may be freed before the error comes out
+        cmd_cb->file_data->message->add_error( (void *)cmd_cb->file_data->user,
+                                       error_level_info,
+                                       error_number_sl_fail, error_id_sl_exec_file_get_next_cmd,
+                                       error_arg_type_uint64, cmd_cb->args[0].integer,
+                                       error_arg_type_malloc_string, cmd_cb->args[1].p.string,
+                                       error_arg_type_malloc_string, 0,
+                                       error_arg_type_malloc_filename, cmd_cb->file_data->filename,
+                                       error_arg_type_line_number, 0,
+                                       error_arg_type_none );
+        cmd_cb->file_data->completion.failed = 1;
+        cmd_cb->file_data->completion.return_code = cmd_cb->args[0].integer;
+        break;
     default:
         return error_level_serious;
     }
     return error_level_okay;
 }
 
+/*f py_fn_handler_pypassed
+ */
+static int py_fn_handler_pypassed( void *handle, t_sl_exec_file_data *file_data, t_sl_exec_file_value *args )
+{
+    WHERE_I_AM;
 
+    sl_exec_file_eval_fn_set_result( file_data, (t_sl_uint64) (file_data->completion.passed && !file_data->completion.failed) );
+    return 1;
+}
 
 /*f start_new_py_thread_started
  * Important: must be called with GIL _not_ held (otherwise deadlock)
@@ -4114,7 +4163,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     lib_desc.handle = NULL;
     lib_desc.cmd_handler = py_cmd_handler_cb;
     lib_desc.file_cmds = py_internal_cmds;
-    lib_desc.file_fns = NULL;
+    lib_desc.file_fns = py_internal_fns;
     sl_exec_file_add_library( *file_data_ptr, &lib_desc );
 
 

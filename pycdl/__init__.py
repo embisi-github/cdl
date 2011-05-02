@@ -80,6 +80,21 @@ class bv(object):
 
     __int__ = value # this allows us to use a bv where we otherwise use a number
 
+    def __eq__(self, other):
+        if isinstance(other, bv):
+            if other._size != self._size:
+                return False
+            else:
+                return self._val == other._val
+        else:
+            return self._val == other
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __cmp__(self, other):
+        return self._val - other        
+
     def size(self):
         return self._size
             
@@ -117,38 +132,52 @@ class wire(_nameable):
     def _is_driven_by(self, other):
         if self._driven_by:
             raise WireError # double-driving a signal!
-        _check_connectivity(self, other)
+        self._check_connectivity(other)
         self._driven_by = other
         other._drives.append(self)
 
     def _connect_cdl_signal(self, signal):
-        # FIXME, make sure the size matches
-        self._cdl_signal = signal
+        if self._cdl_signal and self._cdl_signal != signal:
+            raise WireError # connecting two CDL signals!
+        if not self._cdl_signal:
+            #print "CONNECT %s to CDL %s" % (repr(self), repr(signal))
+            self._cdl_signal = signal
+        for i in self._drives:
+            i._connect_cdl_signal(signal)
+
+    def _connectivity_upwards(self, index):
+        if self._driven_by:
+            print "%sDriven by %s" % (" "*index, repr(self._driven_by))
+            return self._driven_by._connectivity_upwards(index+2)
+        else:
+            print "%sROOT AT %s" % (" "*index, repr(self))
+            return self
+
+    def _connectivity_downwards(self, index):
+        print "%sAt %s, CDL signal %s" % (" "*index, repr(self), repr(self._cdl_signal))
+        for i in self._drives:
+            print "%sDrives %s" % (" "*index, repr(i))
+            i._connectivity_downwards(index+2)
+    
+    def print_connectivity(self):
+        print "Finding connectivity tree for %s:" % repr(self)
+        root = self._connectivity_upwards(0)
+        print
+        root._connectivity_downwards(0)
 
     def size(self):
         return self._size
 
     def value(self):
-        # FIXME, make this a bv
         if self._cdl_signal:
-            return self._cdl_signal.value()
-        elif self._driven_by:
-            return self._driven_by.value()
+            return bv(self._cdl_signal.value(), self._size)
         else:
             raise WireError # no value to take!
 
-    def drive(self, value):
-        driven_something = False
+    def drive(self, value, recursive=True):
         if self._cdl_signal:
             self._cdl_signal.drive(value)
-            driven_something = True
-        for i in self._drives:
-            try:
-                i.drive(value)
-                driven_something = True
-            except WireError:
-                pass
-        if not driven_something:
+        else:
             raise WireError # nothing to drive!
 
 class clock(wire):
@@ -210,7 +239,7 @@ class wirebundle(_nameable):
             raise WireError # double-driving a signal!
         self._update_connectivity(other)
         for i in self._dict:
-            self._dict[i].is_driven_by(other._dict[i])
+            self._dict[i]._is_driven_by(other._dict[i])
         self._driven_by = other
         other._drives.append(self)
 
@@ -245,7 +274,29 @@ class _clockable(_namegiver, _nameable):
         for i in self._children:
             i._clock()
 
-class th(_clockable):
+class _instantiable(_clockable):
+    """
+    A module that can be instantiated -- either a CDL module or a Python
+    test harness.
+    """
+    def _ports_from_ios(self, iolist, cdl_object):
+        # The I/O list should have three members -- a list of clocks, a list of
+        # inputs and a list of outputs.
+        # Each of these members contains a list of ports. We'll turn these into
+        # wires.
+        retlist = []
+        for id_type in iolist:
+            retdict = {}
+            for io in id_type:
+                retdict[io[0]] = wire(io[1], io[0], self)
+                #print "Creating port wire: %s size %d, result %s" % (io[0], io[1], repr(retdict[io[0]]))
+                if cdl_object and hasattr(cdl_object, io[0]):
+                    retdict[io[0]]._connect_cdl_signal(getattr(cdl_object,io[0]))
+            retlist.append(retdict)
+        return retlist
+                
+
+class th(_instantiable):
     """
     The object that represents a test harness.
     """
@@ -260,8 +311,16 @@ class th(_clockable):
     def global_cycle(self):
         return self._thfile.cdlsim_sim.global_cycle()
 
+    def passtest(self, code, message):
+        return self._thfile.py.pypass(code, message)
 
-class module(_clockable):
+    def failtest(self, code, message):
+        return self._thfile.py.pyfail(code, message)
+
+    def passed(self):
+        return self._thfile.py.pypassed()
+
+class module(_instantiable):
     """
     The object that represents a CDL module.
     """
@@ -283,47 +342,47 @@ class _thfile(py_engine.exec_file):
         self._th.run()
 
 class _hwexfile(py_engine.exec_file):
-    def __init__(self, hw):
+    def __init__(self, hw, engine):
         self._hw = hw
+        self._engine = engine
         py_engine.exec_file.__init__(self)
 
-    def _connect_wire(self, name, wireinst, connectedwires, inputs):
-        if wireinst._owner is self._hw:
-            # This is a top-level wire.
-            if wireinst not in connectedwires:
-                self.cdlsim_instantiation.wire(wireinst._name)
-                #connectedwires.add(wireinst)
-                # wireinst._cdl_signal = getattr(self, wireinst._name)
-                # wireinst._cdl_signal = getattr(py_engine.exec_file(), wireinst._name)
-            return name
-        if inputs:
-            # This is an input to the module so we look for a named driver.
-            if wireinst._driven_by:
-                drivername = _connect_wire(self, wireinst._driven_by._name, wireinst._driven_by, connectedwires, True)
-                if wireinst not in connectedwires:
-                    self.cdlsim_instantiation.drive(name, drivername)
-                    #connectedwires.add(wireinst)
-                return drivername
+    def _connect_wire(self, name, wireinst, connectedwires, inputs, ports):
+        wire_basename = name.split('.')[-1]
+        if wire_basename not in ports:
+            raise WireError # connecting to an undefined port!
+        port = ports[wire_basename]
+        if wireinst._size != port._size:
+            raise WireError # size mismatch!
+        if wireinst not in connectedwires:
+            if isinstance(wireinst, clock):
+                self.cdlsim_instantiation.clock(wireinst._name, wireinst._init_value, wireinst._reset_period, wireinst._period)
+                #print "CLOCK %s" % wireinst._name
             else:
-                raise WireError # unconnected input
+                self.cdlsim_instantiation.wire(wireinst._name)
+                #print "WIRE %s" % wireinst._name
+            connectedwires.add(wireinst)
+        if port not in connectedwires:
+            connectedwires.add(port)
+        if inputs:
+            # This is an input to the module so the wire drives the port.
+            self.cdlsim_instantiation.drive(name, wireinst._name)
+            #print "DRIVE %s %s" % (name, wireinst._name)
+            #print "Port %s driven by wire %s" % (repr(port), repr(wireinst))
+            port._is_driven_by(wireinst)
         else:
-            # This is an output to the module so hopefully something named is
-            # driven by it.
-            if wireinst not in connectedwires:
-                for i in wireinst._drives:
-                    drivenname = _connect_wire(self, i._name, i, connectedwires, False)
-                    self.cdlsim_instantiation.drive(drivenname, name)
-                #connectedwires.add(wireinst)
-            return name
+            # This is an output from the module, so the port drives the wire.
+            self.cdlsim_instantiation.drive(wireinst._name, name)
+            #print "DRIVE %s %s" % (wireinst._name, name)
+            #print "Wire %s driven by port %s" % (repr(wireinst), repr(port))
+            wireinst._is_driven_by(port)
 
-    def _connect_wires(self, name, wiredict, connectedwires, inputs):
+    def _connect_wires(self, name, wiredict, connectedwires, inputs, ports):
         for i in wiredict:
             if isinstance(wiredict[i], wire):
-                self._connect_wire(name+i, wiredict[i], connectedwires, inputs)
+                self._connect_wire(name+i, wiredict[i], connectedwires, inputs, ports)
             elif isinstance(wiredict[i], wirebundle):
-                if wiredict[i] in connectedwires:
-                    continue
-                self._connect_wires(name+i+"__", self.wiredict[i]._dict, connectedwires, inputs)
+                self._connect_wires(name+i+"__", self.wiredict[i]._dict, connectedwires, inputs, ports)
             else:
                 raise WireError # what the blank is this?
 
@@ -333,6 +392,7 @@ class _hwexfile(py_engine.exec_file):
         pass
     def exec_run(self):
         anonid = 1
+        connectedwires = set()
         for i in self._hw._children:
             if not hasattr(i, "_name") or i._name is None:
                 i._name = "__anon%3d" % anonid
@@ -340,8 +400,7 @@ class _hwexfile(py_engine.exec_file):
                 anonid += 1
             if isinstance(i, module):
                 self.cdlsim_instantiation.module(i._type, i._name)
-                # FINISHME: find the I/Os of the module (including their width) and hook them
-                # to port classes -- then connect the I/Os we listed to them
+                i._ports = i._ports_from_ios(self._engine._engine.get_module_ios(i._name), None)
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
@@ -349,25 +408,34 @@ class _hwexfile(py_engine.exec_file):
                 self.cdlsim_instantiation.option_string("outputs", " ".join(i._outputs.keys()))
                 self.cdlsim_instantiation.option_object("object", i._thfile)
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
-
-                # FINISHME: find the I/Os of the module (including their width) and hook them
-                # to port classes -- then connect the I/Os we listed to them
+                i._ports = i._ports_from_ios(self._engine._engine.get_module_ios(i._name), i._thfile)
             elif isinstance(i, clock):
-                self.cdlsim_instantiation.clock(i._name, i._init_value, i._reset_period, i._period)
+                pass # we'll hook up later
             else:
                 raise NotImplementedError
-        connectedwires = set()
         for i in self._hw._children:
-            if hasattr(i, "_clocks"):
-                self._connect_wires(i._name+".", i._clocks, connectedwires, inputs=True)
-            if hasattr(i, "_inputs"):
-                self._connect_wires(i._name+".", i._inputs, connectedwires, inputs=True)
-            if hasattr(i, "_outputs"):
-                self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False)
-                    
-                    
+            if hasattr(i, "_clocks") and hasattr(i, "_ports"):
+                self._connect_wires(i._name+".", i._clocks, connectedwires, inputs=True, ports=i._ports[0])
+            if hasattr(i, "_inputs") and hasattr(i, "_ports"):
+                self._connect_wires(i._name+".", i._inputs, connectedwires, inputs=True, ports=i._ports[1])
+            if hasattr(i, "_outputs") and hasattr(i, "_ports"):
+                self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False, ports=i._ports[2])
+        # Now make sure all the CDL signals are hooked up.
+        #print "*** Starting CDL signal hookup"
+        for i in connectedwires:
+            #print "Looking at %s" % repr(i)
+            origi = i
+            # Find a CDL signal for this tree.
+            while not i._cdl_signal and i._driven_by:
+                i = i._driven_by
+            if i._cdl_signal:                    
+                # Find the root of the driving tree.
+                sig = i._cdl_signal
+                while i._driven_by:
+                    i = i._driven_by
+                i._connect_cdl_signal(sig)
+            #print "Done looking at %s" % repr(origi)
 
-        # FINISHME, hook up the wires (somehow!)
 
 class hw(_clockable):
     """
@@ -376,7 +444,12 @@ class hw(_clockable):
     def __init__(self, *children):
         _clockable.__init__(self, children)
 
-    # FINISHME
+    def passed(self):
+        for i in self._children:
+            if isinstance(i, th):
+                if not i.passed():
+                    return False
+        return True
 
 class waves(object):
     """
@@ -394,7 +467,7 @@ class engine(object):
         Initialize the engine, given some hardware.
         """
         self._engine = py_engine.py_engine()
-        self._engine.describe_hw(_hwexfile(hw))
+        self._engine.describe_hw(_hwexfile(hw, self))
 
     def reset(self):
         """
@@ -408,20 +481,3 @@ class engine(object):
         """
         self._engine.step(cycles)
 
-    def passtest(self, cycles, msg):
-        """
-        Mark the test as complete.
-        """
-        raise NotImplementedError
-
-    def failtest(self, cycles, msg):
-        """
-        Mark the test as failed.
-        """
-        raise NotImplementedError
-
-    def passed(self):
-        """
-        Did the test pass?
-        """
-        raise NotImplementedError
