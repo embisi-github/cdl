@@ -59,7 +59,7 @@ class PyCDLError(Exception):
     """
     pass
 
-class WireError(Exception):
+class WireError(PyCDLError):
     """
     Thrown on a wiring mismatch.
     """
@@ -156,7 +156,6 @@ class clock(wire):
         self._init_value = value
         self._reset_period = period
         self._period = period
-        # FINISHME!!!
         wire.__init__(self, 1, name, owner)
 
 class wirebundle(_nameable):
@@ -258,6 +257,9 @@ class th(_clockable):
     def bfm_wait(self, cycles):
         self._thfile.cdlsim_sim.bfm_wait(cycles)
 
+    def global_cycle(self):
+        return self._thfile.cdlsim_sim.global_cycle()
+
 
 class module(_clockable):
     """
@@ -290,8 +292,9 @@ class _hwexfile(py_engine.exec_file):
             # This is a top-level wire.
             if wireinst not in connectedwires:
                 self.cdlsim_instantiation.wire(wireinst._name)
-                connectedwires.add(wireinst)
-                wireinst._cdl_signal = getattr(self, wireinst._name)
+                #connectedwires.add(wireinst)
+                # wireinst._cdl_signal = getattr(self, wireinst._name)
+                # wireinst._cdl_signal = getattr(py_engine.exec_file(), wireinst._name)
             return name
         if inputs:
             # This is an input to the module so we look for a named driver.
@@ -299,7 +302,7 @@ class _hwexfile(py_engine.exec_file):
                 drivername = _connect_wire(self, wireinst._driven_by._name, wireinst._driven_by, connectedwires, True)
                 if wireinst not in connectedwires:
                     self.cdlsim_instantiation.drive(name, drivername)
-                    connectedwires.add(wireinst)
+                    #connectedwires.add(wireinst)
                 return drivername
             else:
                 raise WireError # unconnected input
@@ -310,7 +313,7 @@ class _hwexfile(py_engine.exec_file):
                 for i in wireinst._drives:
                     drivenname = _connect_wire(self, i._name, i, connectedwires, False)
                     self.cdlsim_instantiation.drive(drivenname, name)
-                connectedwires.add(wireinst)
+                #connectedwires.add(wireinst)
             return name
 
     def _connect_wires(self, name, wiredict, connectedwires, inputs):
@@ -337,6 +340,8 @@ class _hwexfile(py_engine.exec_file):
                 anonid += 1
             if isinstance(i, module):
                 self.cdlsim_instantiation.module(i._type, i._name)
+                # FINISHME: find the I/Os of the module (including their width) and hook them
+                # to port classes -- then connect the I/Os we listed to them
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
@@ -344,13 +349,21 @@ class _hwexfile(py_engine.exec_file):
                 self.cdlsim_instantiation.option_string("outputs", " ".join(i._outputs.keys()))
                 self.cdlsim_instantiation.option_object("object", i._thfile)
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
+
+                # FINISHME: find the I/Os of the module (including their width) and hook them
+                # to port classes -- then connect the I/Os we listed to them
+            elif isinstance(i, clock):
+                self.cdlsim_instantiation.clock(i._name, i._init_value, i._reset_period, i._period)
             else:
                 raise NotImplementedError
         connectedwires = set()
         for i in self._hw._children:
-            self._connect_wires(i._name+".", i._clocks, connectedwires, inputs=True)
-            self._connect_wires(i._name+".", i._inputs, connectedwires, inputs=True)
-            self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False)
+            if hasattr(i, "_clocks"):
+                self._connect_wires(i._name+".", i._clocks, connectedwires, inputs=True)
+            if hasattr(i, "_inputs"):
+                self._connect_wires(i._name+".", i._inputs, connectedwires, inputs=True)
+            if hasattr(i, "_outputs"):
+                self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False)
                     
                     
 

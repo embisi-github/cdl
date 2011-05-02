@@ -18,8 +18,11 @@ class and_gate_test_harness(pycdl.th):
                 self.bfm_wait(1)
                 if self.and_out.value() != i&j:
                     self.failtest(self.global_cycle(), "AND gate produced %d from %d and %d, not %d!" % (self.and_out.value(), i, j, i&j))
+                    print "%d:  AND gate WRONGLY produced %d from %d and %d!" % (self.global_cycle(), self.and_out.value(), i, j)
+                else:
+                    print "%d: AND gate correctly produced %d from %d and %d!" % (self.global_cycle(), self.and_out.value(), i, j)
         self.passtest(self.global_cycle(), "AND gate test succeeded")
-
+        print "%d: AND gate test completed" % self.global_cycle()
 
 class test_basic_hw(pycdl.hw):
     def __init__(self):
@@ -37,7 +40,7 @@ class test_basic_hw(pycdl.hw):
                                         inputs={ "and_out": self.and_out_0 },
                                         outputs={ "and_in_0": self.and_in_0,
                                                   "and_in_1": self.and_in_1 })
-        pycdl.hw.__init__(self, self.andgate, self.th)
+        pycdl.hw.__init__(self, self.andgate, self.th, self.clk)
 
 class TestPyCDL(unittest.TestCase):
     def test_basic(self):

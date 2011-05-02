@@ -70,6 +70,7 @@ static PyObject *py_engine_method_find_state( t_py_engine_PyObject *py_cyc, PyOb
 static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_value_string( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_get_module_ios( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_init( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_add( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_info( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
@@ -119,6 +120,7 @@ static PyMethodDef engine_methods[] =
      {"get_state_info",            (PyCFunction)py_engine_method_get_state_info,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
      {"get_state_value_string",    (PyCFunction)py_engine_method_get_state_value_string,  METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
      {"get_state_memory",          (PyCFunction)py_engine_method_get_state_memory,        METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
+     {"get_module_ios",            (PyCFunction)py_engine_method_get_module_ios,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
      {"checkpoint_init",           (PyCFunction)py_engine_method_checkpoint_init,         METH_VARARGS|METH_KEYWORDS, "Initialize checkpointing"},
      {"checkpoint_add",            (PyCFunction)py_engine_method_checkpoint_add,          METH_VARARGS|METH_KEYWORDS,  "Add a checkpoint"},
      {"checkpoint_info",           (PyCFunction)py_engine_method_checkpoint_info,         METH_VARARGS|METH_KEYWORDS, "Get information about a checkpoint"},
@@ -784,6 +786,64 @@ static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_eng
                }
           }
           return py_engine_method_return( py_eng, NULL );
+     }
+     return NULL;
+}
+
+/*f py_engine_method_get_module_ios
+ */
+static PyObject *py_engine_method_get_module_ios( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+     char md[] = "module";
+     char *kwdlist[] = { md, NULL };
+     const char *module;
+     t_engine_state_desc_type type;
+     t_sl_uint64 *dummy;
+     int sizes[4];
+     int id;
+     t_engine_interrogate_include_mask id_type;
+
+     py_engine_method_enter( py_eng, "get_module_ios", args );
+     if (PyArg_ParseTupleAndKeywords( args, kwds, "s", kwdlist, &module ))
+     {
+         t_se_interrogation_handle ih, sub_ih;
+         struct t_sl_cons_list list, typelist, sublist;
+         const char *prefix, *tail;
+
+         ih = py_eng->engine->find_entity( module );
+         if (!ih)
+         {
+             return py_engine_method_return( py_eng, NULL );
+         }
+         sl_cons_reset_list( &list );
+         for (id_type = engine_interrogate_include_mask_clocks; id_type < engine_interrogate_include_mask_all; id_type = (t_engine_interrogate_include_mask)(id_type << 1))
+         {
+             sl_cons_reset_list( &typelist );
+             for (id = 0; ; id++)
+             {
+                 sub_ih = NULL;
+                 py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, id_type, &sub_ih );
+                 if (!sub_ih)
+                 {
+                     break;
+                 }
+                 if (!py_eng->engine->interrogate_get_entity_strings( sub_ih, &module, &prefix, &tail ))
+                 {
+                     break;
+                 }
+                 type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &dummy, sizes );
+                 py_eng->engine->interrogation_handle_free( sub_ih );
+                 sl_cons_reset_list( &sublist );
+                 sl_cons_append( &sublist, sl_cons_item( (char*)tail, 1 ));
+                 sl_cons_append( &sublist, sl_cons_item( sizes[0] ));
+                 sl_cons_append( &typelist, sl_cons_item( &sublist ));
+             }
+             sl_cons_append( &list, sl_cons_item( &typelist ));
+         }
+         py_eng->engine->interrogation_handle_free( ih );
+         py_engine_method_result_add_cons_list( NULL, &list );
+         sl_cons_free_list( &list );
+         return py_engine_method_return( py_eng, NULL );
      }
      return NULL;
 }
