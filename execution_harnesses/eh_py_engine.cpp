@@ -189,16 +189,20 @@ static PyObject *py_engine_method_return( t_py_engine_PyObject *py_eng, const ch
     fprintf( stderr, "Returning from '%s' with '%s'\n", where_last, string?string:"<NULL>" );
     fflush( stderr );
 #endif
-	if (string)
-	{
-		PyErr_SetString( PyExc_RuntimeError, string );
-		return NULL;
-	}
-	if (result)
-		return result;
-
-	Py_INCREF(Py_None);
-	return Py_None;
+    if (string)
+    {
+        PyErr_SetString( PyExc_RuntimeError, string );
+        Py_CLEAR(result);
+        return NULL;
+    }
+    if (result)
+    {
+        PyObject *temp = result;
+        result = NULL;
+        return temp;
+    }
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 /*f py_engine_method_result_add_double
@@ -402,49 +406,49 @@ static PyObject *py_engine_method_read_hw_file( t_py_engine_PyObject *py_eng, Py
  */
 static PyObject *py_engine_method_describe_hw( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
-     PyObject *describer;
-     char desc[] = "describer";
-     char *kwdlist[] = { desc, NULL };
-     t_sl_error_level error_level, worst_error_level;
+    PyObject *describer;
+    char desc[] = "describer";
+    char *kwdlist[] = { desc, NULL };
+    t_sl_error_level error_level, worst_error_level;
 
-     WHERE_I_AM;
-     py_engine_method_enter( py_eng, "describe_hw", args );
-     if (PyArg_ParseTupleAndKeywords( args, kwds, "O", kwdlist, &describer))
-     {
-     WHERE_I_AM;
-          py_eng->engine->delete_instances_and_signals();
-     WHERE_I_AM;
-          error_level = py_eng->engine->read_and_interpret_py_object( describer, (t_sl_get_environment_fn)sl_option_get_string, (void *)py_eng->env_options );
-     WHERE_I_AM;
-          worst_error_level = error_level;
-     WHERE_I_AM;
-          if ((int)error_level <= (int)error_level_warning)
-          {
-     WHERE_I_AM;
-               error_level = py_eng->engine->check_connectivity();
-     WHERE_I_AM;
-               worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
-          }
-     WHERE_I_AM;
-          if ((int)error_level <= (int)error_level_warning)
-          {
-     WHERE_I_AM;
-               error_level = py_eng->engine->build_schedule();
-     WHERE_I_AM;
-               worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
-     WHERE_I_AM;
-          }
-     WHERE_I_AM;
-          py_engine_method_result_add_int( NULL, (int) worst_error_level );
-     WHERE_I_AM;
-          sl_option_free_list(py_eng->env_options);
-     WHERE_I_AM;
-          py_eng->env_options = NULL;
-     WHERE_I_AM;
-          return py_engine_method_return( py_eng, NULL );
-     }
-     WHERE_I_AM;
-     return NULL;
+    WHERE_I_AM;
+    py_engine_method_enter( py_eng, "describe_hw", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "O", kwdlist, &describer))
+    {
+        WHERE_I_AM;
+        py_eng->engine->delete_instances_and_signals();
+        WHERE_I_AM;
+        error_level = py_eng->engine->read_and_interpret_py_object( describer, (t_sl_get_environment_fn)sl_option_get_string, (void *)py_eng->env_options );
+        WHERE_I_AM;
+        worst_error_level = error_level;
+        WHERE_I_AM;
+        if ((int)error_level <= (int)error_level_warning)
+        {
+            WHERE_I_AM;
+            error_level = py_eng->engine->check_connectivity();
+            WHERE_I_AM;
+            worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
+        }
+        WHERE_I_AM;
+        if ((int)error_level <= (int)error_level_warning)
+        {
+            WHERE_I_AM;
+            error_level = py_eng->engine->build_schedule();
+            WHERE_I_AM;
+            worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
+            WHERE_I_AM;
+        }
+        WHERE_I_AM;
+        py_engine_method_result_add_int( NULL, (int) worst_error_level );
+        WHERE_I_AM;
+        sl_option_free_list(py_eng->env_options);
+        WHERE_I_AM;
+        py_eng->env_options = NULL;
+        WHERE_I_AM;
+        return py_engine_method_return( py_eng, NULL );
+    }
+    WHERE_I_AM;
+    return NULL;
 }
 
 /*f py_engine_method_read_gui_file

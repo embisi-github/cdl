@@ -63,7 +63,11 @@ class WireError(PyCDLError):
     """
     Thrown on a wiring mismatch.
     """
-    pass
+    def __init__(self, msg="Wiring error!"):
+        self._msg = msg
+
+    def __str__(self):
+        return "WireError: " + self._msg
 
 class bv(object):
     """
@@ -124,21 +128,22 @@ class wire(_nameable):
         self._cdl_signal = None
         self._name = name
         self._owner = owner
+        self._reset_value = None
 
     def _check_connectivity(self, other):
         if self._size and other._size and self._size != other._size:
-            raise WireError # size mismatch
+            raise WireError("Size mismatch: %s has %d, %s has %d" % (repr(self), self._size, repr(other), other._size))
 
     def _is_driven_by(self, other):
         if self._driven_by:
-            raise WireError # double-driving a signal!
+            raise WireError("Double-driven signal at %s" % repr(self))
         self._check_connectivity(other)
         self._driven_by = other
         other._drives.append(self)
 
     def _connect_cdl_signal(self, signal):
         if self._cdl_signal and self._cdl_signal != signal:
-            raise WireError # connecting two CDL signals!
+            raise WireError("Connecting two CDL signals on %s: %s and %s" % (repr(self), repr(self._cdl_signal), repr(signal)))
         if not self._cdl_signal:
             #print "CONNECT %s to CDL %s" % (repr(self), repr(signal))
             self._cdl_signal = signal
@@ -172,13 +177,16 @@ class wire(_nameable):
         if self._cdl_signal:
             return bv(self._cdl_signal.value(), self._size)
         else:
-            raise WireError # no value to take!
+            raise WireError("No underlying value for signal %s" % repr(self))
 
     def drive(self, value, recursive=True):
         if self._cdl_signal:
             self._cdl_signal.drive(value)
         else:
-            raise WireError # nothing to drive!
+            raise WireError("No underlying signal to drive for %s" % repr(self))
+
+    def reset(self, value):
+        self._reset_value = value
 
 class clock(wire):
     def __init__(self, value=0, reset_period=1, period=1, name=None, owner=None):
@@ -195,6 +203,7 @@ class wirebundle(_nameable):
         self._dict = kw
         self._drives = []
         self._driven_by = None
+        self._reset_value = None
 
     def _check_connectivity(self, other):
         # Check that all the signals in the bundle match the one we're
@@ -202,11 +211,11 @@ class wirebundle(_nameable):
         unusedkeys = set(other._dict.keys())
         for i in self._dict:
             if i not in other._dict:
-                raise WireError # oops, that one's not there!
+                raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
             del unusedkeys[i]
             self._dict[i].check_connectivity(other._dict[i])
         if len(unusedkeys) > 0:
-            raise WireError # oops, there were signals left over!
+            raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
 
     def _populate_dict(self, other):
         # Yay! Now we know what signals we have! If we hooked up signals
@@ -218,7 +227,7 @@ class wirebundle(_nameable):
             elif isinstance(other._dict[i], wire):
                 self._dict[i] = wire(other._dict[i].size())
             else:
-                raise WireError # what on earth is in this thing?
+                raise WireError("Unknown wire type %s" % repr(other.__class__))
         # If we've already hooked this thing up, we need to propagate our
         # knowledge of what's in there.
         if self._driven_by:
@@ -236,7 +245,7 @@ class wirebundle(_nameable):
 
     def _is_driven_by(self, other):
         if self._driven_by:
-            raise WireError # double-driving a signal!
+            raise WireError("Double-driven signal at %s" % repr(self))
         self._update_connectivity(other)
         for i in self._dict:
             self._dict[i]._is_driven_by(other._dict[i])
@@ -255,12 +264,15 @@ class wirebundle(_nameable):
         unusedkeys = set(inbundle._dict.keys())
         for i in self._dict:
             if i not in inbundle._dict:
-                raise WireError # oops, that one's not there!
+                raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
             del unusedkeys[i]
             self._dict[i].drive(inbundle._dict[i])
         if len(unusedkeys) > 0:
-            raise WireError # oops, there were signals left over!
-        
+            raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
+
+    def reset(self, inbundle):
+        # Set the reset value for the bundle.
+        self._reset_value = inbundle
 
 class _clockable(_namegiver, _nameable):
     """
@@ -320,6 +332,21 @@ class th(_instantiable):
     def passed(self):
         return self._thfile.py.pypassed()
 
+class timed_assign(th):
+    """
+    A timed assignment, often used for a reset sequence.
+    """
+    def __init__(self, signal, init_value, wait, later_value):
+        self._timed_signal = signal
+        self._timed_init = init_value
+        self._timed_wait = wait
+        self._timed_later = later_value
+        th.__init__(self, clocks={}, inputs={}, outputs={"sig": self._timed_signal})
+    def run(self):
+        self._timed_signal.reset(self._timed_init)
+        self.bfm_wait(self._timed_wait)
+        self._timed_signal.drive(self._timed_later)
+
 class module(_instantiable):
     """
     The object that represents a CDL module.
@@ -350,16 +377,17 @@ class _hwexfile(py_engine.exec_file):
     def _connect_wire(self, name, wireinst, connectedwires, inputs, ports):
         wire_basename = name.split('.')[-1]
         if wire_basename not in ports:
-            raise WireError # connecting to an undefined port!
+            raise WireError("Connecting to undefined port %s" % wire_basename)
         port = ports[wire_basename]
         if wireinst._size != port._size:
-            raise WireError # size mismatch!
+            raise WireError("Port size mismatch for port %s, expected %d got %d" % (wire_basename, wireinst._size, port._size))
+                # size mismatch!
         if wireinst not in connectedwires:
             if isinstance(wireinst, clock):
                 self.cdlsim_instantiation.clock(wireinst._name, wireinst._init_value, wireinst._reset_period, wireinst._period)
                 #print "CLOCK %s" % wireinst._name
             else:
-                self.cdlsim_instantiation.wire(wireinst._name)
+                self.cdlsim_instantiation.wire("%s[%d]" % (wireinst._name, wireinst._size))
                 #print "WIRE %s" % wireinst._name
             connectedwires.add(wireinst)
         if port not in connectedwires:
@@ -384,7 +412,7 @@ class _hwexfile(py_engine.exec_file):
             elif isinstance(wiredict[i], wirebundle):
                 self._connect_wires(name+i+"__", self.wiredict[i]._dict, connectedwires, inputs, ports)
             else:
-                raise WireError # what the blank is this?
+                raise WireError("Connecting unknown wire type %s" % repr(wiredict[i].__class__))
 
     def exec_init(self):
         pass
@@ -404,8 +432,8 @@ class _hwexfile(py_engine.exec_file):
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
-                self.cdlsim_instantiation.option_string("inputs", " ".join(i._inputs.keys()))
-                self.cdlsim_instantiation.option_string("outputs", " ".join(i._outputs.keys()))
+                self.cdlsim_instantiation.option_string("inputs", " ".join(["%s[%d]" % (x, i._inputs[x]._size) for x in i._inputs]))
+                self.cdlsim_instantiation.option_string("outputs", " ".join(["%s[%d]" % (x, i._outputs[x]._size) for x in i._outputs]))
                 self.cdlsim_instantiation.option_object("object", i._thfile)
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
                 i._ports = i._ports_from_ios(self._engine._engine.get_module_ios(i._name), i._thfile)
@@ -436,6 +464,11 @@ class _hwexfile(py_engine.exec_file):
                 i._connect_cdl_signal(sig)
             #print "Done looking at %s" % repr(origi)
 
+        # And set up the reset values.
+        for i in connectedwires:
+            if i._reset_value:
+                i.drive(i._reset_value)
+
 
 class hw(_clockable):
     """
@@ -446,7 +479,7 @@ class hw(_clockable):
 
     def passed(self):
         for i in self._children:
-            if isinstance(i, th):
+            if isinstance(i, th) and not isinstance(i, timed_assign):
                 if not i.passed():
                     return False
         return True

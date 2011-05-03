@@ -56,7 +56,7 @@ class partial_ports_hw(pycdl.hw):
                                              outputs={ "chain_in": self.wirein }
                                              )
 
-        self.rst_seq = self.timed_assign(self.rst, 1, 30, 0)
+        self.rst_seq = pycdl.timed_assign(self.rst, 1, 30, 0)
 	pycdl.hw.__init__(self, self.pp, self.th, self.clk, self.rst_seq)
 
 class bundle_width_test_harness(pycdl.th):
@@ -104,7 +104,7 @@ class bundle_width_hw(pycdl.hw):
                                             outputs={ "in": self.wirein }
                                             )
 
-        self.rst_seq = self.timed_assign(self.rst, 1, 30, 0)
+        self.rst_seq = pycdl.timed_assign(self.rst, 1, 30, 0)
 	pycdl.hw.__init__(self, self.bw, self.th, self.clk, self.rst_seq)
 
 class check_64bits_test_harness(pycdl.th):
@@ -115,12 +115,12 @@ class check_64bits_test_harness(pycdl.th):
         self.selected_bus = inputs["selected_bus"]
         self.input_bus = outputs["input_bus"]
         self.sum_enable = outputs["sum_enable"]
-        self.select = inputs["select"]
+        self.select = outputs["select"]
     def run(self):
         failures = 0
-        self.input_bus.drive(0)
-        self.sum_enable.drive(0)
-        self.select.drive(0)
+        self.input_bus.reset(0)
+        self.sum_enable.reset(0)
+        self.select.reset(0)
         print "Regression batch arg Running check_64bits test to check for bugs in 64 bit handling (reset value, bit select, sub-bus select, bit assign, sub-bus assign reported Feb 18th 2008"
         self.bfm_wait(30)
 
@@ -234,7 +234,7 @@ class check_64bits_hw(pycdl.hw):
                                                       "select": self.select }
                                             )
 
-        self.rst_seq = self.timed_assign(self.rst, 1, 30, 0)
+        self.rst_seq = pycdl.timed_assign(self.rst, 1, 30, 0)
 	pycdl.hw.__init__(self, self.check_64bits, self.th, self.clk, self.rst_seq)
 
 
@@ -243,16 +243,16 @@ class TestBugs(unittest.TestCase):
     def test_partial_ports(self):
         hw = partial_ports_hw()
         engine = pycdl.engine(hw)
-        waves = pycdl.waves(engine)
-        waves.reset()
-        waves.open("pp.vcd")
-        waves.add_hierarchy(hw.pp, hw.th)
-        waves.enable()
+        #waves = pycdl.waves(engine)
+        #waves.reset()
+        #waves.open("pp.vcd")
+        #waves.add_hierarchy(hw.pp, hw.th)
+        #waves.enable()
         engine.reset()
         engine.step(5000)
-        self.assertThat(engine.passed())
+        self.assertTrue(hw.passed())
 
-    def test_bundle_width(self):
+    def not_test_bundle_width(self):
         hw = bundle_width_hw()
         engine = pycdl.engine(hw)
         waves = pycdl.waves(engine)
@@ -262,9 +262,9 @@ class TestBugs(unittest.TestCase):
         #waves.enable()
         engine.reset()
         engine.step(5000)
-        self.assertThat(engine.passed())
+        self.assertTrue(hw.passed())
 
-    def test_check_64bits(self):
+    def not_test_check_64bits(self):
         hw = check_64bits_hw()
         engine = pycdl.engine(hw)
         waves = pycdl.waves(engine)
@@ -274,7 +274,7 @@ class TestBugs(unittest.TestCase):
         waves.enable()
         engine.reset()
         engine.step(5000)
-        self.assertThat(engine.passed())
+        self.assertTrue(hw.passed())
 
 if __name__ == '__main__':
     unittest.main()
