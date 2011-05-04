@@ -522,8 +522,8 @@ class hw(_clockable):
                 self._connect_waves()
                 
         def _connect_waves(self):
-            self._hw._wave_hook.cdlsim_wave.vcd_file("_waves")
-            self._cdl_obj = self._hw._wave_hook._waves
+            self._hw._wave_hook._thfile.cdlsim_wave.vcd_file("_waves")
+            self._cdl_obj = self._hw._wave_hook._thfile._waves
 
         def reset(self):
             self._cdl_obj.reset()
@@ -544,10 +544,12 @@ class hw(_clockable):
             return self._cdl_obj.file_size()
 
         def add(self, *hier):
-            self._cdl_obj.add(" ".join([x._name for x in hier]))
+            for x in hier:
+                self._cdl_obj.add(x._name)
 
         def add_hierarchy(self, *hier):
-            self._cdl_obj.add_hierarchy(" ".join([x._name for x in hier]))
+            for x in hier:
+                self._cdl_obj.add_hierarchy(x._name)
 
     def waves(self):
         if not self._wavesinst:
