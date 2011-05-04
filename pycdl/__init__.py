@@ -278,9 +278,9 @@ class _clockable(_namegiver, _nameable):
     """
     The base class for all pieces of hardware.
     """
-    def __init__(self, children):
+    def __init__(self, *children):
         # Flatten the list of children.
-        self._children = list(itertools.chain.from_iterable([children]))
+        self._children = list(itertools.chain.from_iterable(children))
 
     def _clock(self):
         for i in self._children:
@@ -332,7 +332,23 @@ class th(_instantiable):
     def passed(self):
         return self._thfile.py.pypassed()
 
-class timed_assign(th):
+class _internal_th(th):
+    """
+    A sentinel to show an internal test harness that does not need to be considered
+    in pass/fail.
+    """
+    pass
+
+class _wave_hook(_internal_th):
+    """
+    A timed assignment, often used for a reset sequence.
+    """
+    def __init__(self):
+        th.__init__(self, clocks={}, inputs={}, outputs={})
+    def run(self):
+        pass
+
+class timed_assign(_internal_th):
     """
     A timed assignment, often used for a reset sequence.
     """
@@ -372,6 +388,7 @@ class _hwexfile(py_engine.exec_file):
     def __init__(self, hw, engine):
         self._hw = hw
         self._engine = engine
+        self._running = False
         py_engine.exec_file.__init__(self)
 
     def _connect_wire(self, name, wireinst, connectedwires, inputs, ports):
@@ -469,27 +486,78 @@ class _hwexfile(py_engine.exec_file):
             if i._reset_value:
                 i.drive(i._reset_value)
 
+        # Hook up any waves.
+        if self._hw._wavesinst:
+            self._hw._wavesinst._connect_waves()
+
+        # Say we're in business.
+        self._running = True
 
 class hw(_clockable):
     """
     The object that represents a piece of hardware.
     """
     def __init__(self, *children):
-        _clockable.__init__(self, children)
+        self._wavesinst = None
+        self._hwex = None
+        self._wave_hook = _wave_hook()
+        _clockable.__init__(self, children + (self._wave_hook,))
 
     def passed(self):
         for i in self._children:
-            if isinstance(i, th) and not isinstance(i, timed_assign):
+            if isinstance(i, th) and not isinstance(i, _internal_th):
                 if not i.passed():
                     return False
         return True
 
-class waves(object):
-    """
-    The object that controls waves.
-    """
-    def __init__(self):
-        raise NotImplementedError
+    class _waves(object):
+        """
+        The object that controls waves, inside a hardware object. It's
+        singletonized per hardware object
+        """
+        def __init__(self, hw):
+            self._cdl_obj = None
+            self._hw = hw
+            if hw._hwex and hw._hwex._running:
+                self._connect_waves()
+                
+        def _connect_waves(self):
+            self._hw._wave_hook.cdlsim_wave.vcd_file("_waves")
+            self._cdl_obj = self._hw._wave_hook._waves
+
+        def reset(self):
+            self._cdl_obj.reset()
+
+        def open(self, filename):
+            self._cdl_obj.open(filename)
+
+        def close(self):
+            self._cdl_obj.close()
+
+        def enable(self):
+            self._cdl_obj.enable()
+
+        def disable(self):
+            self._cdl_obj.disable()
+
+        def file_size(self):
+            return self._cdl_obj.file_size()
+
+        def add(self, *hier):
+            self._cdl_obj.add(" ".join([x._name for x in hier]))
+
+        def add_hierarchy(self, *hier):
+            self._cdl_obj.add_hierarchy(" ".join([x._name for x in hier]))
+
+    def waves(self):
+        if not self._wavesinst:
+            self._wavesinst = hw._waves(self)
+        return self._wavesinst
+
+    def _get_hwex(self, engine):
+        if not self._hwex:
+            self._hwex = _hwexfile(self, engine)
+        return self._hwex
 
 class engine(object):
     """
@@ -500,7 +568,8 @@ class engine(object):
         Initialize the engine, given some hardware.
         """
         self._engine = py_engine.py_engine()
-        self._engine.describe_hw(_hwexfile(hw, self))
+        hwexfile = hw._get_hwex(self)
+        self._engine.describe_hw(hwexfile)
 
     def reset(self):
         """

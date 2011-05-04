@@ -243,7 +243,7 @@ class TestBugs(unittest.TestCase):
     def test_partial_ports(self):
         hw = partial_ports_hw()
         engine = pycdl.engine(hw)
-        #waves = pycdl.waves(engine)
+        #waves = hw.waves()
         #waves.reset()
         #waves.open("pp.vcd")
         #waves.add_hierarchy(hw.pp, hw.th)
@@ -252,26 +252,26 @@ class TestBugs(unittest.TestCase):
         engine.step(5000)
         self.assertTrue(hw.passed())
 
-    def not_test_bundle_width(self):
+    def test_bundle_width(self):
         hw = bundle_width_hw()
         engine = pycdl.engine(hw)
-        waves = pycdl.waves(engine)
-        waves.reset()
-        #waves.open("bw.vcd")
-        waves.add_hierarchy(hw.bw, hw.th)
-        #waves.enable()
+        #waves = hw.waves()
+        #waves.reset()
+        ##waves.open("bw.vcd")
+        #waves.add_hierarchy(hw.bw, hw.th)
+        ##waves.enable()
         engine.reset()
         engine.step(5000)
         self.assertTrue(hw.passed())
 
-    def not_test_check_64bits(self):
+    def test_check_64bits(self):
         hw = check_64bits_hw()
         engine = pycdl.engine(hw)
-        waves = pycdl.waves(engine)
-        waves.reset()
-        waves.open("check_64bits.vcd")
-        waves.add_hierarchy(hw.check_64bits, hw.th)
-        waves.enable()
+        #waves = hw.waves()
+        #waves.reset()
+        #waves.open("check_64bits.vcd")
+        #waves.add_hierarchy(hw.check_64bits, hw.th)
+        #waves.enable()
         engine.reset()
         engine.step(5000)
         self.assertTrue(hw.passed())

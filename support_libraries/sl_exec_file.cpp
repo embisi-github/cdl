@@ -279,7 +279,7 @@ typedef struct t_sl_exec_file_data
  */
 static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data );
 static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data );
-
+static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data, t_sl_exec_file_object_chain *object_chain );
 static t_sl_exec_file_eval_fn ef_fn_eval_env_int;
 static t_sl_exec_file_eval_fn ef_fn_eval_env_double;
 static t_sl_exec_file_eval_fn ef_fn_eval_env_string;
@@ -915,6 +915,8 @@ extern void *sl_exec_file_add_object_instance( struct t_sl_exec_file_data *file_
     object->name_length = strlen(object_desc->name);
 
     file_data->next_base = object->base+object->max+1;
+
+    sl_exec_file_py_add_object_instance( file_data, object );
 
     return (void *)object;
 }
@@ -4376,6 +4378,7 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
 #else
 static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data ){}
 static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data ){return 0;}
+static void sl_exec_file_py_add_object_instance( t_sl_exec_file_data *file_data, t_sl_exec_file_object_chain *object_chain ) {}
 extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *error,
                                                                   c_sl_error *message,
                                                                   t_sl_exec_file_callback_fn callback_fn,
