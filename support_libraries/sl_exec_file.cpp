@@ -3286,7 +3286,7 @@ static t_sl_error_level py_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *cmd_cb,
                                        error_number_sl_pass, error_id_sl_exec_file_get_next_cmd,
                                        error_arg_type_uint64, cmd_cb->args[0].integer,
                                        error_arg_type_malloc_string, cmd_cb->args[1].p.string,
-                                       error_arg_type_malloc_string, 0,
+                                       error_arg_type_malloc_string, "PyThread",
                                        error_arg_type_malloc_filename, cmd_cb->file_data->filename,
                                        error_arg_type_line_number, 0,
                                        error_arg_type_none );
@@ -3299,7 +3299,7 @@ static t_sl_error_level py_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *cmd_cb,
                                        error_number_sl_fail, error_id_sl_exec_file_get_next_cmd,
                                        error_arg_type_uint64, cmd_cb->args[0].integer,
                                        error_arg_type_malloc_string, cmd_cb->args[1].p.string,
-                                       error_arg_type_malloc_string, 0,
+                                       error_arg_type_malloc_string, "PyThread",
                                        error_arg_type_malloc_filename, cmd_cb->file_data->filename,
                                        error_arg_type_line_number, 0,
                                        error_arg_type_none );
@@ -3997,6 +3997,7 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     t_sl_pthread_barrier_thread_ptr barrier_thread;
     t_py_thread_data *barrier_thread_data;
     t_py_object *py_object = py_start_data->py_object;
+    PyObject *barrier_thread_object;
 
     WHERE_I_AM;
     //fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
@@ -4042,13 +4043,15 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     WHERE_I_AM;
     PyEval_ReleaseThread(py_thread);
 
+    // Save the thread object because we're about to deallocate where it lives.
+    barrier_thread_object = barrier_thread_data->barrier_thread_object;
     WHERE_I_AM;
     sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
     WHERE_I_AM;
 
     WHERE_I_AM;
     PyEval_AcquireLock();
-    Py_DECREF(barrier_thread_data->barrier_thread_object);
+    Py_DECREF(barrier_thread_object);
     Py_DECREF(py_object);
     PyThreadState_Clear(py_thread);
     PyThreadState_Delete(py_thread);
