@@ -25,12 +25,18 @@ read_hw_file vector.hwex
 reset
 step 50
 
+
+vcd_file waves
 setenv "width" 4
 setenv "module_name" vector_add__width_4
 setenv "module_mif_filename" "vector_add__width_4.mif"
 read_hw_file vector.hwex
+waves.open "blah.vcd"
+waves.add_hierarchy dut_0
+waves.enable
 reset
 step 50
+waves.close
 
 setenv "width" 8
 setenv "module_name" vector_mult_by_11__width_8
@@ -87,7 +93,7 @@ end
 
 #a Editor preferences and notes
 # Local Variables: ***
-# mode: shell ***
+# mode: sh ***
 # outline-regexp: "#[a!]\\\|#[\t ]*[b-z][\t ]" ***
 # End: ***
 

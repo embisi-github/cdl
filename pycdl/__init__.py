@@ -179,14 +179,23 @@ class wire(_nameable):
         else:
             raise WireError("No underlying value for signal %s" % repr(self))
 
-    def drive(self, value, recursive=True):
+    def drive(self, value):
         if self._cdl_signal:
             self._cdl_signal.drive(value)
         else:
             raise WireError("No underlying signal to drive for %s" % repr(self))
 
+    def _reset(self, value):
+        if self._cdl_signal:
+            self._cdl_signal.reset(value)
+        else:
+            raise WireError("No underlying signal to drive for %s" % repr(self))
+
     def reset(self, value):
+        if self._cdl_signal:
+            self._cdl_signal.reset(value)
         self._reset_value = value
+
 
 class clock(wire):
     def __init__(self, value=0, reset_period=1, period=1, name=None, owner=None):
@@ -270,8 +279,27 @@ class wirebundle(_nameable):
         if len(unusedkeys) > 0:
             raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
 
+    def _reset(self, inbundle):
+        # Drive a whole bundle for reset.
+        unusedkeys = set(inbundle._dict.keys())
+        for i in self._dict:
+            if i not in inbundle._dict:
+                raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
+            del unusedkeys[i]
+            self._dict[i]._reset(inbundle._dict[i])
+        if len(unusedkeys) > 0:
+            raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
+
     def reset(self, inbundle):
         # Set the reset value for the bundle.
+        unusedkeys = set(inbundle._dict.keys())
+        for i in self._dict:
+            if i not in inbundle._dict:
+                raise WireError("Wire bundle mismatch in %s, missing other's value %s" % (repr(self), i))
+            del unusedkeys[i]
+            self._dict[i].reset(inbundle._dict[i])
+        if len(unusedkeys) > 0:
+            raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
         self._reset_value = inbundle
 
 class _clockable(_namegiver, _nameable):
@@ -431,10 +459,19 @@ class _hwexfile(py_engine.exec_file):
             else:
                 raise WireError("Connecting unknown wire type %s" % repr(wiredict[i].__class__))
 
+    def _set_up_reset_values(self):
+        # And set up the reset values.
+        if not hasattr(self, "_connectedwires"):
+            return
+        for i in self._connectedwires:
+            if i._reset_value:
+                i._reset(i._reset_value)
+
+
     def exec_init(self):
         pass
     def exec_reset(self):
-        pass
+        self._set_up_reset_values()
     def exec_run(self):
         anonid = 1
         connectedwires = set()
@@ -481,10 +518,9 @@ class _hwexfile(py_engine.exec_file):
                 i._connect_cdl_signal(sig)
             #print "Done looking at %s" % repr(origi)
 
-        # And set up the reset values.
-        for i in connectedwires:
-            if i._reset_value:
-                i.drive(i._reset_value)
+        self._connectedwires = connectedwires
+
+        self._set_up_reset_values()
 
         # Hook up any waves.
         if self._hw._wavesinst:
@@ -585,3 +621,27 @@ class engine(object):
         """
         self._engine.step(cycles)
 
+def load_mif(filename, length, width):
+    """
+    Open a file and read in hex values into an array. Provided mostly for
+    compatibility with legacy CDL.
+    """
+    fd = open(filename, "r")
+    retarray = []
+    for line in fd:
+        if '#' in line or '//' in line:
+            # If there's a comment, kill it off.
+            line = line.split('#')[0]
+            line = line.split('//')[0]
+        if len(line) == 0:
+            continue
+        vals = line.split(" ")
+        for val in vals:
+            val = val.strip()
+            if len(val) == 0:
+                continue
+            retarray.append(int(val, 16))
+    # Finally, zero-pad the list.
+    if len(retarray) < length:
+        retarray.extend([0 for x in range(length-len(retarray))])
+    return retarray
