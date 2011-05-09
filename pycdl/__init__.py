@@ -196,6 +196,18 @@ class wire(_nameable):
             self._cdl_signal.reset(value)
         self._reset_value = value
 
+    def wait_for_value(self, val, timeout=-1):
+        if self._cdl_signal:
+            self._cdl_signal.wait_for_value(val, timeout)
+        else:
+            raise WireError("No underlying value for signal %s" % repr(self))
+
+    def wait_for_change(self, timeout=-1):
+        if self._cdl_signal:
+            self._cdl_signal.wait_for_change(timeout)
+        else:
+            raise WireError("No underlying value for signal %s" % repr(self))
+
 
 class clock(wire):
     def __init__(self, value=0, reset_period=1, period=1, name=None, owner=None):
@@ -348,6 +360,9 @@ class th(_instantiable):
     def bfm_wait(self, cycles):
         self._thfile.cdlsim_sim.bfm_wait(cycles)
 
+    def spawn(self, boundfn, *args):
+        self._thfile.py.pyspawn(boundfn, args)
+
     def global_cycle(self):
         return self._thfile.cdlsim_sim.global_cycle()
 
@@ -413,9 +428,8 @@ class _thfile(py_engine.exec_file):
         self._th.run()
 
 class _hwexfile(py_engine.exec_file):
-    def __init__(self, hw, engine):
+    def __init__(self, hw):
         self._hw = hw
-        self._engine = engine
         self._running = False
         py_engine.exec_file.__init__(self)
 
@@ -482,7 +496,7 @@ class _hwexfile(py_engine.exec_file):
                 anonid += 1
             if isinstance(i, module):
                 self.cdlsim_instantiation.module(i._type, i._name)
-                i._ports = i._ports_from_ios(self._engine._engine.get_module_ios(i._name), None)
+                i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), None)
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
@@ -490,7 +504,7 @@ class _hwexfile(py_engine.exec_file):
                 self.cdlsim_instantiation.option_string("outputs", " ".join(["%s[%d]" % (x, i._outputs[x]._size) for x in i._outputs]))
                 self.cdlsim_instantiation.option_object("object", i._thfile)
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
-                i._ports = i._ports_from_ios(self._engine._engine.get_module_ios(i._name), i._thfile)
+                i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), i._thfile)
             elif isinstance(i, clock):
                 pass # we'll hook up later
             else:
@@ -535,9 +549,11 @@ class hw(_clockable):
     """
     def __init__(self, *children):
         self._wavesinst = None
-        self._hwex = None
         self._wave_hook = _wave_hook()
         _clockable.__init__(self, children + (self._wave_hook,))
+        self._engine = py_engine.py_engine()
+        self._hwex = _hwexfile(self)
+        self._engine.describe_hw(self._hwex)
 
     def passed(self):
         for i in self._children:
@@ -592,23 +608,6 @@ class hw(_clockable):
             self._wavesinst = hw._waves(self)
         return self._wavesinst
 
-    def _get_hwex(self, engine):
-        if not self._hwex:
-            self._hwex = _hwexfile(self, engine)
-        return self._hwex
-
-class engine(object):
-    """
-    The actual engine object. Corresponds to py_engine.py_engine().
-    """
-    def __init__(self, hw):
-        """
-        Initialize the engine, given some hardware.
-        """
-        self._engine = py_engine.py_engine()
-        hwexfile = hw._get_hwex(self)
-        self._engine.describe_hw(hwexfile)
-
     def reset(self):
         """
         Reset the engine.
@@ -644,4 +643,20 @@ def load_mif(filename, length, width):
     # Finally, zero-pad the list.
     if len(retarray) < length:
         retarray.extend([0 for x in range(length-len(retarray))])
+    fd.close()
     return retarray
+
+def save_mif(array, filename, length, width):
+    """
+    Write hex values from an array into a file. Provided mostly for
+    compatibility with legacy CDL.
+    """
+    fd = open(filename, "w")
+    for val in array:
+        print >>fd, "%0*.*x" % (width/4, width/4, val)
+    # Finally, zero-pad the list.
+    if len(array) < length:
+        for i in range(length-len(array)):
+            print >>fd, "%0*.*x" % (width/4, width/4, 0)
+    fd.close()
+
