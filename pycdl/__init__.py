@@ -192,8 +192,8 @@ class wire(_nameable):
             raise WireError("No underlying signal to drive for %s" % repr(self))
 
     def reset(self, value):
-        if self._cdl_signal:
-            self._cdl_signal.reset(value)
+        #if self._cdl_signal:
+        #    self._cdl_signal.reset(value)
         self._reset_value = value
 
 
