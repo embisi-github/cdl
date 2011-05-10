@@ -50,7 +50,6 @@ class _namegiver(object):
     def __setattr__(self, name, value):
         if isinstance(value, _nameable) and (not hasattr(value, "_name") or value._name is None):
             value._name = name
-            value._owner = self
         object.__setattr__(self, name, value)
 
 class PyCDLError(Exception):
@@ -121,14 +120,16 @@ class wire(_nameable):
     """
     The object that represents a wire.
     """
-    def __init__(self, size=1, name=None, owner=None):
+    def __init__(self, size=1, name=None):
         self._drives = []
         self._driven_by = None
         self._size = size
         self._cdl_signal = None
         self._name = name
-        self._owner = owner
         self._reset_value = None
+
+    def _name_list(self):
+        return ["%s[%d]" % (self._name, self._size)]
 
     def _check_connectivity(self, other):
         if self._size and other._size and self._size != other._size:
@@ -210,21 +211,39 @@ class wire(_nameable):
 
 
 class clock(wire):
-    def __init__(self, value=0, reset_period=1, period=1, name=None, owner=None):
+    def __init__(self, value=0, reset_period=1, period=1, name=None):
         self._init_value = value
         self._reset_period = period
         self._period = period
-        wire.__init__(self, 1, name, owner)
+        wire.__init__(self, 1, name)
 
 class wirebundle(_nameable):
     """
     The object that represents a bundle of wires.
     """
-    def __init__(self, **kw):
-        self._dict = kw
+    def __init__(self, bundletype=None, name=None, **kw):
+        if bundletype:
+            # Build the bundle from a dict.
+            self._dict = {}
+            for i in bundletype:
+                if isinstance(bundletype[i], int):
+                    self._dict[i] = wire(bundletype[i], name=i)
+                else:
+                    self._dict[i] = wirebundle(bundletype=bundletype[i], name=i)
+        else:
+            self._dict = kw
         self._drives = []
         self._driven_by = None
         self._reset_value = None
+        self._name = name
+
+    def _name_list(self):
+        retval = []
+        for i in self._dict:
+            subval = self._dict[i]._name_list()
+            for j in subval:
+                retval.append("%s__%s" % (self._name, j))
+        return retval
 
     def _check_connectivity(self, other):
         # Check that all the signals in the bundle match the one we're
@@ -273,6 +292,20 @@ class wirebundle(_nameable):
         self._driven_by = other
         other._drives.append(self)
 
+    def _add_wire(self, wirename, size, name):
+        # First see if we need to recurse.
+        wirelist = wirename.split("__", 1)
+        if len(wirelist) > 1:
+            # We need to go down to another level of bundles.
+            if wirelist[0] not in self._dict:
+                self._dict[wirelist[0]] = wirebundle()
+            return self._dict[wirelist[0]]._add_wire(wirelist[1], size, name)
+        else:
+            if wirelist[0] in self._dict:
+                raise WireError("Double add of wire %s to bundle" % wirelist[0])
+            self._dict[wirelist[0]] = wire(size, name)
+            return self._dict[wirelist[0]]
+            
     def value(self):
         # We want the value. Fair enough. Go dig and get it.
         outdict = {}
@@ -314,6 +347,12 @@ class wirebundle(_nameable):
             raise WireError("Wire bundle mismatch in %s, leftover signals" % repr(self))
         self._reset_value = inbundle
 
+    def __getattr__(self, attr):
+        if attr not in self._dict:
+            raise AttributeError
+        else:
+            return self._dict[attr]
+
 class _clockable(_namegiver, _nameable):
     """
     The base class for all pieces of hardware.
@@ -340,10 +379,22 @@ class _instantiable(_clockable):
         for id_type in iolist:
             retdict = {}
             for io in id_type:
-                retdict[io[0]] = wire(io[1], io[0], self)
-                #print "Creating port wire: %s size %d, result %s" % (io[0], io[1], repr(retdict[io[0]]))
+                wirelist = io[0].split("__", 1)
+                if len(wirelist) > 1:
+                    if wirelist[0] not in retdict:
+                        retdict[wirelist[0]] = wirebundle()
+                    thewire = retdict[wirelist[0]]._add_wire(wirelist[1], io[1], io[0])
+                else:
+                    retdict[io[0]] = wire(io[1], io[0])
+                    thewire = retdict[io[0]]
+                #print "Creating port wire: %s size %d, result %s" % (io[0], io[1], repr(thewire))
                 if cdl_object and hasattr(cdl_object, io[0]):
-                    retdict[io[0]]._connect_cdl_signal(getattr(cdl_object,io[0]))
+                    #print "Connecting CDL signal %s" % repr(getattr(cdl_object, io[0]))
+                    thewire._connect_cdl_signal(getattr(cdl_object,io[0]))
+                else:
+                    #print "No CDL signal!"
+                    pass
+                    
             retlist.append(retdict)
         return retlist
                 
@@ -433,11 +484,12 @@ class module(_instantiable):
     """
     The object that represents a CDL module.
     """
-    def __init__(self, moduletype, clocks, inputs, outputs):
+    def __init__(self, moduletype, clocks={}, inputs={}, outputs={}, options={}):
         self._type = moduletype
         self._clocks = clocks
         self._inputs = inputs
         self._outputs = outputs
+        self._options = options
 
 class _thfile(py_engine.exec_file):
     def __init__(self, th):
@@ -448,16 +500,22 @@ class _thfile(py_engine.exec_file):
     def exec_reset(self):
         pass
     def exec_run(self):
-        self._th.run()
+        try:
+            self._th.run()
+        except:
+            self._th.failtest(0, "Exception raised!")
+            raise
 
 class _hwexfile(py_engine.exec_file):
     def __init__(self, hw):
         self._hw = hw
         self._running = False
+        self._instantiated_wires = set()
+        self._instantiation_anonid = 0
         py_engine.exec_file.__init__(self)
 
     def _connect_wire(self, name, wireinst, connectedwires, inputs, ports):
-        wire_basename = name.split('.')[-1]
+        wire_basename = name.split('.')[-1].split('__')[-1]
         if wire_basename not in ports:
             raise WireError("Connecting to undefined port %s" % wire_basename)
         port = ports[wire_basename]
@@ -465,25 +523,30 @@ class _hwexfile(py_engine.exec_file):
             raise WireError("Port size mismatch for port %s, expected %d got %d" % (wire_basename, wireinst._size, port._size))
                 # size mismatch!
         if wireinst not in connectedwires:
+            wireinst._instantiated_name = wireinst._name
+            if wireinst._instantiated_name in self._instantiated_wires:
+                wireinst._instantiated_name += "_INST%03d" % self._instantiation_anonid
+                self._instantiation_anonid += 1
+            self._instantiated_wires.add(wireinst._instantiated_name)
             if isinstance(wireinst, clock):
                 self.cdlsim_instantiation.clock(wireinst._name, wireinst._init_value, wireinst._reset_period, wireinst._period)
                 #print "CLOCK %s" % wireinst._name
             else:
-                self.cdlsim_instantiation.wire("%s[%d]" % (wireinst._name, wireinst._size))
-                #print "WIRE %s" % wireinst._name
+                self.cdlsim_instantiation.wire("%s[%d]" % (wireinst._instantiated_name, wireinst._size))
+                #print "WIRE %s" % wireinst._instantiated_name
             connectedwires.add(wireinst)
         if port not in connectedwires:
             connectedwires.add(port)
         if inputs:
             # This is an input to the module so the wire drives the port.
-            self.cdlsim_instantiation.drive(name, wireinst._name)
-            #print "DRIVE %s %s" % (name, wireinst._name)
+            self.cdlsim_instantiation.drive(name, wireinst._instantiated_name)
+            #print "DRIVE %s %s" % (name, wireinst._instantiated_name)
             #print "Port %s driven by wire %s" % (repr(port), repr(wireinst))
             port._is_driven_by(wireinst)
         else:
             # This is an output from the module, so the port drives the wire.
-            self.cdlsim_instantiation.drive(wireinst._name, name)
-            #print "DRIVE %s %s" % (wireinst._name, name)
+            self.cdlsim_instantiation.drive(wireinst._instantiated_name, name)
+            #print "DRIVE %s %s" % (wireinst._instantiated_name, name)
             #print "Wire %s driven by port %s" % (repr(wireinst), repr(port))
             wireinst._is_driven_by(port)
 
@@ -492,7 +555,9 @@ class _hwexfile(py_engine.exec_file):
             if isinstance(wiredict[i], wire):
                 self._connect_wire(name+i, wiredict[i], connectedwires, inputs, ports)
             elif isinstance(wiredict[i], wirebundle):
-                self._connect_wires(name+i+"__", self.wiredict[i]._dict, connectedwires, inputs, ports)
+                if i not in ports or not isinstance(ports[i], wirebundle):
+                    raise WireError("Connecting wire bundle %s to unknown port!" % i)
+                self._connect_wires(name+i+"__", wiredict[i]._dict, connectedwires, inputs, ports[i]._dict)
             else:
                 raise WireError("Connecting unknown wire type %s" % repr(wiredict[i].__class__))
 
@@ -515,16 +580,22 @@ class _hwexfile(py_engine.exec_file):
         for i in self._hw._children:
             if not hasattr(i, "_name") or i._name is None:
                 i._name = "__anon%3d" % anonid
-                i._owner = self._hw
                 anonid += 1
             if isinstance(i, module):
+                for j in i._options:
+                    if isinstance(i._options[j], str):
+                        self.cdlsim_instantiation.option_string(j, i._options[j])
+                    else:
+                        self.cdlsim_instantiation.option_int(j, i._options[j])
                 self.cdlsim_instantiation.module(i._type, i._name)
                 i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), None)
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
-                self.cdlsim_instantiation.option_string("inputs", " ".join(["%s[%d]" % (x, i._inputs[x]._size) for x in i._inputs]))
-                self.cdlsim_instantiation.option_string("outputs", " ".join(["%s[%d]" % (x, i._outputs[x]._size) for x in i._outputs]))
+                self.cdlsim_instantiation.option_string("inputs", " ".join([" ".join(i._inputs[x]._name_list()) for x in i._inputs]))
+                #print "INPUTS %s" % " ".join([" ".join(i._inputs[x]._name_list()) for x in i._inputs])
+                self.cdlsim_instantiation.option_string("outputs", " ".join([" ".join(i._outputs[x]._name_list()) for x in i._outputs]))
+                #print "OUTPUTS %s" % " ".join([" ".join(i._outputs[x]._name_list()) for x in i._outputs])
                 self.cdlsim_instantiation.option_object("object", i._thfile)
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
                 i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), i._thfile)
@@ -532,6 +603,7 @@ class _hwexfile(py_engine.exec_file):
                 pass # we'll hook up later
             else:
                 raise NotImplementedError
+            
         for i in self._hw._children:
             if hasattr(i, "_clocks") and hasattr(i, "_ports"):
                 self._connect_wires(i._name+".", i._clocks, connectedwires, inputs=True, ports=i._ports[0])
@@ -539,6 +611,7 @@ class _hwexfile(py_engine.exec_file):
                 self._connect_wires(i._name+".", i._inputs, connectedwires, inputs=True, ports=i._ports[1])
             if hasattr(i, "_outputs") and hasattr(i, "_ports"):
                 self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False, ports=i._ports[2])
+                
         # Now make sure all the CDL signals are hooked up.
         #print "*** Starting CDL signal hookup"
         for i in connectedwires:

@@ -259,7 +259,11 @@ static t_sl_error_level ef_method_eval_input_wait_for_value( t_sl_exec_file_cmd_
         wait_cb.args[ wait_cb_arg_timeout ].uint64 = -1ULL;
         if (cmd_cb->num_args>1)
         {
-            wait_cb.args[ wait_cb_arg_timeout ].uint64 = lib_data->cycle+sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
+            wait_cb.args[ wait_cb_arg_timeout ].uint64 = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
+            if (wait_cb.args[ wait_cb_arg_timeout ].uint64 != -1ULL)
+            {
+                wait_cb.args[ wait_cb_arg_timeout ].uint64 += lib_data->cycle;
+            }
         }
         sl_exec_file_thread_wait_on_callback( cmd_cb, ef_input_object_event_callback, &wait_cb );
 
@@ -286,7 +290,11 @@ static t_sl_error_level ef_method_eval_input_wait_for_change( t_sl_exec_file_cmd
     wait_cb.args[ wait_cb_arg_timeout ].uint64 = -1ULL;
     if (cmd_cb->num_args>0)
     {
-        wait_cb.args[ wait_cb_arg_timeout ].uint64 = lib_data->cycle+sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
+        wait_cb.args[ wait_cb_arg_timeout ].uint64 = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
+        if (wait_cb.args[ wait_cb_arg_timeout ].uint64 != -1ULL)
+        {
+            wait_cb.args[ wait_cb_arg_timeout ].uint64 += lib_data->cycle;
+        }
     }
     sl_exec_file_thread_wait_on_callback( cmd_cb, ef_input_object_event_callback, &wait_cb );
     return error_level_okay;
