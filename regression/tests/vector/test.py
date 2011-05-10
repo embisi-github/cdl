@@ -70,13 +70,12 @@ class vector_hw(pycdl.hw):
 class TestVector(unittest.TestCase):
     def do_vector_test(self, width, module_name, module_mif_filename):
         hw = vector_hw(width, module_name, module_mif_filename)
-        engine = pycdl.engine(hw)
         waves = hw.waves()
         waves.open(module_name+".vcd")
         waves.add_hierarchy(hw.dut_0)
         waves.enable()
-        engine.reset()
-        engine.step(50)
+        hw.reset()
+        hw.step(50)
         self.assertTrue(hw.passed())
 
     def test_toggle_16(self):
