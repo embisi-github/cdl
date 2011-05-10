@@ -199,6 +199,8 @@ h3. *{{th.spawn(_func_\[, _args_\])}}*
 
 To spawn a subtask (which logically runs in a separate thread), call {{th.spawn}}. The function is generally a bound method (i.e. {{self._function\_name_}}). Any arguments after the first are passed as arguments to the subtask.
 
+*IMPLEMENTATION NOTE*: currently it is not possible to spawn at time zero. Insert at least one {{bfm_wait}} before spawning. This restriction will be lifted eventually.
+
 h3. {{th.passtest(_num_, _str_)}}
 
 Registers a test pass after _num_ cycles with message _str_. Note that the pass is _not_ registered if {{th.failtest()}} was previously called. This means that {{th.passtest()}} can be called to mark the completion of the test regardless of whether {{th.failtest()}} was previously called.

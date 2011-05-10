@@ -356,6 +356,7 @@ class th(_instantiable):
         self._clocks = clocks
         self._inputs = inputs
         self._outputs = outputs
+        self._eventanonid = 1
 
     def bfm_wait(self, cycles):
         self._thfile.cdlsim_sim.bfm_wait(cycles)
@@ -374,6 +375,28 @@ class th(_instantiable):
 
     def passed(self):
         return self._thfile.py.pypassed()
+
+    class _event(object):
+        """
+        The object that controls events, inside a test harness.
+        """
+        def __init__(self, th):
+            th._thfile.sys_event.event("__anonevent%3d" % th._eventanonid)
+            self._cdl_obj = getattr(th._thfile, "__anonevent%3d" % th._eventanonid)
+            self._th = th
+            th._eventanonid += 1
+                
+        def reset(self):
+            self._cdl_obj.reset()
+
+        def fire(self):
+            self._cdl_obj.fire()
+
+        def wait(self):
+            self._cdl_obj.wait()
+
+    def event(self):
+        return th._event(self)
 
 class _internal_th(th):
     """
