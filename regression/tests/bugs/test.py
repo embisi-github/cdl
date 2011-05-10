@@ -240,7 +240,7 @@ class check_64bits_hw(pycdl.hw):
 
 
 class TestBugs(unittest.TestCase):
-    def nottest_partial_ports(self):
+    def test_partial_ports(self):
         hw = partial_ports_hw()
         waves = hw.waves()
         waves.reset()
@@ -251,7 +251,7 @@ class TestBugs(unittest.TestCase):
         hw.step(5000)
         self.assertTrue(hw.passed())
 
-    def nottest_bundle_width(self):
+    def test_bundle_width(self):
         hw = bundle_width_hw()
         waves = hw.waves()
         waves.reset()
