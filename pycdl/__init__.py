@@ -128,8 +128,8 @@ class wire(_nameable):
         self._name = name
         self._reset_value = None
 
-    def _name_list(self):
-        return ["%s[%d]" % (self._name, self._size)]
+    def _name_list(self, inname):
+        return ["%s[%d]" % (inname, self._size)]
 
     def _check_connectivity(self, other):
         if self._size and other._size and self._size != other._size:
@@ -237,12 +237,12 @@ class wirebundle(_nameable):
         self._reset_value = None
         self._name = name
 
-    def _name_list(self):
+    def _name_list(self, inname):
         retval = []
         for i in self._dict:
-            subval = self._dict[i]._name_list()
+            subval = self._dict[i]._name_list(i)
             for j in subval:
-                retval.append("%s__%s" % (self._name, j))
+                retval.append("%s__%s" % (inname, j))
         return retval
 
     def _check_connectivity(self, other):
@@ -592,10 +592,10 @@ class _hwexfile(py_engine.exec_file):
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
-                self.cdlsim_instantiation.option_string("inputs", " ".join([" ".join(i._inputs[x]._name_list()) for x in i._inputs]))
-                #print "INPUTS %s" % " ".join([" ".join(i._inputs[x]._name_list()) for x in i._inputs])
-                self.cdlsim_instantiation.option_string("outputs", " ".join([" ".join(i._outputs[x]._name_list()) for x in i._outputs]))
-                #print "OUTPUTS %s" % " ".join([" ".join(i._outputs[x]._name_list()) for x in i._outputs])
+                self.cdlsim_instantiation.option_string("inputs", " ".join([" ".join(i._inputs[x]._name_list(x)) for x in i._inputs]))
+                #print "INPUTS %s" % " ".join([" ".join(i._inputs[x]._name_list(x)) for x in i._inputs])
+                self.cdlsim_instantiation.option_string("outputs", " ".join([" ".join(i._outputs[x]._name_list(x)) for x in i._outputs]))
+                #print "OUTPUTS %s" % " ".join([" ".join(i._outputs[x]._name_list(x)) for x in i._outputs])
                 self.cdlsim_instantiation.option_object("object", i._thfile)
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
                 i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), i._thfile)

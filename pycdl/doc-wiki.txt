@@ -175,9 +175,32 @@ h2. *{{pycdl.wirebundle}}*
 
 The {{pycdl.wirebundle}} class specifies a set of wires between two modules, equivalent to a CDL structure.
 
-h3. Constructor {{pycdl.wirebundle()}}
+h3. Constructor {{pycdl.wirebundle(bundletype=_dict_)}}
 
-The constructor simply creates a new object. No wires exist in the object.
+The constructor creates a new bundle object according to the type specified in _{{dict}}_. The dictionary contains keys mapping to the signal names and values that are either numbers (representing the width of the signal) or further dictionaries if there are further bundles below.
+
+Here is an example:
+
+{code:python}
+        cmd_in_bundletype = { "valid": 1,
+                               "dcache_request": { "read_not_write": 1,
+                                                   "cache_address": 17,
+                                                   "write_mask": 2,
+                                                   "poison": 2,
+                                                   "data": { "high": 64, "low": 64 },
+                                                   "req_id": 8,
+                                                   "tag": 2
+                                                   }
+                               }
+        self.cmd_in_5 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_4 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_3 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_2 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_1 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_0 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+{code}
+
+*IMPLEMENTATION NOTE*: it is hoped, eventually, that wire bundles will be able to learn their contents by hooking them up to CDL code. This does not work yet, so bundles must be explicitly declared as above.
 
 h3. {{wirebundle.value()}}
 
