@@ -22,12 +22,6 @@
 #include "sl_general.h"
 #include "sl_cons.h"
 #include "sl_ef_lib_event.h"
-#ifdef SL_EXEC_FILE_PYTHON
-#include <Python.h>
-#else
-struct _object;
-typedef struct _object PyObject; // To make non-Python builds link
-#endif
 
 /*a Defines
  */

@@ -11,65 +11,7 @@
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
   for more details.
 
-
-
-#include <Python.h>
-
-static PyObject* Foo_init(PyObject *self, PyObject *args)
-{
-    printf("Foo.__init__ called\n");
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyObject* Foo_doSomething(PyObject *self, PyObject *args)
-{
-    printf("Foo.doSomething called\n");
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyMethodDef FooMethods[] = 
-{
-    {"__init__", Foo_init, METH_VARARGS, 
-	 "doc string"},
-    {"doSomething", Foo_doSomething, METH_VARARGS,
-	 "doc string"},
-    {NULL},
-};
-
-static PyMethodDef ModuleMethods[] = { {NULL} };
-
-#ifdef __cplusplus
-extern "C"
-#endif
-void initFoo()
-{
-    PyMethodDef *def;
-
-    // create a new module and class
-    PyObject *module = Py_InitModule("Foo", ModuleMethods);
-    PyObject *moduleDict = PyModule_GetDict(module);
-    PyObject *classDict = PyDict_New();
-    PyObject *className = PyString_FromString("Foo");
-    PyObject *fooClass = PyClass_New(NULL, classDict, className);
-    PyDict_SetItemString(moduleDict, "Foo", fooClass);
-    Py_DECREF(classDict);
-    Py_DECREF(className);
-    Py_DECREF(fooClass);
-    
-    // add methods to class
-    for (def = FooMethods; def->ml_name != NULL; def++) {
-	PyObject *func = PyCFunction_New(def, NULL);
-	PyObject *method = PyMethod_New(func, NULL, fooClass);
-	PyDict_SetItemString(classDict, def->ml_name, method);
-	Py_DECREF(func);
-	Py_DECREF(method);
-    }
-}
 */
-/*a Constraint compiler source code
- */
 
 /*a Includes
  */
@@ -128,6 +70,7 @@ static PyObject *py_engine_method_find_state( t_py_engine_PyObject *py_cyc, PyOb
 static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_value_string( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_get_module_ios( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_init( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_add( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_info( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
@@ -177,6 +120,7 @@ static PyMethodDef engine_methods[] =
      {"get_state_info",            (PyCFunction)py_engine_method_get_state_info,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
      {"get_state_value_string",    (PyCFunction)py_engine_method_get_state_value_string,  METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
      {"get_state_memory",          (PyCFunction)py_engine_method_get_state_memory,        METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
+     {"get_module_ios",            (PyCFunction)py_engine_method_get_module_ios,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
      {"checkpoint_init",           (PyCFunction)py_engine_method_checkpoint_init,         METH_VARARGS|METH_KEYWORDS, "Initialize checkpointing"},
      {"checkpoint_add",            (PyCFunction)py_engine_method_checkpoint_add,          METH_VARARGS|METH_KEYWORDS,  "Add a checkpoint"},
      {"checkpoint_info",           (PyCFunction)py_engine_method_checkpoint_info,         METH_VARARGS|METH_KEYWORDS, "Get information about a checkpoint"},
@@ -245,16 +189,20 @@ static PyObject *py_engine_method_return( t_py_engine_PyObject *py_eng, const ch
     fprintf( stderr, "Returning from '%s' with '%s'\n", where_last, string?string:"<NULL>" );
     fflush( stderr );
 #endif
-	if (string)
-	{
-		PyErr_SetString( PyExc_RuntimeError, string );
-		return NULL;
-	}
-	if (result)
-		return result;
-
-	Py_INCREF(Py_None);
-	return Py_None;
+    if (string)
+    {
+        PyErr_SetString( PyExc_RuntimeError, string );
+        Py_CLEAR(result);
+        return NULL;
+    }
+    if (result)
+    {
+        PyObject *temp = result;
+        result = NULL;
+        return temp;
+    }
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 /*f py_engine_method_result_add_double
@@ -458,49 +406,49 @@ static PyObject *py_engine_method_read_hw_file( t_py_engine_PyObject *py_eng, Py
  */
 static PyObject *py_engine_method_describe_hw( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
-     PyObject *describer;
-     char desc[] = "describer";
-     char *kwdlist[] = { desc, NULL };
-     t_sl_error_level error_level, worst_error_level;
+    PyObject *describer;
+    char desc[] = "describer";
+    char *kwdlist[] = { desc, NULL };
+    t_sl_error_level error_level, worst_error_level;
 
-     WHERE_I_AM;
-     py_engine_method_enter( py_eng, "describe_hw", args );
-     if (PyArg_ParseTupleAndKeywords( args, kwds, "O", kwdlist, &describer))
-     {
-     WHERE_I_AM;
-          py_eng->engine->delete_instances_and_signals();
-     WHERE_I_AM;
-          error_level = py_eng->engine->read_and_interpret_py_object( describer, (t_sl_get_environment_fn)sl_option_get_string, (void *)py_eng->env_options );
-     WHERE_I_AM;
-          worst_error_level = error_level;
-     WHERE_I_AM;
-          if ((int)error_level <= (int)error_level_warning)
-          {
-     WHERE_I_AM;
-               error_level = py_eng->engine->check_connectivity();
-     WHERE_I_AM;
-               worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
-          }
-     WHERE_I_AM;
-          if ((int)error_level <= (int)error_level_warning)
-          {
-     WHERE_I_AM;
-               error_level = py_eng->engine->build_schedule();
-     WHERE_I_AM;
-               worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
-     WHERE_I_AM;
-          }
-     WHERE_I_AM;
-          py_engine_method_result_add_int( NULL, (int) worst_error_level );
-     WHERE_I_AM;
-          sl_option_free_list(py_eng->env_options);
-     WHERE_I_AM;
-          py_eng->env_options = NULL;
-     WHERE_I_AM;
-          return py_engine_method_return( py_eng, NULL );
-     }
-     WHERE_I_AM;
-     return NULL;
+    WHERE_I_AM;
+    py_engine_method_enter( py_eng, "describe_hw", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "O", kwdlist, &describer))
+    {
+        WHERE_I_AM;
+        py_eng->engine->delete_instances_and_signals();
+        WHERE_I_AM;
+        error_level = py_eng->engine->read_and_interpret_py_object( describer, (t_sl_get_environment_fn)sl_option_get_string, (void *)py_eng->env_options );
+        WHERE_I_AM;
+        worst_error_level = error_level;
+        WHERE_I_AM;
+        if ((int)error_level <= (int)error_level_warning)
+        {
+            WHERE_I_AM;
+            error_level = py_eng->engine->check_connectivity();
+            WHERE_I_AM;
+            worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
+        }
+        WHERE_I_AM;
+        if ((int)error_level <= (int)error_level_warning)
+        {
+            WHERE_I_AM;
+            error_level = py_eng->engine->build_schedule();
+            WHERE_I_AM;
+            worst_error_level = ((int)error_level>(int)worst_error_level)?error_level:worst_error_level;
+            WHERE_I_AM;
+        }
+        WHERE_I_AM;
+        py_engine_method_result_add_int( NULL, (int) worst_error_level );
+        WHERE_I_AM;
+        sl_option_free_list(py_eng->env_options);
+        WHERE_I_AM;
+        py_eng->env_options = NULL;
+        WHERE_I_AM;
+        return py_engine_method_return( py_eng, NULL );
+    }
+    WHERE_I_AM;
+    return NULL;
 }
 
 /*f py_engine_method_read_gui_file
@@ -846,6 +794,64 @@ static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_eng
      return NULL;
 }
 
+/*f py_engine_method_get_module_ios
+ */
+static PyObject *py_engine_method_get_module_ios( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+     char md[] = "module";
+     char *kwdlist[] = { md, NULL };
+     const char *module;
+     t_engine_state_desc_type type;
+     t_sl_uint64 *dummy;
+     int sizes[4];
+     int id;
+     t_engine_interrogate_include_mask id_type;
+
+     py_engine_method_enter( py_eng, "get_module_ios", args );
+     if (PyArg_ParseTupleAndKeywords( args, kwds, "s", kwdlist, &module ))
+     {
+         t_se_interrogation_handle ih, sub_ih;
+         struct t_sl_cons_list list, typelist, sublist;
+         const char *prefix, *tail;
+
+         ih = py_eng->engine->find_entity( module );
+         if (!ih)
+         {
+             return py_engine_method_return( py_eng, NULL );
+         }
+         sl_cons_reset_list( &list );
+         for (id_type = engine_interrogate_include_mask_clocks; id_type < engine_interrogate_include_mask_all; id_type = (t_engine_interrogate_include_mask)(id_type << 1))
+         {
+             sl_cons_reset_list( &typelist );
+             for (id = 0; ; id++)
+             {
+                 sub_ih = NULL;
+                 py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, id_type, &sub_ih );
+                 if (!sub_ih)
+                 {
+                     break;
+                 }
+                 if (!py_eng->engine->interrogate_get_entity_strings( sub_ih, &module, &prefix, &tail ))
+                 {
+                     break;
+                 }
+                 type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &dummy, sizes );
+                 py_eng->engine->interrogation_handle_free( sub_ih );
+                 sl_cons_reset_list( &sublist );
+                 sl_cons_append( &sublist, sl_cons_item( (char*)tail, 1 ));
+                 sl_cons_append( &sublist, sl_cons_item( sizes[0] ));
+                 sl_cons_append( &typelist, sl_cons_item( &sublist ));
+             }
+             sl_cons_append( &list, sl_cons_item( &typelist ));
+         }
+         py_eng->engine->interrogation_handle_free( ih );
+         py_engine_method_result_add_cons_list( NULL, &list );
+         sl_cons_free_list( &list );
+         return py_engine_method_return( py_eng, NULL );
+     }
+     return NULL;
+}
+
 /*f py_engine_method_checkpoint_init
  */
 static PyObject *py_engine_method_checkpoint_init( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
@@ -1004,11 +1010,12 @@ static void py_engine_dealloc( PyObject* self )
  */
 extern "C" void initpy_engine( void )
 {
-	PyObject *m;
+    PyObject *m;
     int i;
     se_c_engine_init();
     m = Py_InitModule3("py_engine", py_engine_methods, "Python interface to CDL simulation engine" );
 
+    // This creates the class py_engine.exec_file, defined in sl_exec_file.cpp
     sl_exec_file_python_add_class_object( m );
 
     for (i=0; model_init_fns[i]; i++)

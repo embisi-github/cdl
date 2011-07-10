@@ -19,7 +19,7 @@ include ${CYCLICITY}/scripts/makefile_hdr
 
 SPECIFIC_INCLUDES =
 ifeq ("$(BUILD_PYTHON)","yes")
-SPECIFIC_INCLUDES += -D SE_ENGINE_PYTHON -DSL_EXEC_FILE_PYTHON -I${PYTHON_INCLUDES}
+SPECIFIC_INCLUDES += -D SE_ENGINE_PYTHON -DSL_PYTHON -I${PYTHON_INCLUDES}
 endif
 
 #a Source files
@@ -51,24 +51,14 @@ ENGINE_OBJS = $(call objs_from_srcs,${ENGINE_SRCS})
 
 #a Resultant 'libraries'
 SE_LIB = ${OS_DIR}/se_simulation_engine.o
-SE_PYTHON_LIB = ${OS_DIR}/se_py_simulation_engine.o
 LIBRARIES = ${SE_LIB}
-ifeq ($(BUILD_PYTHON),yes)
-LIBRARIES += ${SE_PYTHON_LIB}
-endif
 
 #a Dependencies and build requirements
 ALL: ${LIBRARIES}
 
 ${SE_LIB}: ${ENGINE_OBJS}
 	${LINKASOBJ} $@ ${ENGINE_OBJS}
-
-#	${LINKDYNLIB} $@ ${ENGINE_OBJS} ${SUPPORT_WITH_PYTHON_OBJECTS}
-
-${SE_PYTHON_LIB}: ${ENGINE_OBJS}
-	${LINKASOBJ} $@ ${ENGINE_OBJS}
-
-#	${LINKDYNLIB} $@ ${ENGINE_OBJS} ${SUPPORT_WITH_PYTHON_OBJECTS}
+	#	${LINKDYNLIB} $@ ${ENGINE_OBJS} ${SUPPORT_WITH_PYTHON_OBJECTS}
 
 #a Clean, depend, etc
 clean:

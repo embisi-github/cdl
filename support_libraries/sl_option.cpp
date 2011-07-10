@@ -203,6 +203,7 @@ extern t_sl_option *sl_option_list( t_sl_option *list, const char *keyword, void
      opt->next_in_list = list;
      opt->type = option_type_object;
      strcpy( opt->keyword, keyword );
+     Py_INCREF(object);
      opt->object = object;
      return opt;
 }
@@ -310,6 +311,8 @@ extern void sl_option_free_list( t_sl_option *list )
      while (list)
      {
           next_item = list->next_in_list;
+          if (list->type == option_type_object)
+              Py_DECREF(list->object);
           free(list);
           list = next_item;
      }

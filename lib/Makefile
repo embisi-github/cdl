@@ -17,10 +17,6 @@ include ${CYCLICITY}/scripts/makefile_hdr
 #a Targets
 ALL: subsystem ${BACKEND_OBJECTS} ${ENGINE_OBJECTS} ${SUPPORT_OBJECTS} ${HARNESS_BATCH_OBJECTS} ${HARNESS_GUI_OBJECTS} ${HARNESS_VPI_OBJECTS}
 
-ifeq ($(BUILD_PYTHON),yes)
-ALL: ${ENGINE_PYTHON_OBJECTS}
-endif
-
 libraries:
 	cd ${CYCLICITY}/support_libraries ; make
 
@@ -34,9 +30,6 @@ ${BACKEND_OBJECTS}: ${CYCLICITY}/backend/${OS_DIR}/be_backend.o ${SUPPORT_OBJECT
 
 ${ENGINE_OBJECTS}: ${CYCLICITY}/simulation_engine/${OS_DIR}/se_simulation_engine.o ${SUPPORT_OBJECTS}
 	cp ${CYCLICITY}/simulation_engine/${OS_DIR}/se_simulation_engine.o ${ENGINE_OBJECTS}
-
-${ENGINE_PYTHON_OBJECTS}: ${CYCLICITY}/simulation_engine/${OS_DIR}/se_py_simulation_engine.o ${SUPPORT_OBJECTS}
-	cp ${CYCLICITY}/simulation_engine/${OS_DIR}/se_py_simulation_engine.o ${ENGINE_PYTHON_OBJECTS}
 
 ifeq ($(BUILD_PYTHON),no)
 ${SUPPORT_OBJECTS}: ${CYCLICITY}/support_libraries/${OS_DIR}/sl_support.o

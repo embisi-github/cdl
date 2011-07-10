@@ -1,5 +1,6 @@
-# OS Leopard
-PYTHON := python2.5
+# OS Snow Leopard
+PYTHON := python2.6
+FRAMEWORK_PATH := /Library/Frameworks
 BUILD_ARCH := osx
 BUILD_SUBARCH := snowleopard
 

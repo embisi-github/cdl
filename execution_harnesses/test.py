@@ -234,7 +234,7 @@ def print_state( eng ):
 
 #f Main code
 #py_engine.debug( 3 )
-eng = py_engine.new()
+eng = py_engine.py_engine()
 eng.read_hw_file( "my.hw" )
 if (check_errors(eng)):
     exit

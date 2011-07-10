@@ -22,7 +22,7 @@ option_string "clock" system_clock
 option_string "inputs" "high_0 high_1 low_0 toggle_0 invert_0 and_0 invert_chain_0 invert_chain_1 invert_chain_2 invert_chain_3 invert_chain_4 invert_chain_5 invert_chain_6 invert_chain_7"
 option_string "outputs" "test_reset and_in_0 and_in_1"
 option_string "filename" test_harness.th
-module test_harness test_harness_0
+module se_test_harness test_harness_0
 
 clock system_clock 0 1 1
 drive toggle_0.io_clock system_clock

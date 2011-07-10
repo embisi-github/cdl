@@ -1,10 +1,24 @@
 syntax: glob
 *~
+*.pyc
+*.orig
 .DS_Store
 */*.log
 */osx/*.o
 */osx/*.P
+*/osx/*.so
 */linux/*.o
 */linux/*.P
+*/linux/*.so
 */build/osx/*.cpp
+*/build/osx/sim
 */build/linux/*.cpp
+*/build/linux/sim
+*/osx/cdl
+*/osx/ef
+*/linux/cdl
+*/linux/ef
+*/models.make
+scripts/makefile.config
+cdl_frontend/cyclicity_grammar.cpp
+cdl_frontend/cyclicity_grammar.h

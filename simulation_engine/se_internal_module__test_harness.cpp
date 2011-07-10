@@ -112,8 +112,10 @@ static t_sl_error_level internal_module_test_harness_preclock( t_internal_module
     /*b Call BFM preclock function - captures inputs (do only on first preclock of a clock event, which is okay as we only have one clock)
      */
     WHERE_I_AM;
-    sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "preclock", NULL );
-
+    if (data->exec_file_data)
+    {
+        sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "preclock", NULL );
+    }
     /*b Done
      */
     return error_level_okay;
@@ -135,7 +137,10 @@ static t_sl_error_level internal_module_test_harness_clock( t_internal_module_te
     /*b Call BFM clock function - copies to outputs
      */
     WHERE_I_AM;
-    sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "clock", NULL );
+    if (data->exec_file_data)
+    {
+        sl_exec_file_send_message_to_object( data->exec_file_data, "bfm_exec_file_support", "clock", NULL );
+    }
     WHERE_I_AM;
 
     /*b Done

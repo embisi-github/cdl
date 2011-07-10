@@ -1,0 +1,352 @@
+This document comprises a user's guide and reference for the {{pycdl}} library that allows code written in Python to interact with CDL code. We first describe how to write a CDL test in Python, and then give details of the methods and structures available. Finally it is to be noted that this document is currently aspirational, and the work required to actually deliver it is at the bottom.
+
+h1. CDL Python interface user's guide
+
+In CDL 1.4, we have substantially expanded the Python interface, so that anything that could previously be done in the exec language can now be done additionally in Python. The first release of the Python interface is not guaranteed to run with all the speed of the exec language, but the expectation is that all the functionality is present and some increases in speed will follow over time.
+
+h2. Instantiating the interface
+
+PyCDL consists of two parts: the PyCDL library, which is called {{pycdl}} and lives in the {{$CYCLICITY_ROOT}} directory, and the built simulation engine, which lives wherever you build your hardware images (often {{.../build/osx}} or {{.../build/linux}}). You can set the {{$CDL_BUILD_DIR}} environment variable to point to your hardware image, or simply set the {{PYTHONPATH}} to it. Either way, you need to add {{$CYCLICITY_ROOT}} to your {{PYTHONPATH}} to pick up the library so that you can use {{import pycdl}}.
+
+*Note for Netronome users:* [see below|#rose_pycdl] to understand how Rose handles this for you.
+
+h2. Describing the hardware
+
+The first thing you will do is describe the hardware you are testing. This will usually be one or more DUTs written in CDL with one or more test harnesses written in Python around it. (Sometimes the DUT is itself a test harness written in CDL, wrapping the real DUT). The CDL/Python boundary is usually obvious, but the key point is that anything in CDL is synthesizable and does not have initial blocks or other time-dependent constructs. Python code does not have this restriction.
+
+Your overall hardware will be described in a class derived from {{pycdl.hw}}, and will include CDL modules (instantiated by {{pycdl.module}}) and Python test harnesses (described by classes derived from {{pycdl.th}})
+
+Here is an example:
+
+{code:python}
+class partial_ports_hw(pycdl.hw):
+    def __init__(self):
+        self.rst = pycdl.wire()
+        self.wirein = pycdl.wire()
+        self.wireout = pycdl.wire(2)
+        self.cnt = pycdl.wire(4)
+        self.clk = pycdl.clock(0, 1, 1)
+
+        self.pp = pycdl.module("partial_ports", 
+                               clocks={ "clk": self.clk }, 
+                               inputs={ "rst": self.rst,
+                                        "in": self.wirein },
+                               outputs={ "out": self.wireout,
+                                         "cnt": self.cnt })
+        self.th = partial_ports_test_harness(clocks={ "clk": self.clk }, 
+                                             inputs={ "chain_out": self.wireout,
+                                                      "cnt": self.cnt},
+                                             outputs={ "chain_in": self.wirein }
+                                             )
+        self.rst_seq = pycdl.timed_assign(self.rst, 1, 30, 0)
+	pycdl.hw.__init__(self, self.pp, self.th, self.clk, self.rst_seq)
+{code}
+
+As you see, we define a number of wires (some more than one bit wide) and at least one clock. We then hook up the modules' inputs and outputs to the wires and clocks. The last assignment creates a reset signal that starts at 1 and drops to 0 after 30 system clocks. Finally, we call up into the superclass's initializer and tell it about all our clockable components.
+
+If a CDL module has a structure as an input or output signal, you can connect it to a {{pycdl.wirebundle}}, which will treat the signal as a Python class consisting of the correct kinds of wires. PyCDL will check that the same wires of the same width exist in all places you connect a wire bundle to CDL modules.
+
+Although it is perfectly possible to declare wires, modules and test harnesses as automatic variables ({{mywire=pycdl.wire()}}), it is recommended that they be declared as class members. PyCDL does a little magic under the hood so that the wires can have recognizable names in waveforms, and it can only perform that magic if they are class members. 
+
+h2. Describing a test harness
+
+A test harness is a class derived from {{pycdl.th}}, which is run to implement tests written in Python. Its {{run}} method is the principal vehicle for testing. 
+
+Here is an example:
+
+{code:python}
+class partial_ports_test_harness(pycdl.th):
+    def __init__(self, clocks, inputs, outputs):
+        pycdl.th.__init__(self, clocks, inputs, outputs)
+        self.chain_in = outputs["chain_in"]
+        self.chain_out = inputs["chain_out"]
+        self.cnt = inputs["cnt"]
+    def run(self):
+        self.chain_in.reset(0)
+        toggle = 0
+        self.bfm_wait(60)
+        
+        for i in range(10):
+            toggle ^= 1
+            self.chain_in.drive(toggle)
+            self.bfm_wait(1)
+        
+        for i in range(1000):
+            toggle ^= 1
+            self.chain_in.drive(toggle)
+            self.bfm_wait(1)
+            print "%d Input %d Toggle %d Count %d" % (self.global_cycle(), self.chain_out.value(), toggle, self.cnt.value())
+            if toggle == 0:
+                if self.chain_out.value() != 2:
+                    print "%d Expected input of 2: Input %d Toggle %d Count %d" % (self.global_cycle(), self.chain_out.value(), toggle, self.cnt.value())
+                    self.failtest(self.global_cycle(), "Test failed")
+            else:
+                if self.chain_out.value() != 1:
+                    print "%d Expected input of 1: Input %d Toggle %d Count %d" % (self.global_cycle(), self.chain_out.value(), toggle, self.cnt.value())
+                    self.failtest(self.global_cycle(), "Test failed")
+            if self.cnt.value() != 2:
+                print "%d Expected count of 2: Input %d Toggle %d Count %d" % (self.global_cycle(), self.chain_out.value(), toggle, self.cnt.value())
+                self.failtest(self.global_cycle(), "Test failed")
+        self.passtest(self.global_cycle(), "Test succeeded")
+{code}
+
+We declare the inputs and outputs in the constructor, making sure that the underlying superclass constructor is aware of them. (Of course, the outputs of the test harness are inputs of the DUT, meaning that their names can sometimes be counterintuitive.)
+
+The {{run}} method implements the reset cycle and proceeds to perform the test. It can wait for a number of clock cycles by calling {{pycdl.th.bfm_wait()}}, examine the value of signals by calling their {{value()}} method, and drive the value of signals by calling their {{drive()}} method. At any point, if the test fails, the test harness should call {{pycdl.th.failtest}}. If the test completes (whether or not there have been failures beforehand), the test harness should call {{pycdl.th.passtest}}. This indicates that the test has run to completion.
+
+h2. Writing a test
+
+The recommendation is that tests are written inside the PyUnit framework. This means that they are methods beginning {{test_}} inside a class derived from {{unittest.TestCase}}. If that is achieved, then any test runner that implements PyUnit will run them.
+
+Here is an example:
+
+{code:python}
+class TestBugs(unittest.TestCase):
+    def test_partial_ports(self):
+        hw = partial_ports_hw()
+        waves = pycdl.waves()
+        waves.reset()
+        waves.open("pp.vcd")
+        waves.add_hierarchy(hw.pp, hw.th)
+        waves.enable()
+        hw.reset()
+        hw.step(5000)
+        self.assertTrue(hw.passed())
+{code}
+
+We create a piece of hardware, instantiate a simulation engine based on that hardware, attach waves to parts of it, execute a reset and simulate for 5000 cycles. The test overall passes if the hardware reports that the test completed and did not fail.
+
+Of course, it is possible to define many tests in one {{TestCase}} class, and they can share as much or as little infrastructure as is appropriate.
+
+h2. Connecting to C++ BFMs
+
+Later versions of PyCDL will allow connectivity with C++ BFMs. For now this is TBD.
+
+{anchor:rose_pycdl}
+h2. Netronome-specific additions
+
+For use within Netronome, it is recommended that rather than using {{import pycdl}}, users should instead use {{from rose_pycdl import pycdl}}. {{rose_pycdl}} is a piece of code embedded in Rose (the Thornham repository/simulation environment) that directs Python to look for the simulation engine in the Rose repository in which it is running. By knowledge of where Rose has built the CDL images, it is able to set the PYTHONPATH to the correct library automatically.
+
+h1. {{pycdl}} reference
+
+h2. *{{pycdl.bv}}*
+
+The {{pycdl.bv}} class is the basic building block. It is a bit vector with an explicit size. Any calls to {{_something_.value()}} generate a {{pycdl.bv}} (or {{pycdl.bvbundle}}, see below). It is often used where an integer might be, but keeps its length. A {{bv}} is immutable.
+
+h3. Constructor {{pycdl.bv(_val_\[, _size_\])}}
+
+Constructs a bit vector from the integer _{{val}}_, of size _{{size}}_ bits. If no _{{size}}_ is specified, the vector is unsized (and the size is set to {{None}}) and will function equivalently to an unsigned integer.
+
+h3. {{bv.value()}}
+
+Returns the value of the bit vector as an unsigned integer.
+
+h3. {{bv.size()}}
+
+Returns the size of the bit vector in bits.
+
+h3. {{bv.\_\_int\_\_()}}
+
+Equivalent to {{bv.value()}}. This performs a conversion to {{int}} and therefore allows a {{bv}} to be used anywhere a number can.
+
+h2. *{{pycdl.bvbundle}}*
+
+The {{pycdl.bvbundle}} class is essentially a dictionary of {{bv}}{}s and other {{bvbundle}}{}s. It functions equivalently to a dictionary with the exception that all members are {{bv}}{}s or {{bvbundle}}{}s, all keys are strings, and the class-member dot operator works to specify bundle members.
+
+The {{bvbundle}} class is used principally when {{wirebundle}}{}s are driven, or their values are taken.
+
+h2. *{{pycdl.wire}}*
+
+The {{pycdl.wire}} class specifies a wire between two modules.
+
+h3. Constructor {{pycdl.wire(\[_size_\])}}
+
+The constructor creates a wire. If _{{size}}_ is not specified, it is assumed to be one bit wide.
+
+h3. {{wire.value()}}
+
+{{wire.value()}} takes a copy of the value of the wire and returns it in a newly-created {{bv}} object.
+
+h3. {{wire.drive(_val_)}}
+
+Drives the value of _{{val}}_ onto the wire. If _{{val}}_ is an object of type {{bv}}, the size is checked and must either match the wire's size or be {{None}}. {{pycdl.WireError}} is raised if this check fails. 
+
+h2. *{{pycdl.wirebundle}}*
+
+The {{pycdl.wirebundle}} class specifies a set of wires between two modules, equivalent to a CDL structure.
+
+h3. Constructor {{pycdl.wirebundle(bundletype=_dict_)}}
+
+The constructor creates a new bundle object according to the type specified in _{{dict}}_. The dictionary contains keys mapping to the signal names and values that are either numbers (representing the width of the signal) or further dictionaries if there are further bundles below.
+
+Here is an example:
+
+{code:python}
+        cmd_in_bundletype = { "valid": 1,
+                               "dcache_request": { "read_not_write": 1,
+                                                   "cache_address": 17,
+                                                   "write_mask": 2,
+                                                   "poison": 2,
+                                                   "data": { "high": 64, "low": 64 },
+                                                   "req_id": 8,
+                                                   "tag": 2
+                                                   }
+                               }
+        self.cmd_in_5 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_4 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_3 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_2 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_1 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+        self.cmd_in_0 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+{code}
+
+*IMPLEMENTATION NOTE*: it is hoped, eventually, that wire bundles will be able to learn their contents by hooking them up to CDL code. This does not work yet, so bundles must be explicitly declared as above.
+
+h3. {{wirebundle.value()}}
+
+{{wirebundle.value()}} takes a copy of the value of all the wires in the bundle. These are returned in a newly-created {{bvbundle}} object.
+
+h3. {{wirebundle.drive(_val_)}}
+
+Drives the value of _{{val}}_ onto the wire. Checks are made to verify that _{{val}}_ contains the same set of members (recursively) as the wire bundle. {{pycdl.WireError}} is raised if these checks fail.
+
+h2. *{{pycdl.WireError}}*
+
+An exception raised to indicate wiring mismatches.
+
+h2. *{{pycdl.th}}*
+
+The {{pycdl.th}} class is the superclass of all test harnesses. When writing a test harness, it should always be a subclass of {{pycdl.th}}.
+
+h3. *{{th.spawn(_func_\[, _args_\])}}*
+
+To spawn a subtask (which logically runs in a separate thread), call {{th.spawn}}. The function is generally a bound method (i.e. {{self._function\_name_}}). Any arguments after the first are passed as arguments to the subtask.
+
+*IMPLEMENTATION NOTE*: currently it is not possible to spawn at time zero. Insert at least one {{bfm_wait}} before spawning. This restriction will be lifted eventually.
+
+h3. {{th.passtest(_num_, _str_)}}
+
+Registers a test pass after _num_ cycles with message _str_. Note that the pass is _not_ registered if {{th.failtest()}} was previously called. This means that {{th.passtest()}} can be called to mark the completion of the test regardless of whether {{th.failtest()}} was previously called.
+
+h3. {{th.failtest(_num_, _str_)}}
+
+Registers a test failure after _num_ cycles with message _str_.
+
+h2. *{{pycdl.module}}*
+
+The {{pycdl.module}} class is used to instantiate a module written in CDL into a Python top-level.
+
+h3. Constructor {{pycdl.module(_moduletype_, clocks=_clocks_, inputs=_inputs_, outputs=_outputs_)}}
+
+Instantiates a module of type _{{moduletype}}_, connecting its clocks, inputs and outputs according to the dictionaries passed in. Each dictionary must be keyed by a string and valued as either a {{wire}} or a {{wirebundle}}.
+
+h2. *{{pycdl.hw}}*
+
+The {{pycdl.hw}} class is the base class for instantiating test harnesses written in Python.
+
+h3. {{hw.passed()}}
+
+{{hw.passed()}} is used to determine if the hardware passed its test. Hardware passes test if all test harnesses in the hardware call {{th.passtest()}} and none of them call {{th.failtest()}}.
+
+h3. {{hw.reset()}}
+
+Resets the simulation to time zero and puts all hardware in its initial state.
+
+h3. {{hw.step(_num_)}}
+
+Steps the global system clock by _num_ cycles.
+
+h2. *{{pycdl.hw.waves}}*
+
+The {{pycdl.hw.waves}} class can be instantiated to cause a simulation engine to generate waves.
+
+h3. Constructor {{pycdl.hw.waves()}}
+
+An instance is constructed and bound to the hardware {{hw}}.
+
+h3. {{waves.reset()}}
+
+The waves are reset and all information is lost.
+
+h3. {{waves.open(_filename_)}}
+
+CDL opens file _{{filename}}_ for writing and prepares to write a VCD file to it.
+
+h3. {{waves.add_hierarchy(_clockable_\[, ...\])}}
+
+The clockable units in the hierarchy, and all their children, are added to the waveform gathering. A list of clockables is also accepted.
+
+h3. {{waves.add(_clockable_\[, ...\])}}
+
+The clockable units in the hierarchy, but not their children, are added to the waveform gathering. A list of clockables is also accepted.
+
+h3. {{waves.enable()}}
+
+On this call, waveform gathering and dumping starts, or if previously started, continues.
+
+h3. {{waves.disable()}}
+
+On this call, waveform gathering is temporarily stopped. 
+
+h3. {{waves.close()}}
+
+Closes the waveform file and ends waveform gathering.
+
+h3. {{waves.file_size()}}
+
+Returns the size of the VCD file so far in bytes.
+
+h1. Task list
+
+h2. Modifications to CDL's Python execution harness
+
+* Ensure that useful exceptions are thrown for all failures (3h)
+* Export the capability to create VCD files (1h)
+* -Provide an API for determining module properties (3h)-
+* -Allow Python objects to be created on the fly (1h)-
+
+h2. The {{pycdl}} library
+
+* -Create {{pycdl/\_\_init\_\_.py}} in {{$CYCLICITY_ROOT}}, which initially simply imports {{py_engine}} from the location specified by the environment variable {{$CYCLICITY_RUN_DIR}} (1h)-
+* -Create {{pycdl.hw}} class to encapsulate {{py_engine.exec_file}} with better semantics (3h)-
+* -Create {{pycdl.th}} class to encapsulate {{py_engine.exec_file}} with better semantics (3h)-
+* -Create {{pycdl.module}} class to create CDL modules (3h)-
+* -Create {{pycdl.engine}} class to encapsulate {{py_engine.py_engine}} with true class semantics (3h)-
+* Create {{pycdl.waves}} class to encapsulate VCD file manipulation (4h)
+* -Create {{pycdl.bv}} class to encapsulate bit vectors (1h)-
+* -Create {{pycdl.bvbundle}} class to encapsulate bit vector bundles (2h)-
+* -Create {{pycdl.wire}} class to encapsulate wires (2h)-
+* -Create {{pycdl.wirebundle}} class to encapsulate wire bundles (1h)-
+* -Create {{pycdl.WireError}} class to encapsulate wiring errors (1h)-
+
+h2. Modifications to Rose
+
+* -Add {{rose_pycdl.py}}, a utility that knows where to import {{pycdl}} from. (1h)-
+
+h2. Infrastructure
+
+* -Add {{pycdl}} and {{rose_pycdl.py}} to the PYTHONPATH via modules, and create a {{cdl/1.4.0}} module both on Linux and on Mac. (1h)-
+
+h2. Tests
+* -Add {{regress.py}} Python regression framework to CDL's regressions, based on PyUnit. (2h)-
+* Create Python versions of all CDL regression tests (14h)
+** simple (2h)
+** vector (2h)
+** instantiation (2h)
+** memory (2h)
+** event (2h)
+** -bugs (2h)-
+** clock_gate (2h)
+* Create Python version of a moderately complex CDL test (the data mover) (16h)
+** -Create hardware specification (4h)-
+** -Create Dcache/Tcache simulator (6h)-
+** Create Pctl simulator (6h)
+* Create tests for PyCDL itself (16h)
+
+h2. CDL bugs
+* -When the test harness file is not correctly specified, CDL crashes. (1h)-
+* The 'enum' tests in CDL are not complete and not part of its regression. (2h)
+* The files in the 'fsm' test directory are not used anywhere.
+* The 'log' tests in CDL are not part of its regression and do not actually check anything. (2h)
+* The files in the 'struct' test directory are not used anywhere.
+
