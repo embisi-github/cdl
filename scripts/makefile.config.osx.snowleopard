@@ -1,5 +1,5 @@
 # OS Leopard
-PYTHON := python2.5
+PYTHON := python2.6
 BUILD_ARCH := osx
 BUILD_SUBARCH := snowleopard
 

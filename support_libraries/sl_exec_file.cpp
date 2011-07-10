@@ -4350,9 +4350,9 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
                                                                   const char *user,
                                                                   int clocked )
 {
+    *file_data_ptr = NULL;
     return error->add_error( (void *)user, error_level_fatal, error_number_general_error_s, error_id_sl_exec_file_allocate_and_read_exec_file, error_arg_type_malloc_string, "Cannot allocate exec file from Python object in non-Python build", error_arg_type_none );
 }
-
 
 /*f Wrapper End
  */

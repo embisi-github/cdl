@@ -49,7 +49,7 @@ ${CMDLINE_PROG}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_CO
 
 ${PYTHON_LIB}: ${C_MODEL_OBJS}  $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${ENGINE_OBJECTS}
 	@echo "Building Python simulation library for GUI sims ${PYTHON_LIB}"
-	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${CYCLICITY_LIBS}
+	${Q}${PYTHONLINKLIB} $@ $(call os_lib_hdr,$@) ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_PYTHON_OBJS} ${MODEL_LIBS} ${CYCLICITY_PYTHON_LIBS}
 
 ${VPI_LIB}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND_OBJS} ${ENGINE_OBJECTS}
 	@echo "Building VPI library for verilog simulation ${VPI_LIB}"
