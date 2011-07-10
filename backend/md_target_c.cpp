@@ -1809,10 +1809,11 @@ static void output_simulation_methods_statement_print_assert_cover( c_model_desc
             expr = statement->data.print_assert_cover.value_list;
             while (expr)
             {
+                output( handle, -1, "(" );
                 output_simulation_methods_expression( model, output, handle, code_block, statement->data.print_assert_cover.expression, indent+2, 0 );
-                output( handle, -1, "==" );
+                output( handle, -1, ")==(" );
                 output_simulation_methods_expression( model, output, handle, code_block, expr, indent+2, 0 );
-                output( handle, -1, "\n" );
+                output( handle, -1, ")\n" );
                 expr = expr->next_in_chain;
                 if (expr)
                 {

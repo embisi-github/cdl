@@ -35,6 +35,7 @@
 #define BE_OPTIONS \
      { "model", required_argument, NULL, option_be_model }, \
      { "cpp", required_argument, NULL, option_be_cpp }, \
+     { "xml", required_argument, NULL, option_be_xml }, \
      { "verilog", required_argument, NULL, option_be_verilog }, \
      { "vmod", no_argument, NULL, option_be_vmod_mode }, \
      { "v_clkgate_type", required_argument, NULL, option_be_v_clkgate_type }, \
@@ -74,6 +75,7 @@ enum
     option_be_verilog = option_be_start,
     option_be_vhdl,
     option_be_cpp,
+    option_be_xml,
     option_be_model,
     option_be_include_assertions,
     option_be_include_coverage,
