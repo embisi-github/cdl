@@ -12,6 +12,108 @@
   for more details.
 */
 
+/*a Documentation
+  Toplevel CDL modules - those whose functions are invoked from the engine simulator - have a defined set of methods
+
+  1) prepreclock
+  Called once, to indicate one ore more simultaneous clock edges are about to occur.
+  Most modules with set a 'captured inputs' indicator to False
+
+  2) preclock
+  Called one or more times; once per clock that fires
+  All inputs to the module are valid whenever this is called.
+  Inputs can be captured on only the first called if the module's 'captured inputs' indicator is false, and it is then set
+  For modules with multiple clocks that could actually be fully synchronous, the 'next state' for each clock CAN be calculated here
+  An alternative is to record all the 'preclock' function calls that happen since the last 'prepreclock' function call
+
+  3) clock
+  Called one or more times; once per clock that fires
+  For a single clock module, this module can implement the 'next state' function simply.
+  For a module with multiple clocks, the 'recorded preclocked fns' indicate which clocks have to be activated; the first
+  call of the clock method can invoke all the relevant clock functions.
+  After the 'clock' method is completed ALL outputs of the module that depend on state alone MUST be valid; all outputs
+  that are combinatorial on inputs MUST be valid given the captured input state (the state at preclock)
+  Hence for a non-combinatorial module the outputs are fully valid; internal wire values need not be
+
+  4) comb
+  Called ONLY for combinatorial modules
+  Inputs are valid on entry
+  ALL outputs must be valid on exit
+
+  5) propagate
+  Called ONLY for waveform updates
+  All inputs are valid on entry
+  All internal wires must be made valid; there should be no effect on outputs (since it must only be invoked after 'comb' has been invoked).
+
+
+  More formally:
+
+  prepreclock
+    predicated on: nothing
+    
+  preclock
+    predicated on: inputs valid, prepreclock must have been invoked
+    must: capture ensure all inputs are captured
+    
+  clock
+    predicated on: preclock must have been invoked for all clocks about to occur
+    must: implement 'next state functions; propagate state changes to outputs based on captured inputs
+
+  comb
+    predicated on: inputs valid
+    must: capture inputs; make all combinatorial outputs valid
+
+  propagate
+    predicated on: clock and then comb have been called; inputs valid
+    must: capture inputs; propagate input and state to all internal signals
+
+
+
+  Now, consider a module with submodules.
+  We will assume module 'M' with submodules 'A', 'B' and 'C'
+  'A' has some combinatorial inputs to outputs
+  'A' also has some clocked logic dependent on an input that is wired (in M) to one of its outputs - i.e. its inputs depend on its outputs...
+  'B' is purely combinatorial
+  'C' is purely clocked
+
+  M.prepreclock
+    predicated on: nothing
+    sets M.inputs_captured=False
+    
+  M.preclock
+    predicated on: M.inputs valid, M.prepreclock has occurred
+    must: if (!M.inputs_captured) then capture inputs, M.inputs_captured=True
+    
+  M.clock
+    predicated on: M.preclock must have been invoked for all clocks about to occur
+       hence M.inputs_captured=True, and M.inputs are captured in M
+    must:
+       Ensure A.inputs, C.inputs and dependencies are valid
+        To do this, note M.state is valid; non-comb A.outputs, C.outputs are assumed valid
+        Propagate from valid signals through combinatorial logic to get all combs valid
+        Will require A.comb, B.comb to be invoked
+      At this point A.inputs and C.inputs used for clocked logic must be valid
+      Prepreclock A, C
+      Preclock A, C for all clock edges
+      Do next-state for M
+      Clock A, C
+        (C.outputs are valid; non-comb A.outputs are valid)
+      Ensure M.outputs and dependencies are valid
+
+  M.comb
+    predicated on: M.inputs valid
+    must:
+      Capture M.inputs
+      Ensure M.outputs and dependencies are valid
+
+  M.propagate
+    predicated on: clock and then comb have been called; M.inputs valid
+    must:
+      Capture M.inputs
+      Ensure all internal signals are valid
+      A.propagate, C.propagate
+
+ */
 /*a Includes
  */
 #include <stdlib.h>

@@ -145,6 +145,56 @@ static void output_type( c_model_descriptor *model, t_md_output_fn output, void 
      }
 }
 
+/*f output_reference
+ */
+static void output_reference( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle, int indent, t_md_reference *reference )
+{
+    if (!reference)
+    {
+        output( handle, indent, "<null_reference/>\n" );
+        return;
+    }
+
+    switch (reference->type)
+    {
+    case md_reference_type_instance:
+        output( handle, indent++, "<instance name='%s'>\n", reference->data.instance->name );
+        output_reference( model, module, output, handle, indent, &reference->data.instance->reference );
+        output( handle, --indent, "</instance>\n" );
+        break;
+    case md_reference_type_state:
+        output( handle, indent, "<state name='%s'/>\n", reference->data.state->name );
+        break;
+    case md_reference_type_signal:
+        output( handle, indent, "<signal name='%s'/>\n", reference->data.signal->name );
+        break;
+    case md_reference_type_clock_edge:
+        output( handle, indent, "<clock name='%s' edge='%d'/>\n", reference->data.signal->name, reference->edge );
+        break;
+    default:
+        output( handle, indent, "<bad_reference_type type='%d'/>\n", reference->type );
+        break;
+    }
+}
+
+/*f output_dependencies
+ */
+static void output_dependencies( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle, int indent, const char *tag, t_md_reference_set *set )
+{
+    t_md_reference_iter iter;
+    t_md_reference *reference;
+
+    output( handle, indent++, "<%s>\n", tag );
+
+    model->reference_set_iterate_start( &set, &iter );
+    while ((reference = model->reference_set_iterate(&iter))!=NULL)
+    {
+        output_reference( model, module, output, handle, indent, reference );
+    }
+
+    output( handle, --indent, "</%s>\n", tag );
+}
+
 /*f output_ports_nets_clocks
  */
 static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle, int include_coverage, int include_stmt_coverage )
@@ -170,6 +220,7 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
         {
             output( handle, indent++, "<input used_combinatorially='%d'>\n", signal->data.input.used_combinatorially );
             output_type( model, output, handle, signal->instance_iter->children[i], indent );
+            output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
             for (int level=0; level<2; level++)
             {
                 if (signal->data.input.levels_used_for_reset[level])
@@ -231,7 +282,11 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
             for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
-                output( handle, indent, "<output type='comb' name='%s' width='%d' combinatorial_on_input='%d'/>\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially );
+                output( handle, indent++, "<output type='comb' name='%s' width='%d' combinatorial_on_input='%d'>\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially );
+                output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
+                output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
+                output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
+                output( handle, --indent, "</output>\n" );
             }
         }
         if (signal->data.output.net_ref)
@@ -239,7 +294,12 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
             for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.net_ref->instance_iter->children[i];
-                output( handle, indent, "<output type='net' name='%s' width='%d' combinatorial_on_input='%d'/>\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially );
+                output( handle, indent++, "<output type='net' name='%s' width='%d' combinatorial_on_input='%d'>\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially );
+
+                output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
+                output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
+                output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
+                output( handle, --indent, "</output>\n" );
 
                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter ); // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
                 while ((reference = model->reference_set_iterate(&iter))!=NULL)
@@ -262,6 +322,9 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
         {
             output( handle, indent++, "<net driven_in_parts='%d'>\n", signal->instance_iter->children[i]->driven_in_parts );
             output_type( model, output, handle, signal->instance_iter->children[i], indent );
+            output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
+            output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
+            output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
             output( handle, --indent, "</net>\n");
         }
     }
@@ -345,6 +408,8 @@ static void output_submodules( c_model_descriptor *model, t_md_module *module, t
                 output( handle, --indent, "</drives>\n" );
                 output( handle, --indent, "</output>\n" );
             }
+            output_dependencies( model, module, output, handle, indent, "dependencies", module_instance->dependencies );
+            output_dependencies( model, module, output, handle, indent, "combinatorial_dependencies", module_instance->combinatorial_dependencies );
         }
         output( handle, --indent, "</submodule>\n" );
     }
@@ -369,6 +434,9 @@ static void output_combinatorials( c_model_descriptor *model, t_md_module *modul
         {
             output( handle, indent++, "<comb usage='%s'>\n", usage_type[signal->usage_type] );
             output_type( model, output, handle, signal->instance_iter->children[i], indent );
+            output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
+            output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
+            output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
             output_simulation_methods_code_block( model, output, handle, signal->instance_iter->children[i]->code_block, indent, NULL, -1, signal->instance_iter->children[i] );
             output( handle, --indent, "</comb>\n");
         }

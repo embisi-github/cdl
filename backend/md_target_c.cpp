@@ -105,6 +105,17 @@ static const char *bit_mask[] = {
 };
 static char type_buffer[64];
 
+/*a Types
+ */
+enum
+{
+    om_valid_mask = 1,    // Set if signal is valid, clear if not
+    om_invalid = 0,       // Zero value - indicates signal has not been made valid
+    om_valid = 1,         // One value - indicates signal has been made valid
+    om_must_be_valid = 2, // Set this is the signal must be made valid
+    om_make_valid_mask = 3,
+};
+
 /*a Forward function declarations
  */
 static void output_simulation_methods_statement( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_statement *statement, int indent, t_md_signal *clock, int edge, t_md_type_instance *instance );
@@ -2020,6 +2031,285 @@ static void output_simulation_methods_code_block( c_model_descriptor *model, t_m
      output( handle, 0, "\n" );
 }
 
+/*f output_markers_clear (type instance)
+ */
+static void output_markers_clear( t_md_type_instance *instance )
+{
+    instance->output_handle = NULL;
+    instance->output_args[0] = 0;
+}
+
+/*f output_markers_set (type instance)
+ */
+static void output_markers_set( t_md_type_instance *instance, int mask )
+{
+    instance->output_args[0] |= mask;
+}
+
+/*f output_markers_value (type instance)
+ */
+static int output_markers_value( t_md_type_instance *instance, int mask )
+{
+    return instance->output_args[0] & mask;
+}
+
+/*f output_markers_clear (module instance)
+ */
+static void output_markers_clear( t_md_module_instance *instance )
+{
+    instance->output_args[0] = 0;
+}
+
+/*f output_markers_set (module instance)
+ */
+static void output_markers_set( t_md_module_instance *instance, int mask )
+{
+    instance->output_args[0] |= mask;
+}
+
+/*f output_markers_value (module instance)
+ */
+static int output_markers_value( t_md_module_instance *instance, int mask )
+{
+    return instance->output_args[0] & mask;
+}
+
+/*f output_markers_clear_all
+ */
+static void output_markers_clear_all( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle )
+{
+    t_md_signal *signal;
+    t_md_module_instance *module_instance;
+    int i;
+
+    /*b   Combinatorials
+     */
+    for (signal=module->combinatorials; signal; signal=signal->next_in_list)
+    {
+        for (i=0; i<signal->instance_iter->number_children; i++)
+        {
+            output_markers_clear(signal->instance_iter->children[i]);
+        }
+    }
+
+    /*b   Nets
+     */
+    for (signal=module->nets; signal; signal=signal->next_in_list)
+    {
+        for (i=0; i<signal->instance_iter->number_children; i++)
+        {
+            output_markers_clear(signal->instance_iter->children[i]);
+        }
+    }
+
+    /*b   Module instances
+     */
+    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    {
+        output_markers_clear( module_instance );
+    }
+
+    /*b   Finish
+     */
+}
+
+/*f output_markers_set_dependencies (instance)
+  For an instance of a signal, set the output markers of every dependency
+ */
+static void output_markers_set_dependencies( c_model_descriptor *model, t_md_module *module, t_md_type_instance *instance, int mask )
+{
+    t_md_reference_iter iter;
+    t_md_reference *reference;
+
+    /*b Skip if the bits are already set
+     */
+    if ( output_markers_value(instance,mask)==mask )
+        return;
+
+    /*b Check dependencies (net and combinatorial) are all marked
+     */
+    model->reference_set_iterate_start( &instance->dependencies, &iter );
+    while ((reference = model->reference_set_iterate(&iter))!=NULL)
+    {
+        t_md_type_instance *dependency = reference->data.instance;
+        if (dependency->reference.type==md_reference_type_signal)
+        {
+            if (dependency->reference.data.signal->type==md_signal_type_combinatorial)
+            {
+                output_markers_set(instance, mask);
+            }
+            else if (dependency->reference.data.signal->type==md_signal_type_net)
+            {
+                output_markers_set(instance, mask);
+            }
+        }
+    }
+
+    /*b   Finish
+     */
+}
+
+/*f output_markers_set_dependencies (signal)
+  For a signal, set the output markers of every dependency of every instance (submember) of that signal
+ */
+static void output_markers_set_dependencies( c_model_descriptor *model, t_md_module *module, t_md_signal *signal, int mask )
+{
+    t_md_type_instance *instance;
+    int i;
+
+    /*b Check dependencies (net and combinatorial) are all marked
+     */
+    for (i=0; i<signal->instance_iter->number_children; i++)
+    {
+        /*b If instance has been done, skip to next
+         */
+        instance = signal->instance_iter->children[i];
+        output_markers_set_dependencies( model, module, instance, mask );
+    }
+
+    /*b   Finish
+     */
+}
+
+/*f output_markers_check_iter_any_match
+ */
+static int output_markers_check_iter_any_match( c_model_descriptor *model, t_md_reference_iter *iter, void *signal, int mask, int match )
+{
+    t_md_reference *reference;
+    t_md_type_instance *dependency;
+
+    while ((reference = model->reference_set_iterate(iter))!=NULL)
+    {
+        dependency = reference->data.instance;
+        if ( (dependency->reference.type==md_reference_type_signal) &&
+             (dependency->reference.data.signal!=signal) && // Added so self-dependent signals do get output
+             ( (dependency->reference.data.signal->type==md_signal_type_combinatorial) || (dependency->reference.data.signal->type==md_signal_type_net) ) )
+        {
+            if (output_markers_value(dependency,mask)==match)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+/*f output_simulation_code_to_make_signals_valid
+ */
+static void output_simulation_code_to_make_signals_valid( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle )
+{
+    int more_to_output, did_output;
+    t_md_signal *signal;
+    t_md_type_instance *instance, *dependency;
+    int i;
+    t_md_reference_iter iter;
+    t_md_reference *reference;
+    t_md_module_instance *module_instance;
+    t_md_module_instance_input_port *input_port;
+    t_md_module_instance_output_port *output_port;
+
+    /*b   Run through combinatorials and nets to see if we can output the code or module instances for one (are all its dependencies done?) - and repeat until we have nothing left
+     */
+    more_to_output = 1;
+    did_output = 1;
+    while (more_to_output && did_output)
+    {
+        /*b Mark us as done nothing yet
+         */
+        more_to_output = 0;
+        did_output = 0;
+
+        /*b Check for combinatorials that are required to be valid and that are ready
+         */
+        for (signal=module->combinatorials; signal; signal=signal->next_in_list)
+        {
+            for (i=0; i<signal->instance_iter->number_children; i++)
+            {
+                /*b If instance has been done, skip to next
+                 */
+                instance = signal->instance_iter->children[i];
+                if (output_markers_value(instance,om_make_valid_mask) != (om_invalid | om_must_be_valid)) // Skip if the instance does not need to be made valid
+                    continue;
+
+                /*b Check dependencies (net and combinatorial) are all done
+                 */
+                model->reference_set_iterate_start( &instance->dependencies, &iter );
+                if (output_markers_check_iter_any_match( model, &iter, (void *)signal, om_valid_mask, om_invalid))
+                {
+                    more_to_output=1;
+                    continue;
+                }
+
+                /*b All dependencies are valid; mark as valid too, and output the code
+                 */
+                did_output=1;
+                output_markers_set( instance, om_valid );
+
+                if (!instance->code_block)
+                {
+                    output( handle, 1, "//No definition of signal %s (%p)\n", instance->name, instance);
+                    //break;
+                }
+                else
+                {
+                    output_simulation_methods_code_block( model, output, handle, instance->code_block, NULL, -1, instance );
+                }
+
+                /*b Next instance
+                 */
+            }
+        }
+
+        /*b Check all module instances whose outputs are required to be valid and that and are ready
+         */
+        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+        {
+            /*b If module_instance is not combinatorial or has been done, skip to next
+             */
+            if ( (!module_instance->module_definition) ||
+                 (!module_instance->module_definition->combinatorial_component) ||
+                 (module_instance->output_args[0] & 1) )
+            {
+                continue;
+            }
+
+            /*b Check dependencies (net and combinatorial) for combinatorial function are all done
+             */
+            model->reference_set_iterate_start( &module_instance->combinatorial_dependencies, &iter );
+            if (output_markers_check_iter_any_match( model, &iter, (void *)signal, om_valid_mask, om_invalid))
+            {
+                more_to_output=1;
+                continue;
+            }
+        
+            /*b Dependencies are all done; mark as done too, and output the code, and mark output nets as done
+             */
+            did_output=1;
+            module_instance->output_args[0] |= 1;
+            for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
+            {
+                // if (input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially)
+                output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
+                output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2, 0 );
+                output( handle, -1, ";\n" );
+            }
+            output( handle, 1, "engine->submodule_call_comb( instance_%s.handle );\n", module_instance->name );
+            for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
+            {
+                if (output_port->lvar->instance->driven_in_parts)
+                {
+                    output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
+                }
+                if (output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially)
+                {
+                    output_port->lvar->instance->output_args[0] |= 1;
+                }
+            }
+
+            /*b Next module instance
+             */
+        }
+    }
+}
+
 /*f output_simulation_methods
  */
 static void output_simulation_methods( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle )
@@ -2207,7 +2497,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 0, "t_sl_error_level c_%s::propagate_inputs( void )\n", module->output_name );
     output( handle, 0, "{\n");
 
-    /*b Handle asynchronous reset
+    /*b   Handle asynchronous reset
      */
     for (signal=module->inputs; signal; signal=signal->next_in_list)
     {
@@ -2225,6 +2515,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
 
     /*b   First clear the state we have in the combinatorials and nets. We will use this to indicate whether we have output the code for a signal
           But note that nets that are not generated combinatorially can be marked as already output
+          <instance>.output_args[0] = 1 IFF its value is valid
      */
     for (signal=module->combinatorials; signal; signal=signal->next_in_list)
     {
@@ -2517,9 +2808,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 1, "return propagate_inputs();\n");
     output( handle, 0, "}\n");
 
-    /*b Output the clocked functions
-      On entry to preclocked the inputs to the module we are outputting are correct, and they should be captured
-      On entry to the clocked function the recorded input state is valid
+    /*b Output the toplevel clock function calls - prepreclock, preclock per clock edge, clock per clock edge
      */
     if (module->clocks)
     {
@@ -2576,6 +2865,10 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         output( handle, 1, "return error_level_okay;\n");
         output( handle, 0, "}\n");
     }
+    /*b Output the preclock methods per edge
+      On entry to preclocked the inputs to the module we are outputting are correct, and they should be captured
+      On entry to the clocked function the recorded input state is valid
+     */
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
         for (edge=0; edge<2; edge++)
