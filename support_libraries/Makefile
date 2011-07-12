@@ -30,6 +30,7 @@ BASIC_LIB_SRCS := \
 		sl_data_stream.cpp \
 		sl_fifo.cpp \
 		sl_hier_mem.cpp \
+		sl_work_list.cpp \
 		sl_pthread_barrier.cpp \
 		sl_general.cpp
 
