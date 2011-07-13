@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include "sl_debug.h"
+#include "sl_timer.h"
 #include "sl_general.h"
 #include "sl_work_list.h"
 
@@ -35,6 +36,7 @@ typedef struct t_thread_data
     t_sl_wl_worklist *worklist; // Work to do
     int *guard_bits; // Whether to do the work (1 bit per item)
     int entry_number; // which function to call per item to execute if it is this thread
+    t_sl_timer timer;
     char name[1]; // Must be at the end
 } t_thread_data;
 typedef struct t_sl_wl_thread_pool
@@ -96,21 +98,23 @@ static void thread_sync_kill( t_thread_data *thread )
 /*f do_thread_work
   Do all the work on the worklist for this thread
  */
-static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int entry_number, int main_thread )
+static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int entry_number, t_thread_data *thread )
 {
-    pthread_t id;
     int i;
     int data_per_item;
     int guard=0;
 
-    //printf("Doing work %p worklist %p\n", pthread_self(), worklist);
+    if (thread)
+    {
+        SL_TIMER_ENTRY(thread->timer);
+    }       
+    printf("Doing work %p worklist %p\n", pthread_self(), worklist);
 
     if (!worklist)
         return;
 
     data_per_item = worklist->data_per_item;
 
-    id = pthread_self();
     for (i=0; i<worklist->number_of_items; i++)
     {
         if (guard_bits)
@@ -122,26 +126,27 @@ static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int ent
             guard=guard>>1;
         }
 
-        if (worklist->heads[i].affinity)
-        {
-            if ( ((t_thread_data *)(worklist->heads[i].affinity))->id != id)
+        if (worklist->heads[i].affinity != (void *)thread)
                 continue;
-        }
-        else
-        {
-            if (!main_thread)
-                continue;
-        }
 
         if (worklist->heads[i].guard_ptr)
             if (worklist->heads[i].guard_ptr[0]==0)
                 continue;
 
         t_sl_wl_data *data_ptr = &(worklist->data[i*data_per_item+entry_number]);
-        data_ptr->callback(data_ptr->handle);
+        if (data_ptr->callback)
+            data_ptr->callback(data_ptr->handle);
     }
 
-    //printf("Done work %p\n", pthread_self());
+    if (thread)
+    {
+        SL_TIMER_EXIT(thread->timer);
+        printf("Done work %p total time %f\n", pthread_self(), SL_TIMER_VALUE_US(thread->timer));
+    }   
+    else
+    {
+        printf("Done work for thread %p\n", pthread_self() );
+    }
 }
 
 /*f worker_thread
@@ -157,7 +162,7 @@ void *worker_thread( void *handle )
         if (!thread_sync( thread ))
             break;
         //printf("Woken thread %p\n", thread);
-        do_thread_work( thread->worklist, thread->guard_bits, thread->entry_number, 0 );
+        do_thread_work( thread->worklist, thread->guard_bits, thread->entry_number, thread );
         thread->worklist = NULL;
         thread->busy = 0;
         thread_sync( thread );
@@ -234,6 +239,7 @@ static t_thread_data *thread_add( t_sl_wl_thread_pool_ptr thread_pool, const cha
     thread->alive=1;
     thread->busy=0;
     thread->worklist = NULL;
+    SL_TIMER_INIT( thread->timer );
 
     return thread;
 }
@@ -322,6 +328,7 @@ extern void sl_wl_terminate_all_worker_threads( t_sl_wl_thread_pool_ptr thread_p
  */
 /*f sl_wl_add_worklist
   Add a worklist; set each item to default thread affinity
+  The name is copied
  */
 extern t_sl_wl_worklist *sl_wl_add_worklist( t_sl_wl_thread_pool_ptr thread_pool, const char *name, int number_of_items, int data_per_item )
 {
@@ -417,6 +424,7 @@ extern t_sl_error_level sl_wl_assign_work_to_thread( t_sl_wl_worklist *worklist,
     if (!thread)
         return error_level_serious;
 
+    printf("Assigning work item %d to thread %p\n",item, thread);
     if ((item>=0) && (item<worklist->number_of_items))
     {
         worklist->heads[item].affinity = (void *)thread;
@@ -451,7 +459,7 @@ extern t_sl_error_level sl_wl_execute_worklist( t_sl_wl_worklist *worklist, int 
     }
 
     // Do the work ourselves for anything not assigned to another thread
-    do_thread_work( worklist, guard_bits, entry_number, 1 );
+    do_thread_work( worklist, guard_bits, entry_number, NULL );
 
     // Run through each subthread and wait for them to finish
     for (thread=worklist->thread_pool->threads; thread; thread=thread->next_in_list)

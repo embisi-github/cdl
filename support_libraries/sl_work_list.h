@@ -102,6 +102,7 @@ extern void sl_wl_terminate_all_worker_threads( t_sl_wl_thread_pool_ptr thread_p
 
 /*f sl_wl_add_worklist
   Add a worklist; set each item to default thread affinity
+  The name is copied
  */
 extern t_sl_wl_worklist *sl_wl_add_worklist( t_sl_wl_thread_pool_ptr thread_pool, const char *name, int number_of_items, int data_per_item );
 
@@ -116,6 +117,7 @@ extern t_sl_wl_worklist *sl_wl_find_worklist( t_sl_wl_thread_pool_ptr thread_poo
 extern void sl_wl_delete_worklist( t_sl_wl_thread_pool_ptr thread_pool, t_sl_wl_worklist *worklist );
 
 /*f sl_wl_set_work_head
+  The name and subname ARE NOT COPIED
  */
 extern void sl_wl_set_work_head( t_sl_wl_worklist *worklist, int item, const char *name, const char *subname, int *guard_ptr );
 
