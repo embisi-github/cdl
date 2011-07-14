@@ -30,10 +30,12 @@ module vector_reverse( clock io_clock,
 
 reverse_code:
     {
+        vector_output_1 <= vector_output_1;
         for (i; width)
         {
             vector_output_0[i] <= vector_input_0[ width-1-i ];
         }
+        result = vector_output_0;
     }
 }
 

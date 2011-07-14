@@ -29,6 +29,7 @@ module vector_nest( clock io_clock,
 
 nest_code:
     {
+        vector_output_1 <= vector_output_1;
         for (i0; width) (0; i0<width; i0+8) // i0 is 0,8,16,.. width
         {
             for (i1; 2) (0; i1<8; i1+4) // i1 is 0,4

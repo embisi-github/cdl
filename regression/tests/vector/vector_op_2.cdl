@@ -30,6 +30,7 @@ module vector_op_2( clock io_clock,
 
 reverse_input:
     {
+        vector_output_1 <= vector_output_1;
     vector_output_0[ 0] <= vector_input_0[15];
     vector_output_0[ 1] <= vector_input_0[14];
     vector_output_0[ 2] <= vector_input_0[13];

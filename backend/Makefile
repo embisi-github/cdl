@@ -19,6 +19,7 @@ include ${CYCLICITY}/scripts/makefile_hdr
 #a Source files
 BACKEND_SRCS = \
 		c_model_descriptor.cpp \
+		md_output_markers.cpp \
 		md_target_c.cpp \
 		md_target_xml.cpp \
 		md_target_verilog.cpp

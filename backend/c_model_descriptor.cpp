@@ -282,6 +282,7 @@ t_md_module *c_model_descriptor::module_create( const char *name, int copy_name,
      module->port_lvars = NULL;
      module->last_statement_enumeration = 0;
      module->next_cover_case_entry=0;
+     module->number_submodule_clock_calls = 0;
      return module;
 }
 
@@ -5815,7 +5816,6 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      }
 
      filename = sl_option_get_string( env_options, "be_xmlfile" );
-     fprintf(stderr,"xml file %s\n",filename);
      if (filename)
      {
           f = fopen(filename, "w");

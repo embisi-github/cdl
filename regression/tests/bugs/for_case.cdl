@@ -28,6 +28,8 @@ module for_case( clock io_clock,
 
     toggle_code:
     {
+        out = 0;
+        fred.bitv_2 <= 0;
         for (i; 2)
         {
             full_switch(fred.bitv_2[i])

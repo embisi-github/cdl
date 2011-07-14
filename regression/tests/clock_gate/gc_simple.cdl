@@ -31,7 +31,7 @@ default clock clk;// "Default clock signal - handy!";
     clocked clock clk bit data_out=1;
 
     assert clocked bit asrt_data=0;
-    cover  clocked bit cover_data=0;
+    //cover  clocked bit cover_data=0;
 
     stuff "documentation for the stuff code block":
         {
@@ -57,7 +57,7 @@ default clock clk;// "Default clock signal - handy!";
             {
                 asrt_data <= 1;
             }
-            assert (clock_divider, "Message %d0% %d1% %d0% %x0%", clock_divider, div2) (1,2,3);
+            assert (clock_divider, "Message %d0% %d1% %d0% %x0%", clock_divider, div2) (1,2,3,10); // Output an assertion for fun if clock_divider is not 1, 2, 3 or 10
             print("Message %d0%",clock_divider);
         }
 }

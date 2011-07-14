@@ -730,6 +730,7 @@ typedef struct t_md_module_instance_clock_port
     char *clock_name;
     t_md_signal *module_port_signal; // filled in at cross referencing; points to actual signal on module's 'outputs' list
     t_md_signal *local_clock_signal; // filled in at cross referencing; points to actual local clock signal driving instance's clock port
+    int output_args[MD_OUTPUT_MAX_SIGNAL_ARGS]; // because there is no instance for a clock port
 } t_md_module_instance_clock_port;
 
 /*t t_md_module_instance_input_port
@@ -858,6 +859,7 @@ typedef struct t_md_module
     t_md_reference_set *module_types_instantiated; // filled in at hierarchy determination time, with module types that this module instantiates
     int last_statement_enumeration;
     int next_cover_case_entry; // For cover case counting
+    int number_submodule_clock_calls; // For C - filled in by C
     struct
     {
         int unique_id;

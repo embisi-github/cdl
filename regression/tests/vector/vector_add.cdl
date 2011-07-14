@@ -29,7 +29,8 @@ module vector_add( clock io_clock,
 
 add_code:
     {
-    vector_output_0 <= vector_output_0 + 1;
+        vector_output_1 <= vector_output_1;
+        vector_output_0 <= vector_output_0 + 1;
     }
 }
 

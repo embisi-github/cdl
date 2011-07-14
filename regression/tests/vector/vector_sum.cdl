@@ -30,7 +30,8 @@ module vector_sum( clock io_clock,
 
 sum_code:
     {
-    vector_output_0 <= vector_input_0 + vector_input_1;
+        vector_output_1 <= vector_output_1;
+        vector_output_0 <= vector_input_0 + vector_input_1;
     }
 }
 

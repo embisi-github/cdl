@@ -11,6 +11,7 @@ module alu( input t_word a, input t_word b, input t_alu_op op, output t_word r )
 {
 	alu_logic "ALU logic":
 	{
+        r = 0;
 		full_switch (op)
 		{
         case alu_op_add: {r=a+b;}

@@ -55,6 +55,7 @@ generate_result:
     }
 record_result:
     {
+        vector_output_1 <= vector_output_1;
         vector_output_0 <= result;
     }
 }

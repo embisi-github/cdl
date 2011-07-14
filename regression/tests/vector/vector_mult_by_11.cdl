@@ -30,6 +30,7 @@ module vector_mult_by_11( clock io_clock,
 
 mult_by_11_code:
     {
+        vector_output_1 <= vector_output_1;
         result = 0;
         for (i; 11)
         {

@@ -95,7 +95,7 @@
       At this point A.inputs and C.inputs used for clocked logic must be valid
       Prepreclock A, C
       Preclock A, C for all clock edges
-      Do next-state for M
+      Do next-state for M for all specified clock edges
       Clock A, C
         (C.outputs are valid; non-comb A.outputs are valid)
       Ensure M.outputs and dependencies are valid

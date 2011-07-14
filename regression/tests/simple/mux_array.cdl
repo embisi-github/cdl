@@ -13,6 +13,11 @@ module fred_array( clock clk, input bit rst, input bit[4] a, output bit[4] b, in
     clocked bit[4] b=0;
 	body_code "Select appropriate bit of a":
 	{
+        for (i; 4)
+        {
+            data[0].a <= a;
+            data[0].b <= b;
+        }
 		b <= data[bundle(c[0], c[1])].a;
 	}
 }

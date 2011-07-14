@@ -65,7 +65,7 @@ end
 test_values:
 
 #printf "Cycle %d0%, testing values" global_cycle()
-printf "Cycle %d0%, testing values %x1% %d2% %d3% %d4% %d5%" global_cycle() signal__constants_out.value() last_expected_value where expected_value last_expected_value
+printf "Cycle %d0%, testing values constants %x1% last expected %d2% where %d3% expected %d4% last expected %d5%" global_cycle() signal__constants_out.value() last_expected_value where expected_value last_expected_value
 add where where 1
 
 set reason signal__high_0.value()

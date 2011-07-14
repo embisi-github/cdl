@@ -160,6 +160,11 @@ ifeq (${BUILD_ARCH},osx)
 	# We require macports
 	# We use port install python, port install gtk2
 	# We need X11 for this to work
+	# For Gavins machine changed this from gcc-4.0 to gcc
+	GCC = gcc-4.0
+	GPP = g++-4.0
+	GCC = gcc
+	GPP = g++
 	ifndef FRAMEWORK_PATH
           FRAMEWORK_PATH = /opt/local/Library/Frameworks
         endif
@@ -169,22 +174,22 @@ ifeq (${BUILD_ARCH},osx)
 	else
 	  PYTHON_INCLUDES := ${FRAMEWORK_PATH}/Python.framework/Versions/Current/include/${PYTHON}
 	endif
-	CC := gcc -dynamic
-	LINK := gcc-4.0
+	CC := ${GCC} -dynamic
+	LINK := ${GCC}
 	LINKASOBJ := ld -r -o
 	# Python requires -bundle and a .so, with fred.so containing a function _initfred
 	# We build within the Python framework, which in macports is held in /opt/local/Library/Frameworks
 	ifeq (${BUILD_SUBARCH},snowleopard)
-		CC := gcc-4.0 -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
-		CXX := gcc-4.0 -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
-		LINK := gcc-4.0
+		CC := ${GCC} -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
+		CXX := ${GCC} -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
+		LINK := ${GCC}
 		LINKASOBJ := ld -r -o
-		LINKASBIN := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -o
-		LINKDYNLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
-		PYTHONLINKLIB := g++-4.0 -L/opt/local/lib -bundle -undefined dynamic_lookup -o
+		LINKASBIN := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -o
+		LINKDYNLIB := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
+		PYTHONLINKLIB := ${GPP} -L/opt/local/lib -bundle -undefined dynamic_lookup -o
 	else
-		LINKDYNLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
-		PYTHONLINKLIB := g++-4.0 ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} -o 
+		LINKDYNLIB := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
+		PYTHONLINKLIB := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} -o 
 	endif
 endif
 

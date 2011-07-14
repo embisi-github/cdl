@@ -65,6 +65,7 @@ These functions can then be split using pthreads by the simulation engine by pro
 #include <string.h>
 #include "be_errors.h"
 #include "cdl_version.h"
+#include "md_output_markers.h"
 #include "c_model_descriptor.h"
 
 /*a Static variables
@@ -127,22 +128,24 @@ static void output_trailer( c_model_descriptor *model, t_md_output_fn output, vo
      output( handle, 0, "</cdl>\n");
 }
 
-/*f output_type
+/*f output_instance
  */
-static void output_type( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_type_instance *instance, int indent )
+static void output_instance( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_type_instance *instance, int indent )
 {
-     switch (instance->type)
-     {
-     case md_type_instance_type_bit_vector:
-          output( handle, indent, "<bits name='%s' width='%d'/>\n", instance->output_name, instance->type_def.data.width);
-          break;
-     case md_type_instance_type_array_of_bit_vectors:
-          output( handle, indent, "<vector name='%s' size='%d' width='%d'/>\n", instance->output_name, instance->size, instance->type_def.data.width );
-          break;
-     default:
-          output( handle, indent, "<structure comment='NO TYPE FOR STRUCTURES'/>\n");
-          break;
-     }
+    output( handle, indent++, "<instance ref='%p' output_args_0='%d'>\n", instance, instance->output_args[0] );
+    switch (instance->type)
+    {
+    case md_type_instance_type_bit_vector:
+        output( handle, indent, "<bits name='%s' width='%d'/>\n", instance->output_name, instance->type_def.data.width);
+        break;
+    case md_type_instance_type_array_of_bit_vectors:
+        output( handle, indent, "<vector name='%s' size='%d' width='%d'/>\n", instance->output_name, instance->size, instance->type_def.data.width );
+        break;
+    default:
+        output( handle, indent, "<structure comment='NO TYPE FOR STRUCTURES'/>\n");
+        break;
+    }
+    output( handle, --indent, "</instance>\n" );
 }
 
 /*f output_reference
@@ -155,12 +158,11 @@ static void output_reference( c_model_descriptor *model, t_md_module *module, t_
         return;
     }
 
+    output( handle, indent++, "<reference>\n" );
     switch (reference->type)
     {
     case md_reference_type_instance:
-        output( handle, indent++, "<instance name='%s'>\n", reference->data.instance->name );
-        output_reference( model, module, output, handle, indent, &reference->data.instance->reference );
-        output( handle, --indent, "</instance>\n" );
+        output_instance( model, output, handle, reference->data.instance, indent );
         break;
     case md_reference_type_state:
         output( handle, indent, "<state name='%s'/>\n", reference->data.state->name );
@@ -175,11 +177,12 @@ static void output_reference( c_model_descriptor *model, t_md_module *module, t_
         output( handle, indent, "<bad_reference_type type='%d'/>\n", reference->type );
         break;
     }
+    output( handle, --indent, "</reference>\n" );
 }
 
-/*f output_dependencies
+/*f output_references
  */
-static void output_dependencies( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle, int indent, const char *tag, t_md_reference_set *set )
+static void output_references( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle, int indent, const char *tag, t_md_reference_set *set )
 {
     t_md_reference_iter iter;
     t_md_reference *reference;
@@ -218,9 +221,9 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            output( handle, indent++, "<input used_combinatorially='%d'>\n", signal->data.input.used_combinatorially );
-            output_type( model, output, handle, signal->instance_iter->children[i], indent );
-            output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
+            output( handle, indent++, "<input ref='%p' used_combinatorially='%d'>\n", signal->instance_iter->children[i], signal->data.input.used_combinatorially );
+            output_instance( model, output, handle, signal->instance_iter->children[i], indent );
+            output_references( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
             for (int level=0; level<2; level++)
             {
                 if (signal->data.input.levels_used_for_reset[level])
@@ -269,11 +272,21 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
                 instance = reg->instance_iter->children[i];
                 if (!reg->clock_ref->data.clock.clock_ref)
                 {
-                    output( handle, indent, "<output type='registered' name='%s' width='%d' clock='%s' edge='%s'/>\n", instance->output_name, instance->type_def.data.width, reg->clock_ref->name, edge_name[reg->edge] );
+                    output( handle, indent, "<output type='registered' ref='%p' name='%s' width='%d' clock='%s' edge='%s'/>\n",
+                            instance,
+                            instance->output_name,
+                            instance->type_def.data.width,
+                            reg->clock_ref->name,
+                            edge_name[reg->edge] );
                 }
                 else
                 {
-                    output( handle, indent, "<output type='registered' name='%s' width='%d' clock='%s' edge='%s'/>\n", instance->output_name, instance->type_def.data.width, reg->clock_ref->data.clock.clock_ref->name, edge_name[reg->edge] );
+                    output( handle, indent, "<output type='registered' ref='%p' name='%s' width='%d' clock='%s' edge='%s'/>\n",
+                            instance,
+                            instance->output_name,
+                            instance->type_def.data.width,
+                            reg->clock_ref->data.clock.clock_ref->name,
+                            edge_name[reg->edge] );
                 }
             }
         }
@@ -282,10 +295,14 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
             for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
-                output( handle, indent++, "<output type='comb' name='%s' width='%d' combinatorial_on_input='%d'>\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially );
-                output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
-                output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
-                output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
+                output( handle, indent++, "<output type='comb' ref='%p' name='%s' width='%d' combinatorial_on_input='%d'>\n",
+                        instance,
+                        instance->output_name,
+                        instance->type_def.data.width,
+                        signal->data.output.derived_combinatorially );
+                output_references( model, module, output, handle, indent, "dependencies", instance->dependencies );
+                output_references( model, module, output, handle, indent, "base_dependencies", instance->base_dependencies );
+                output_references( model, module, output, handle, indent, "dependents", instance->dependents );
                 output( handle, --indent, "</output>\n" );
             }
         }
@@ -294,11 +311,15 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
             for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.net_ref->instance_iter->children[i];
-                output( handle, indent++, "<output type='net' name='%s' width='%d' combinatorial_on_input='%d'>\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially );
+                output( handle, indent++, "<output type='net' ref='%p' name='%s' width='%d' combinatorial_on_input='%d'>\n",
+                        instance,
+                        instance->output_name,
+                        instance->type_def.data.width,
+                        signal->data.output.derived_combinatorially );
 
-                output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
-                output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
-                output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
+                output_references( model, module, output, handle, indent, "dependencies", instance->dependencies );
+                output_references( model, module, output, handle, indent, "base_dependencies", instance->base_dependencies );
+                output_references( model, module, output, handle, indent, "dependents", instance->dependents );
                 output( handle, --indent, "</output>\n" );
 
                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter ); // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
@@ -320,11 +341,14 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            output( handle, indent++, "<net driven_in_parts='%d'>\n", signal->instance_iter->children[i]->driven_in_parts );
-            output_type( model, output, handle, signal->instance_iter->children[i], indent );
-            output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
-            output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
-            output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
+            output( handle, indent++, "<net ref='%p' driven_in_parts='%d' derived_combinatorially='%d'>\n",
+                    signal->instance_iter->children[i],
+                    signal->instance_iter->children[i]->driven_in_parts,
+                    signal->instance_iter->children[i]->derived_combinatorially );
+            output_instance( model, output, handle, signal->instance_iter->children[i], indent );
+            output_references( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
+            output_references( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
+            output_references( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
             output( handle, --indent, "</net>\n");
         }
     }
@@ -390,7 +414,10 @@ static void output_submodules( c_model_descriptor *model, t_md_module *module, t
                         output_port->module_port_instance->type_def.data.width,
                         output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
 
-                output( handle, indent++, "<drives signal='%s' is_output='%d'>\n", output_port->lvar->instance->output_name, (output_port->lvar->instance->reference.data.signal->data.net.output_ref!=NULL) );
+                output( handle, indent++, "<drives ref='%p' signal='%s' is_output='%d'>\n",
+                        output_port->lvar->instance,
+                        output_port->lvar->instance->output_name,
+                        (output_port->lvar->instance->reference.data.signal->data.net.output_ref!=NULL) );
                 if (output_port->lvar->instance->driven_in_parts)
                 {
                     switch (output_port->lvar->subscript_start.type)
@@ -408,8 +435,8 @@ static void output_submodules( c_model_descriptor *model, t_md_module *module, t
                 output( handle, --indent, "</drives>\n" );
                 output( handle, --indent, "</output>\n" );
             }
-            output_dependencies( model, module, output, handle, indent, "dependencies", module_instance->dependencies );
-            output_dependencies( model, module, output, handle, indent, "combinatorial_dependencies", module_instance->combinatorial_dependencies );
+            output_references( model, module, output, handle, indent, "dependencies", module_instance->dependencies );
+            output_references( model, module, output, handle, indent, "combinatorial_dependencies", module_instance->combinatorial_dependencies );
         }
         output( handle, --indent, "</submodule>\n" );
     }
@@ -433,10 +460,10 @@ static void output_combinatorials( c_model_descriptor *model, t_md_module *modul
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
             output( handle, indent++, "<comb usage='%s'>\n", usage_type[signal->usage_type] );
-            output_type( model, output, handle, signal->instance_iter->children[i], indent );
-            output_dependencies( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
-            output_dependencies( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
-            output_dependencies( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
+            output_instance( model, output, handle, signal->instance_iter->children[i], indent );
+            output_references( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
+            output_references( model, module, output, handle, indent, "base_dependencies", signal->instance_iter->children[i]->base_dependencies );
+            output_references( model, module, output, handle, indent, "dependents", signal->instance_iter->children[i]->dependents );
             output_simulation_methods_code_block( model, output, handle, signal->instance_iter->children[i]->code_block, indent, NULL, -1, signal->instance_iter->children[i] );
             output( handle, --indent, "</comb>\n");
         }
@@ -478,7 +505,10 @@ static void output_registers( c_model_descriptor *model, t_md_module *module, t_
                             array_size = instance->size;
 
                             output( handle, indent++, "<clocked edge='%s' clock='%s' usage='%s' reset='%s' reset_level='%s'>\n", edge_name[edge], clk->name, usage_type[reg->usage_type], reg->reset_ref->name, level_name[reg->reset_level] );
-                            output_type( model, output, handle, reg->instance_iter->children[i], indent );
+                            output_instance( model, output, handle, reg->instance_iter->children[i], indent );
+                            output_references( model, module, output, handle, indent, "dependencies", reg->instance_iter->children[i]->dependencies );
+                            output_references( model, module, output, handle, indent, "base_dependencies", reg->instance_iter->children[i]->base_dependencies );
+                            output_references( model, module, output, handle, indent, "dependents", reg->instance_iter->children[i]->dependents );
 
                             for (j=0; j<(array_size>0?array_size:1); j++)
                             {
@@ -1188,394 +1218,6 @@ static void output_simulation_methods_code_block( c_model_descriptor *model, t_m
      output( handle, --indent, "</code_block>\n" );
 }
 
-/*f output_simulation_methods
- */
-static void output_simulation_methods( c_model_descriptor *model, t_md_module *module, t_md_output_fn output, void *handle )
-{
-    int edge, level;
-    t_md_signal *clk;
-    t_md_signal *signal;
-    t_md_state *reg;
-    t_md_code_block *code_block;
-    t_md_type_instance *instance;
-    t_md_module_instance *module_instance;
-    t_md_module_instance_clock_port *clock_port;
-    t_md_reference_iter iter;
-    t_md_reference *reference;
-    t_md_type_instance *dependency;
-    t_md_module_instance_input_port *input_port;
-    t_md_module_instance_output_port *output_port;
-    int i;
-    int more_to_output, did_output;
-
-    /*b   Run through combinatorials and nets to see if we can output the code or module instances for one (are all its dependencies done?) - and repeat until we have nothing left
-     */
-    more_to_output = 1;
-    did_output = 1;
-    while (more_to_output && did_output)
-    {
-        /*b Mark us as done nothing yet
-         */
-        more_to_output = 0;
-        did_output = 0;
-
-        /*b Check for combinatorials that have not been done and are ready
-         */
-        for (signal=module->combinatorials; signal; signal=signal->next_in_list)
-        {
-            for (i=0; i<signal->instance_iter->number_children; i++)
-            {
-                /*b If instance has been done, skip to next
-                 */
-                instance = signal->instance_iter->children[i];
-                if (instance->output_args[0] & 1)
-                {
-                    continue;
-                }
-
-                /*b Check dependencies (net and combinatorial) are all done
-                 */
-                model->reference_set_iterate_start( &instance->dependencies, &iter );
-                while ((reference = model->reference_set_iterate(&iter))!=NULL)
-                {
-                    dependency = reference->data.instance;
-                    if ( (dependency->reference.type==md_reference_type_signal) &&
-                         ( (dependency->reference.data.signal->type==md_signal_type_combinatorial) ||
-                           (dependency->reference.data.signal->type==md_signal_type_net) ) &&
-                         (dependency->reference.data.signal!=signal) && // Added so self-dependent signals do get output
-                         (dependency->output_args[0]==0) )
-                    {
-                        break;
-                    }
-                }
-                if (reference) // unsatisfied dependency
-                {
-                    more_to_output=1;
-                    continue;
-                }
-
-                /*b Dependencies are all done; mark as done too, and output the code
-                 */
-                did_output=1;
-                instance->output_args[0] |= 1;
-
-                if (!instance->code_block)
-                {
-                    output( handle, 1, "//No definition of signal %s (%p)\n", instance->name, instance);
-                    //break;
-                }
-                else
-                {
-                    output_simulation_methods_code_block( model, output, handle, instance->code_block, 0, NULL, -1, instance );
-                }
-
-                /*b Next instance
-                 */
-            }
-        }
-
-        /*b Check all module instances which have not been done and are ready
-         */
-        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-        {
-            /*b If module_instance is not combinatorial or has been done, skip to next
-             */
-            if ( (!module_instance->module_definition) ||
-                 (!module_instance->module_definition->combinatorial_component) ||
-                 (module_instance->output_args[0] & 1) )
-            {
-                continue;
-            }
-
-            /*b Check dependencies (net and combinatorial) for combinatorial function are all done
-             */
-            model->reference_set_iterate_start( &module_instance->combinatorial_dependencies, &iter );
-            while ((reference = model->reference_set_iterate(&iter))!=NULL)
-            {
-                dependency = reference->data.instance;
-                if ( (dependency->reference.type==md_reference_type_signal) &&
-                     ( (dependency->reference.data.signal->type==md_signal_type_combinatorial) ||
-                           (dependency->reference.data.signal->type==md_signal_type_net) ) &&
-                     (dependency->output_args[0]==0) )
-                {
-                    break;
-                }
-            }
-            if (reference)
-            {
-                more_to_output=1;
-                continue;
-            }
-        
-            /*b Dependencies are all done; mark as done too, and output the code, and mark output nets as done
-             */
-            did_output=1;
-            module_instance->output_args[0] |= 1;
-            for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
-            {
-                if (1||input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially)
-                {
-                    output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-                    output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2 );
-                    output( handle, -1, ";\n" );
-                }
-            }
-            output( handle, 1, "engine->submodule_call_comb( instance_%s.handle );\n", module_instance->name );
-            for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
-            {
-                if (output_port->lvar->instance->driven_in_parts)
-                {
-                    output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
-                }
-                if (output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially)
-                {
-                    output_port->lvar->instance->output_args[0] |= 1;
-                }
-            }
-
-            /*b Next module instance
-             */
-        }
-    }
-
-    /*b Set inputs to all clocked modules EVEN IF THEY HAVE BEEN OUTPUT ALREADY
-     */
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-    {
-        /*b If module_instance is not purely clocked then it has already been done
-         */
-        if ( (!module_instance->module_definition) )
-        {
-            continue;
-        }
-
-        /*b Set inputs
-         */
-        for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
-        {
-            output( handle, 1, "instance_%s.inputs.%s = ", module_instance->name, input_port->module_port_instance->output_name );
-            output_simulation_methods_expression( model, output, handle, NULL, input_port->expression, 2 );
-            output( handle, -1, ";\n" );
-        }
-
-        /*b Next module instance
-         */
-    }
-
-    /*b More to output? If so, warn!
-     */
-    if (more_to_output)
-    {
-        /*b Warn about combinatorials that have not been done and are ready
-         */
-        for (signal=module->combinatorials; signal; signal=signal->next_in_list)
-        {
-            for (i=0; i<signal->instance_iter->number_children; i++)
-            {
-                /*b If instance has been done, skip to next
-                 */
-                instance = signal->instance_iter->children[i];
-                if (instance->output_args[0] & 1)
-                {
-                    continue;
-                }
-
-                /*b Warn
-                 */
-                {
-                    char buffer[256];
-                    output( handle, 1, "//Combinatorial %s has code whose dependents seem cyclic\n", instance->name );
-                    snprintf(buffer,sizeof(buffer),"DESIGN ERROR: circular dependency found for %s (depends on...):", instance->name );
-                    model->reference_set_iterate_start( &instance->dependencies, &iter );
-                    while ((reference = model->reference_set_iterate(&iter))!=NULL)
-                    {
-                        dependency = reference->data.instance;
-                        if ( (dependency->reference.type==md_reference_type_signal) &&
-                             ( (dependency->reference.data.signal->type==md_signal_type_combinatorial) ||
-                               (dependency->reference.data.signal->type==md_signal_type_net) ) &&
-                             (dependency->output_args[0]==0) )
-                        {
-                            output( handle, 1, "//    dependent '%s' not ready\n", dependency->reference.data.signal->name );
-                            snprintf(buffer+strlen(buffer),sizeof(buffer)-strlen(buffer),"%s ", dependency->reference.data.signal->name );
-                        }
-                    }
-                    buffer[sizeof(buffer)-1]=0;
-                    model->error->add_error( module, error_level_fatal, error_number_sl_message, error_id_be_backend_message,
-                                             error_arg_type_malloc_string, buffer,
-                                             error_arg_type_malloc_filename, module->output_name,
-                                             error_arg_type_none );
-                }
-            }
-        }
-
-        /*b Warn about all module instances which have not been done
-         */
-        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-        {
-            /*b If module_instance is not combinatorial or has been done, skip to next
-             */
-            if ( (!module_instance->module_definition) ||
-                 (!module_instance->module_definition->combinatorial_component) ||
-                 (module_instance->output_args[0] & 1) )
-            {
-                continue;
-            }
-
-            /*b Warn
-             */
-            {
-                char buffer[256];
-                output( handle, 1, "//Module instance %s has dependents which seem cyclic\n", module_instance->name );
-
-                snprintf(buffer,sizeof(buffer),"DESIGN ERROR: circular dependency found for module %s:", module_instance->name );
-                model->error->add_error( module, error_level_info, error_number_sl_message, error_id_be_backend_message,
-                                         error_arg_type_malloc_string, buffer,
-                                         error_arg_type_malloc_filename, module->output_name,
-                                         error_arg_type_none );
-            }
-        }
-    }
-
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
-    {
-        for (edge=0; edge<2; edge++)
-        {
-            if (clk->data.clock.edges_used[edge])
-            {
-                // For clock_will_fire just need to record which functions to call
-                // For a clock preclock function, inputs will already have been propagated, as will state, so only need to do 'next_state' functions - can fire log events too
-                output( handle, 0, "/*f c_%s::preclock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "t_sl_error_level c_%s::preclock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "{\n");
-                output( handle, 1, "memcpy( &next_%s_%s_state, &%s_%s_state, sizeof(%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
-
-                // Output code for this clock for this module - effects next state only
-                for (code_block = module->code_blocks; code_block; code_block=code_block->next_in_list)
-                {
-                    output_simulation_methods_code_block( model, output, handle, code_block, 0, clk, edge, NULL );
-                }
-
-                // Preclock submodules using this clock
-                for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-                {
-                    if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
-                    {
-                        for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
-                        {
-                            if (clock_port->local_clock_signal==clk)
-                            {
-                                output( handle, 1, "engine->submodule_call_preclock( instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
-                            }
-                        }
-                    }
-                }
-
-                // Determine clock gate enables for every gated version of this clock
-                {
-                    t_md_signal *clk2;
-                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
-                    {
-                        if (clk2->data.clock.clock_ref == clk)
-                        {
-                            if (clk2->data.clock.edges_used[edge])
-                            {
-                                output( handle, 1, "clock_enable__%s_%s = ", edge_name[edge], clk2->name );
-                                if (clk2->data.clock.gate_state)
-                                {
-                                    output( handle, -1, "(%s_%s_state.%s==%d);\n",
-                                            edge_name[clk2->data.clock.gate_state->edge], clk2->data.clock.gate_state->clock_ref->name, clk2->data.clock.gate_state->name,
-                                            clk2->data.clock.gate_level );
-                                }
-                                else
-                                {
-                                    output( handle, -1, "(combinatorials.%s==%d);\n", clk2->data.clock.gate_signal->name, clk2->data.clock.gate_level);
-                                }
-                            }
-                        }
-                    }
-
-                // Call gated clocks 'preclock' functions
-                {
-                    t_md_signal *clk2;
-                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
-                    {
-                        if (clk2->data.clock.clock_ref == clk)
-                        {
-                            if (clk2->data.clock.edges_used[edge])
-                            {
-                                output( handle, 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
-                                output( handle, 2, "preclock_%s_%s();\n", edge_name[edge], clk2->name );
-                            }
-                        }
-                    }
-                }
-
-
-                }
-
-                output( handle, 1, "return error_level_okay;\n");
-                output( handle, 0, "}\n");
-                output( handle, 0, "\n");
-
-                output( handle, 0, "/*f c_%s::clock_%s_%s\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "t_sl_error_level c_%s::clock_%s_%s( void )\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "{\n");
-                output( handle, 1, "memcpy( &%s_%s_state, &next_%s_%s_state, sizeof(%s_%s_state) );\n", edge_name[edge], clk->name, edge_name[edge], clk->name, edge_name[edge], clk->name);
-
-                // Call submodules clock functions if they use this clock directly
-                for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-                {
-                    if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
-                    {
-                        for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
-                        {
-                            if (clock_port->local_clock_signal==clk)
-                            {
-                                output( handle, 1, "engine->submodule_call_clock( instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
-                                if (module_instance->module_definition)
-                                {
-                                    t_md_module_instance_output_port *output_port;
-                                    for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
-                                    {
-                                        if (output_port->lvar->instance->driven_in_parts)
-                                        {
-                                            output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                output( handle, 0, "\n");
-
-                // Call gated clocks 'clock' functions
-                {
-                    t_md_signal *clk2;
-                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
-                    {
-                        if (clk2->data.clock.clock_ref == clk)
-                        {
-                            if (clk2->data.clock.edges_used[edge])
-                            {
-                                output( handle, 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
-                                output( handle, 2, "clock_%s_%s();\n", edge_name[edge], clk2->name );
-                            }
-                        }
-                    }
-                }
-
-                output( handle, 1, "return error_level_okay;\n");
-                output( handle, 0, "}\n");
-                output( handle, 0, "\n");
-            }
-        }
-    }
-
-}
-
 /*a External functions
  */
 /*f target_xml_output
@@ -1591,12 +1233,16 @@ extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_
         // module->documentation
         if (!module->external)
         {
+    output_markers_mask_all( model, module, 0, -1 );
+    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 1, 0 );
+    output_markers_mask_output_dependencies( model, module, 2, 0 );
+    output_markers_mask_all_matching( model, module, 3, 3,   4, 0,   8, 0 ); // Everything marked as '3' -> 7, everything else is 8+current
+
             output_ports_nets_clocks( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
             output_submodules( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
             output_combinatorials( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
             output_registers( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
             output_logging( model, module, output_fn, output_handle );
-            //output_simulation_methods( model, module, output_fn, output_handle );
         }
         output_fn( output_handle, 0, "</module>\n" );
     }

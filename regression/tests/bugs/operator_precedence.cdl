@@ -48,6 +48,7 @@ logic_test :
               1 );
         for (i; 4)
         {
+            c[i]=1;
             operator_precedence_sub sub[i+1](a<=c[i], b=>d[i]);
         }
         full_switch(select)

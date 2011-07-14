@@ -63,6 +63,9 @@ state_machine_code:
         if (a==2) {b=1;}
         a=3;
         y<=a;
+        x <= a;
+        ocfsm <= one_cold_fsm_next;
+        ohfsm <= one_hot_fsm_next;
     full_switch (expfsm)
         {
         case exp_fsm_idle:
