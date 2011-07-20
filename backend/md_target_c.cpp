@@ -2071,7 +2071,7 @@ static void output_simulation_methods_code_block( c_model_descriptor *model, t_m
      /*b Insert comment for the block
       */
      if (instance)
-          output( handle, 1, "/*b %s : %s\n", instance->name, code_block->name );
+         output( handle, 1, "/*b %s (%d): %s\n", instance->name, instance->output_args[0], code_block->name );
      else
           output( handle, 1, "/*b %s\n", code_block->name );
      output( handle, 1, "*/\n" );
@@ -2101,6 +2101,34 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
     t_md_module_instance_input_port *input_port;
     t_md_module_instance_output_port *output_port;
     int first_output;
+
+    /*b Mark all modules as to be output ONLY if at least one of their outputs are marked as invalid and in need of output
+     */
+    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    {
+        int need_to_output=0;
+        for (output_port=module_instance->outputs; output_port && (!need_to_output); output_port=output_port->next_in_list)
+        {
+            if (output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially)
+            {
+                if (output_markers_value( output_port->lvar->instance, om_make_valid_mask )==(om_invalid | om_must_be_valid))
+                {
+                    output( handle, 1, "//   Module output %s needs to be made valid\n", output_port->lvar->instance->name );
+                    need_to_output=1;
+                }
+            }
+        }
+        if (need_to_output)
+        {
+            output( handle, 1, "//   Module %s being marked as required combinatorially for some signals that depend on it\n", module_instance->name );
+            output_markers_mask( module_instance, om_must_be_valid, -1 );
+        }
+        else
+        {
+            output( handle, 1, "//   Module %s not being marked as required combinatorially as no signals depend on it\n", module_instance->name );
+            output_markers_mask( module_instance, 0, -1 );
+        }
+    }
 
     /*b Check all clocked module instances whose outputs are required to be valid and that and are not combinatorial
      */
@@ -2137,7 +2165,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                     }
                     output_simulation_methods_port_net_assignment( model, output, handle, NULL, 0, module_instance, output_port->lvar, output_port->module_port_instance );
                 }
-                output_markers_mask( output_port->lvar->instance, om_valid, 0 );
+                output_markers_mask( output_port->lvar->instance, om_must_be_valid|om_valid, 0 );
             }
         }
 
@@ -2215,21 +2243,30 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             {
                 need_to_output=0;
             }
-            if (!need_to_output) continue;
+            if (!need_to_output)
+            {
+                output( handle, 1, "//   Not outputting module %s as it is external or not combinatorial\n", module_instance->name );
+                continue;
+            }
 
-            /*b Check if the module is marked as needed to be output
+            /*b Check if the module is marked as needed to be output as it is marked as invalid
              */
             need_to_output=0;
-            if (output_markers_value(module_instance, om_valid_mask)==om_invalid)
-                need_to_output =1;
-            if (!need_to_output) continue;
+            if (output_markers_value(module_instance, om_make_valid_mask)==(om_invalid|om_must_be_valid))
+                need_to_output = 1;
+            if (!need_to_output)
+            {
+                output( handle, 1, "//   Not outputting module %s as not marked as required\n", module_instance->name );
+                continue;
+            }
             more_to_output=1;
 
             /*b Check dependencies (net and combinatorial) for combinatorial function are all done
              */
             model->reference_set_iterate_start( &module_instance->combinatorial_dependencies, &iter );
-            if (output_markers_check_iter_any_match( model, &iter, (void *)signal, om_valid_mask, om_invalid))
+            if (output_markers_check_iter_any_match( model, &iter, (void *)NULL, om_valid_mask, om_invalid))
             {
+                output( handle, 1, "//   Not outputting module %s as dependencies are not all valid\n", module_instance->name );
                 continue;
             }
         
@@ -2249,6 +2286,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             {
                 if (output_port->lvar->instance->driven_in_parts)
                 {
+                    // Should we only do this assignment if the output is derived combinatorially?
                     output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
                     check_nets_driven_in_parts = 1;
                 }
@@ -2271,7 +2309,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
         {
             for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
             {
-                if (output_markers_value(module_instance, om_valid_mask)==om_valid)
+                if (output_markers_value(module_instance, om_make_valid_mask)==(om_valid|om_must_be_valid))
                 {
                     for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
                     {
@@ -2321,7 +2359,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                     model->reference_set_iterate_start( &instance->dependencies, &iter );
                     while ((dependency=output_markers_find_iter_match( model, &iter, (void *)signal, om_valid_mask, om_invalid))!=NULL)
                     {
-                        output( handle, 1, "//    dependent '%s' not ready\n", dependency->reference.data.signal->name );
+                        output( handle, 1, "//    dependent '%s' not ready (%d)\n", dependency->reference.data.signal->name, output_markers_value(dependency,-1) );
                         snprintf(buffer+strlen(buffer),sizeof(buffer)-strlen(buffer),"%s ", dependency->reference.data.signal->name );
                     }
                     buffer[sizeof(buffer)-1]=0;
@@ -2344,7 +2382,8 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
 //            output( handle, 1, "//Module instance %s has been output %d\n", module_instance->name, module_instance->output_args[0] );
             if ( (!module_instance->module_definition) ||
                  (!module_instance->module_definition->combinatorial_component) || 
-                 (output_markers_value(module_instance, om_valid_mask)==om_valid) )
+                 (output_markers_value(module_instance, om_valid_mask)==om_valid) ||
+                 (output_markers_value(module_instance, om_make_valid_mask)!=om_must_be_valid) )
             {
                 continue;
             }
@@ -2355,7 +2394,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                 t_md_type_instance *dependency;
                 output( handle, 1, "//Module instance %s has dependents which seem cyclic\n", module_instance->name );
                 model->reference_set_iterate_start( &module_instance->combinatorial_dependencies, &iter );
-                while ((dependency=output_markers_find_iter_match( model, &iter, NULL, om_valid_mask, om_invalid))!=NULL)
+                while ((dependency=output_markers_find_iter_match( model, &iter, NULL, 0, 0))!=NULL)
                 {
                     output( handle, 1, "//   Dependency %s has output state %d\n", dependency->name, output_markers_value( dependency, -1 ) );
                 }
@@ -2475,7 +2514,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                         {
                             for (reg=module->registers; reg; reg=reg->next_in_list)
                             {
-                                if ( (reg->clock_ref==clk) && (reg->edge==edge) && (reg->reset_ref=signal) && (reg->reset_level==level))
+                                if ( (reg->clock_ref==clk) && (reg->edge==edge) && (reg->reset_ref==signal) && (reg->reset_level==level))
                                 {
                                     for (i=0; i<reg->instance_iter->number_children; i++)
                                     {
@@ -2622,7 +2661,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
 
     /*b   Output code for this module (makes all its signals valid, including going through comb modules as required)
      */
-    output_markers_mask_all( model, module, om_make_valid_mask, -1 );
+    output_markers_mask_all( model, module, 0, -1 );
     //output_markers_mask_submodule_input_dependencies( model, module, om_must_be_valid, 0 ); // All submodule inputs must be made valid
     output_markers_mask_all( model, module, om_must_be_valid, 0 );
     output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
@@ -2684,8 +2723,8 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     /*b   Output code for this module (makes all its signals valid, including going through comb modules as required)
      */
     output_markers_mask_all( model, module, 0, -1 );
-    output_markers_mask_comb_output_dependencies( model, module, om_make_valid_mask, 0 ); // All combs must be made valid
-    output_markers_mask_comb_modules_with_matching_outputs( model, module, om_valid_mask, om_invalid, om_make_valid_mask, 0 ); // Mark all comb modules that drive invalid nets as needing to be output
+    output_markers_mask_comb_output_dependencies( model, module, om_must_be_valid, 0 ); // All combs must be made valid
+    //output_markers_mask_comb_modules_with_matching_outputs( model, module, om_valid_mask, om_invalid, om_make_valid_mask, 0 ); // Mark all comb modules that drive invalid nets as needing to be output
     output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
 
     /*b   Finish
@@ -2703,11 +2742,13 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 0, "{\n");
 
     /*b   Output code for this module (makes all its signals valid, including going through comb modules as required)
+      Since inputs are not valid, we want ALL signals that effect outputs, that depend on states, that DO NOT depend directly on inputs
      */
     output_markers_mask_all( model, module, 0, -1 );
-    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 1, 0 );
-    output_markers_mask_output_dependencies( model, module, 2, 0 );
-    output_markers_mask_all_matching( model, module, 3, 3,   om_must_be_valid, -1,   0, -1 ); // Everything marked as '3' must be valid; others 0
+    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 0x10, 0 );
+    output_markers_mask_output_dependencies( model, module, 0x20, 0 );
+    output_markers_mask_input_dependents( model, module, 0x40, 0 );
+    output_markers_mask_all_matching( model, module, 0x70, 0x30,   om_must_be_valid, 0,   0, 0 ); // Everything marked as '0x30' must be valid; others 0
     output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
 
     /*b   Finish

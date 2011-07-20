@@ -1,6 +1,24 @@
 import xml.dom.minidom
 import sys
 
+color_list = ["#000000",
+              "#ff0000",
+              "#00ff00",
+              "#cccc00",
+              "#0000ff",
+              "#cc00cc",
+              "#00cccc",
+              "#aaaaaa",
+              "#222222",
+              "#770000",
+              "#007700",
+              "#555500",
+              "#000077",
+              "#550055",
+              "#005555",
+              "#333333",
+]
+
 doc = xml.dom.minidom.parse("a.xml")
 
 def signal_is_clocked( signal ):
@@ -44,34 +62,49 @@ def output_node_dependents( signal ):
 def get_signal_data( signal, chain_tag_name="dependents" ):
     is_clocked = signal_is_clocked( signal )
     name = None
+    output_args = None
     dependents_list = []
-    for bits in module.getElementsByTagName("bits"):
-        if bits.parentNode == signal:
-            name = bits.getAttribute("name")
+    for instance in module.getElementsByTagName("instance"):
+        if instance.parentNode == signal:
+            output_args = int(instance.getAttribute("output_args_0"))
+            for bits in instance.getElementsByTagName("bits"):
+                if bits.parentNode == instance:
+                    name = bits.getAttribute("name")
     for dependents in signal.getElementsByTagName(chain_tag_name):
         if dependents.parentNode == signal:
             for instance in dependents.getElementsByTagName("instance"):
-                dependents_list.append(instance.getAttribute("name"))
-    return ( name, signal.nodeName, is_clocked, dependents_list )
+                for bits in instance.getElementsByTagName("bits"):
+                    if bits.parentNode == instance:
+                        dependents_list.append(bits.getAttribute("name"))
+    print >>sys.stderr, "get_signal_data",signal,name,is_clocked,output_args
+    return ( name, signal.nodeName, is_clocked, dependents_list, output_args )
 
 def output_graph( module ):
     print "digraph",module.getAttribute("name")
     print "{"
     instance_list = {}
-    for signal_type in ["input", "net", "comb"]:
+    for signal_type in ["input", "net", "comb", "clocked"]:
         for signal in module.getElementsByTagName(signal_type):
             if signal.parentNode == module:
-                (name, signal_type, is_clocked, dependents_list) = get_signal_data( signal, chain_tag_name="dependencies" )
-                instance_list[ name ] = (signal_type, is_clocked, dependents_list )
+                (name, signal_type, is_clocked, dependents_list, output_args ) = get_signal_data( signal, chain_tag_name="dependencies" )
+                if signal_type=="clocked":
+                    is_clocked = True
+                if is_clocked:
+                    dependents_list=[]
+                instance_list[ name ] = (signal_type, is_clocked, dependents_list, output_args )
     print >>sys.stderr, instance_list
 
-    for (name,(signal_type,is_clocked,dependents_list)) in instance_list.iteritems():
+    for (name,(signal_type,is_clocked,dependents_list,output_args)) in instance_list.iteritems():
+        shape = ""
+        color = ""
+        if output_args!=None:
+            if ((output_args>=0) and (output_args<len(color_list))):
+                color='fillcolor="%s" fontcolor="white"'%(color_list[output_args])
         if is_clocked:
-            print name, """[ label="%s.%s",shape="box" ]"""%(signal_type, name)
-        else:
-            print name, """[ label="%s.%s" ]"""%(signal_type, name)
+            shape = ',shape="box"'
+        print name, """[ label="%s.%s" %s %s ]"""%(signal_type, name, shape, color)
 
-    for (name,(signal_type,is_clocked,dependents_list)) in instance_list.iteritems():
+    for (name,(signal_type,is_clocked,dependents_list,output_args)) in instance_list.iteritems():
         for d in dependents_list:
             print name, "->",d,";"
 

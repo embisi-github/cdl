@@ -173,7 +173,8 @@ sub summarize_log {
         if ($results[0]=~/timeout/) {
             $error_count++;
             print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-            print "Timed out $source : $file ($results[1]): ";
+            print "Timed out $source : $file: ";
+            #print "Timed out $source : $file ($results[1]): ";
             foreach $arg (@args) {
                 print "$arg ";
             }

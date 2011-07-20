@@ -1,0 +1,149 @@
+/*a Copyright
+  
+  This file 'hierarchy.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Includes
+ */
+include "hierarchy_reg.h"
+include "hierarchy_gray_code.h"
+
+/*a Module prototypes
+ */
+module hierarchy_complex( clock clock_a,
+                          clock clock_b,
+                          input bit int_reset,
+                          input bit add_a,
+                          output bit[4] ptr_a,
+                          output bit[4] ptr_if_add_a, // this output depends on an input and state; it is not valid after the clock call
+                          output bit full_a,
+                          input bit add_b,
+                          output bit empty_b,
+                          output bit[4] ptr_b )
+{
+    /*b Clock domain A signals
+     */
+    default clock clock_a;
+    default reset active_high int_reset;
+
+    clocked bit[4] ptr_a_gc = 0;
+    comb bit[4] ptr_a_gc_copy;
+    comb bit add_a_copy;
+    net bit[4] ptr_a;
+    comb bit[4] ptr_a_plus_one;
+    comb bit[4] next_ptr_a;
+    net bit[4] next_ptr_a_gc;
+    net bit[4] ptr_a_sync;
+
+    clocked bit full_a = 0;
+    clocked bit[4] num_a = 0;
+
+    /*b Clock domain B signals
+     */
+    default clock clock_b;
+    default reset active_high int_reset;
+
+    clocked bit[4] ptr_b_gc = 0;
+    net bit[4] ptr_b;
+    comb bit[4] ptr_b_plus_one;
+    comb bit[4] next_ptr_b;
+    net bit[4] next_ptr_b_gc;
+    net bit[4] ptr_b_sync;
+
+    clocked bit empty_b = 0;
+    clocked bit[4] num_b = 0;
+
+    /*b Sync outputs
+     */
+    net bit[4] ptr_a_gc_sync;
+    net bit[4] ptr_b_gc_sync;
+
+    /*b Clock domain A logic
+     */
+    clock_a_logic "'A' clock domain logic - the adding domain":
+        {  
+            ptr_a_gc_copy = ptr_a_gc; // This makes the net depend on a comb of a clocked variable
+            hierarchy_gray_code_g2b g2b_ptr_a_a( gc <= ptr_a_gc_copy, bin => ptr_a );
+            ptr_a_plus_one = ptr_a+1;
+            hierarchy_gray_code_g2b g2b_ptr_b_a( gc <= ptr_b_gc_sync, bin => ptr_b_sync );
+
+            next_ptr_a = ptr_a;
+            add_a_copy = 0;
+            if (add_a)
+            {
+                next_ptr_a = ptr_a_plus_one;
+                add_a_copy = 1; // add_a_copy is purely combinatorial on an input - it is not valid after 'clock'
+            }
+
+            ptr_if_add_a = ptr_a;
+            if (add_a_copy)
+            {
+                ptr_if_add_a = next_ptr_a; // Since add_a_copy is not valid after 'clock', neither is ptr_if_add_a
+            }
+
+            hierarchy_gray_code_b2g b2g_ptr_a_a( bin <= next_ptr_a, gc => next_ptr_a_gc );
+
+            ptr_a_gc <= next_ptr_a_gc;
+            num_a    <= next_ptr_a - ptr_b_sync;
+            full_a   <= ((next_ptr_a - ptr_b_sync)==8);
+        }     
+
+    /*b Clock domain B logic
+     */
+    clock_b_logic "'B' clock domain logic - the removing domain":
+        {  
+            hierarchy_gray_code_g2b g2b_ptr_b_b( gc <= ptr_b_gc, bin => ptr_b );
+            ptr_b_plus_one = ptr_b+1;
+            hierarchy_gray_code_g2b g2b_ptr_a_b( gc <= ptr_a_gc_sync, bin => ptr_a_sync );
+
+            next_ptr_b = ptr_b;
+            if (add_b)
+            {
+                next_ptr_b = ptr_b_plus_one;
+            }
+
+            hierarchy_gray_code_b2g b2g_ptr_b_b( bin <= next_ptr_b, gc => next_ptr_b_gc );
+
+            ptr_b_gc <= next_ptr_b_gc;
+            num_b    <= next_ptr_b - ptr_b_sync;
+            empty_b <= ((ptr_b_sync - next_ptr_b)==0);
+        }     
+
+    /*b Pointer Synchronization Flops
+     */
+    generic_syncflops_inst "":
+        {
+            for (i; 4)
+            {
+                hierarchy_reg sync_a_to_b[i]( int_clock <- clock_b,
+                                              int_reset <= int_reset,
+                                              in  <= ptr_a_gc[i],
+                                              out => ptr_a_gc_sync[i] );
+                hierarchy_reg sync_b_to_a[i]( int_clock <- clock_a,
+                                              int_reset <= int_reset,
+                                              in  <= ptr_b_gc[i],
+                                              out => ptr_b_gc_sync[i] );
+            }
+        }
+
+    /*b Done
+     */
+}
+
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

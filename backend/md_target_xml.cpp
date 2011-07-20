@@ -423,9 +423,9 @@ static void output_submodules( c_model_descriptor *model, t_md_module *module, t
                     switch (output_port->lvar->subscript_start.type)
                     {
                     case md_lvar_data_type_integer:
-                        output( handle, indent, "<start '%d'/>\n", output_port->lvar->subscript_start.data.integer );
+                        output( handle, indent, "<start value='%d'/>\n", output_port->lvar->subscript_start.data.integer );
                         if (output_port->lvar->subscript_length.type == md_lvar_data_type_none)
-                            output( handle, indent, "<width '%d'/>\n", output_port->lvar->subscript_length.data.integer );
+                            output( handle, indent, "<width value='%d'/>\n", output_port->lvar->subscript_length.data.integer );
                         break;
                     default:
                         output( handle, indent, "<!-- unexpected lvar subscript type '%d'/>\n", output_port->lvar->subscript_start.type );
@@ -1236,7 +1236,21 @@ extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_
     output_markers_mask_all( model, module, 0, -1 );
     output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 1, 0 );
     output_markers_mask_output_dependencies( model, module, 2, 0 );
-    output_markers_mask_all_matching( model, module, 3, 3,   4, 0,   8, 0 ); // Everything marked as '3' -> 7, everything else is 8+current
+    output_markers_mask_input_dependents( model, module, 4, 0 );
+    output_markers_mask_all_matching( model, module, 7, 3,   8, -1,   0, 0 ); // Everything marked as '3' -> 8, everything else stays same current
+
+//    output_markers_mask_all( model, module, 0, -1 );
+//    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 0x10, 0 );
+//    output_markers_mask_output_dependencies( model, module, 0x20, 0 );
+//    output_markers_mask_all_matching( model, module, 0x30, 0x30,   3, 0,   0, 0 ); // Everything marked as '3' must be valid; others 0
+
+
+//    output_markers_mask_all( model, module, 1, -1 );
+//    output_markers_mask_all( model, module, 2, 0 );
+
+//    output_markers_mask_all( model, module, 1, -1 );
+//    output_markers_mask_input_dependents( model, module, 2, 0 );
+//    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 4, 0 );// All clock edges
 
             output_ports_nets_clocks( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
             output_submodules( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );

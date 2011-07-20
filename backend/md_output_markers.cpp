@@ -22,6 +22,10 @@
 #include "md_output_markers.h"
 #include "c_model_descriptor.h"
 
+/*a Static variables for debug only
+ */
+static int debug=0;
+
 /*a Basic output markers masking and value functions
  */
 /*f output_markers_mask (module instance clock port)
@@ -70,7 +74,7 @@ extern void output_markers_mask_matching( t_md_type_instance *instance, int mask
  */
 extern void output_markers_mask( t_md_module_instance *instance, int set_mask, int clr_mask )
 {
-    instance->output_args[0] = (instance->output_args[0] | set_mask) &~ clr_mask;
+    instance->output_args[0] = (instance->output_args[0] &~ clr_mask) | set_mask;
 }
 
 /*f output_markers_value (module instance)
@@ -141,6 +145,7 @@ extern void output_markers_mask_all_matching( c_model_descriptor *model, t_md_mo
 {
     t_md_signal *signal;
     t_md_module_instance *module_instance;
+    t_md_state *state;
     int i;
 
     /*b   Combinatorials
@@ -170,6 +175,16 @@ extern void output_markers_mask_all_matching( c_model_descriptor *model, t_md_mo
         output_markers_mask_matching( module_instance, mask, value, set_mask_eq, clr_mask_eq, set_mask_ne, clr_mask_ne );
     }
 
+    /*b    State
+     */
+    for (state=module->registers; state; state=state->next_in_list)
+    {
+        for (i=0; i<state->instance_iter->number_children; i++)
+        {
+            output_markers_mask_matching( state->instance_iter->children[i], mask, value, set_mask_eq, clr_mask_eq, set_mask_ne, clr_mask_ne );
+        }
+    }
+
     /*b   Finish
      */
 }
@@ -182,12 +197,13 @@ extern void output_markers_mask_dependents( c_model_descriptor *model, t_md_modu
     t_md_reference_iter iter;
     t_md_reference *reference;
 
-    /*b Skip if the bits are already set
+    /*b Mark this
      */
-    if ( output_markers_value(instance,(set_mask|clr_mask))==(set_mask&~clr_mask) )
-        return;
+    if (debug)
+        fprintf(stderr,"ommdepnt inst %p %s %d %d\n", instance, instance->name, set_mask, clr_mask );
+    output_markers_mask( instance, set_mask, clr_mask );
 
-    /*b Check dependents (net and combinatorial) are all marked
+    /*b Mark all dependents (net and combinatorial) are all marked
      */
     model->reference_set_iterate_start( &instance->dependents, &iter );
     while ((reference = model->reference_set_iterate(&iter))!=NULL)
@@ -195,6 +211,8 @@ extern void output_markers_mask_dependents( c_model_descriptor *model, t_md_modu
         if (reference->type==md_reference_type_instance)
         {
             t_md_type_instance *dependency = reference->data.instance;
+            if (debug)
+                fprintf(stderr,"ommdepnt dependent %p %s %d %d\n", dependency, dependency->name, set_mask, clr_mask );
             output_markers_mask( dependency, set_mask, clr_mask );
         }
     }
@@ -211,10 +229,11 @@ extern void output_markers_mask_dependencies( c_model_descriptor *model, t_md_mo
     t_md_reference_iter iter;
     t_md_reference *reference;
 
-    /*b Skip if the bits are already set
+    /*b Mark this instance
      */
-    if ( output_markers_value(instance,(set_mask|clr_mask))==(set_mask&~clr_mask) )
-        return;
+    if (debug)
+        fprintf(stderr,"ommdepncy inst %p %s %d %d\n", instance, instance->name, set_mask, clr_mask );
+    output_markers_mask( instance, set_mask, clr_mask );
 
     /*b Check dependencies (net and combinatorial) are all marked
      */
@@ -224,22 +243,14 @@ extern void output_markers_mask_dependencies( c_model_descriptor *model, t_md_mo
         if (reference->type==md_reference_type_instance)
         {
             t_md_type_instance *dependency = reference->data.instance;
-            output_markers_mask( dependency, set_mask, clr_mask );
-        }
-    }
-    return;
-    while ((reference = model->reference_set_iterate(&iter))!=NULL)
-    {
-        t_md_type_instance *dependency = reference->data.instance;
-        if (dependency->reference.type==md_reference_type_signal)
-        {
-            if (dependency->reference.data.signal->type==md_signal_type_combinatorial)
+            if (dependency->reference.type==md_reference_type_signal)
             {
-                output_markers_mask( dependency, set_mask, clr_mask );
-            }
-            else if (dependency->reference.data.signal->type==md_signal_type_net)
-            {
-                output_markers_mask( dependency, set_mask, clr_mask );
+                if ( output_markers_value(dependency,(set_mask|clr_mask))!=set_mask )
+                {
+                    if (debug)
+                        fprintf(stderr,"ommdepncy dep %p %s %d %d\n", dependency, dependency->name, set_mask, clr_mask );
+                    output_markers_mask_dependencies( model, module, dependency, set_mask, clr_mask );
+                }
             }
         }
     }
@@ -307,6 +318,8 @@ extern void output_markers_mask_dependencies( c_model_descriptor *model, t_md_mo
         /*b If instance has been done, skip to next
          */
         instance = signal->instance_iter->children[i];
+        if (debug)
+            fprintf(stderr,"ommdepncy sig %p %s %d %d\n", instance, instance->name, set_mask, clr_mask );
         output_markers_mask_dependencies( model, module, instance, set_mask, clr_mask );
     }
 
@@ -340,6 +353,7 @@ extern void output_markers_mask_dependencies( c_model_descriptor *model, t_md_mo
  */
 /*f output_markers_mask_input_dependents
   For every input of the module mark all dependents
+  Note that the list of dependents for an input is EVERY dependent even a long way down
  */
 extern void output_markers_mask_input_dependents( c_model_descriptor *model, t_md_module *module, int set_mask, int clr_mask )
 {
@@ -377,21 +391,28 @@ extern void output_markers_mask_comb_output_dependencies( c_model_descriptor *mo
 extern void output_markers_mask_output_dependencies( c_model_descriptor *model, t_md_module *module, int set_mask, int clr_mask )
 {
     t_md_signal *signal;
+    //debug=1;
     for (signal=module->outputs; signal; signal=signal->next_in_list)
     {
         if (signal->data.output.combinatorial_ref)
         {
+            if (debug)
+                fprintf(stderr,"omod comb %p %s %d %d\n", signal, signal->name, set_mask, clr_mask );
             output_markers_mask_dependencies( model, module, signal->data.output.combinatorial_ref, set_mask, clr_mask );
         }
         if (signal->data.output.net_ref)
         {
+            if (debug)
+                fprintf(stderr,"omod net %p %s %d %d\n", signal, signal->name, set_mask, clr_mask );
             output_markers_mask_dependencies( model, module, signal->data.output.net_ref, set_mask, clr_mask );
         }
-        if (signal->data.output.register_ref)
-        {
-            output_markers_mask_dependencies( model, module, signal->data.output.register_ref, set_mask, clr_mask );
-        }
+        // Do not output register dependencies - these refer to the clock edge that led to this output
+        //if (signal->data.output.register_ref)
+        //{
+        //    output_markers_mask_dependencies( model, module, signal->data.output.register_ref, set_mask, clr_mask );
+        //}
     }
+    //debug=0;
 }
 
 /*f output_markers_mask_comb_modules_with_matching_outputs
@@ -440,12 +461,12 @@ extern void output_markers_mask_clock_edge_dependencies( c_model_descriptor *mod
 
 /*f output_markers_mask_clock_edge_dependents
   For every state that changes on a given clock edge mark its dependents
-  These are signals that are required for the 'next state value' function for the state
   Also each instance driven by a clocked module
  */
 extern void output_markers_mask_clock_edge_dependents( c_model_descriptor *model, t_md_module *module, t_md_signal *clock, int edge, int set_mask, int clr_mask )
 {
     t_md_state *state;
+    //debug=1;
     for (state=module->registers; state; state=state->next_in_list)
     {
         if ( (clock==NULL) || ((state->clock_ref==clock) && (state->edge==edge)) )
@@ -453,6 +474,7 @@ extern void output_markers_mask_clock_edge_dependents( c_model_descriptor *model
             output_markers_mask_dependents( model, module, state, set_mask, clr_mask );
         }
     }
+    //debug=0;
 
     t_md_module_instance *module_instance;
     t_md_module_instance_output_port *output_port;

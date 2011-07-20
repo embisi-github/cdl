@@ -54,6 +54,7 @@ cdl tests/instantiation hierarchy_reg
 cdl tests/instantiation hierarchy_and
 cdl tests/instantiation hierarchy_gated_clock
 cdl tests/instantiation hierarchy_comb_and_clocked
+cdl tests/instantiation hierarchy_complex             inc:tests/instantiation
 cdl tests/instantiation hierarchy                     inc:tests/instantiation
 cdl tests/instantiation hierarchy_test_harness        inc:tests/instantiation
 cdl tests/instantiation hierarchy_struct              inc:tests/instantiation
