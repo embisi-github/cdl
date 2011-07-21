@@ -415,6 +415,20 @@ extern void output_markers_mask_output_dependencies( c_model_descriptor *model, 
     //debug=0;
 }
 
+/*f output_markers_mask_modules
+ */
+extern void output_markers_mask_modules( c_model_descriptor *model, t_md_module *module, int set_mask, int clr_mask )
+{
+    t_md_module_instance *module_instance;
+    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    {
+        if (!module_instance->module_definition) 
+            continue;
+
+        output_markers_mask( module_instance, set_mask, clr_mask );
+    }
+}
+
 /*f output_markers_mask_comb_modules_with_matching_outputs
   For every combinatorial module, check if its outputs match mask/value
   If any does, then mark the module

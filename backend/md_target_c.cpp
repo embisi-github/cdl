@@ -2152,8 +2152,8 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
 
         for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
         {
-            //int used_comb = output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially;
-            if (!output_port->module_port_instance->derived_combinatorially) // If it is completely clocked
+            int used_comb = output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially;
+            if (!used_comb) // If it is completely clocked
             {
                 if (output_port->lvar->instance->driven_in_parts)
                 {
@@ -2165,6 +2165,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                     }
                     output_simulation_methods_port_net_assignment( model, output, handle, NULL, 0, module_instance, output_port->lvar, output_port->module_port_instance );
                 }
+                //output( handle, 1, "//   Marking output %s . %s as valid as it is purely clocked %d\n", module_instance->name, output_port->lvar->instance->name, output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
                 output_markers_mask( output_port->lvar->instance, om_must_be_valid|om_valid, 0 );
             }
         }
@@ -2636,6 +2637,19 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
       This function assumes all inputs and state have changed, and propagates appropriately
       This is called on any clock edge for the module to get all submodule inputs valid
       Note that if reset is now asserted (and it was not before) then we should do this work anyway for any state that is reset
+      If a submodule has a combinatorial path from an input to an output, then that output IS NOT valid yet
+
+      We are chasing in local_scratch.cpp:
+       combinatorials.cluster_local_push_request__valid = nets.push_request__valid[0];
+      happening in the propagate functions BEFORE the comb call for the module that generates it
+
+      So the bug happens if:
+        module x (clocked, input b, output c, clocked output d) { c=b; ...}
+        module y (clocked, input l, clocked output m, clocked output n) { n<=l; m<=~m; }
+        x x_i( clk, b<=m, c=>local_c, d=>local_d);
+        y y_i( clk, l<=local_c_copy, m=>m, n=>local_n );
+        local_c_copy = local_c;
+ 
      */
     output( handle, 0, "/*f c_%s::propagate_inputs_to_combs_and_submodule_inputs\n", module->output_name );
     output( handle, 0, "*/\n");
@@ -2661,9 +2675,9 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
 
     /*b   Output code for this module (makes all its signals valid, including going through comb modules as required)
      */
-    output_markers_mask_all( model, module, 0, -1 );
-    //output_markers_mask_submodule_input_dependencies( model, module, om_must_be_valid, 0 ); // All submodule inputs must be made valid
-    output_markers_mask_all( model, module, om_must_be_valid, 0 );
+    output_markers_mask_all( model, module, om_valid, -1 );
+    output_markers_mask_modules( model, module, 0, -1 );
+    output_markers_mask_input_dependents( model, module, om_must_be_valid, -1 );
     output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
 
     /*b   Set inputs to all clocked modules even if the code has output them already

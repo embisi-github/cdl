@@ -1,0 +1,163 @@
+/*a Copyright
+  
+  This file 'hierarchy_test_harness.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Includes
+ */
+
+/*a Constants
+ */
+constant integer width=16;
+
+/*a Module
+ */
+module hierarchy_comb_and_clocked2_source( clock clk,
+                                           input bit reset_n,
+                                           input bit start,
+                                           input bit data_can_be_taken,
+                                           output bit data_must_be_taken,
+                                           output bit[width] data_out )
+{
+    default clock clk;        
+    default reset active_low reset_n;
+    clocked bit[width] data_out=0;
+    clocked bit[width] data_reg=0;
+    clocked bit toggle=0;
+
+    the_logic "":
+        {
+            data_must_be_taken = 0;
+            if (start)
+            {
+                data_reg <= data_reg+1;
+                toggle <= !toggle;
+                data_must_be_taken = toggle;
+            }
+            data_out <= data_reg;
+            if (toggle)
+            {
+                data_out <= 0;
+            }
+
+            if (!data_can_be_taken)
+            {
+                data_must_be_taken = 0;
+            }
+
+            print("src: start %d0% toggle %d1% data_must_be_taken %d2% data_reg %d3% data_out %d4%",
+                  start, toggle, data_must_be_taken, data_reg, data_out );
+        }
+}
+
+module hierarchy_comb_and_clocked2_sink( clock clk,
+                                         input bit reset_n,
+                                         input bit data_must_be_taken,
+                                         input bit[width] data_in,
+                                         output bit data_can_be_taken,
+                                         output bit data_out_pulse,
+                                         output bit data_out_valid,
+                                         output bit[width] data_out )
+{
+    default clock clk;        
+    default reset active_low reset_n;
+    clocked bit[4] clk_divider=0;
+    clocked bit data_out_valid=0;
+    clocked bit[width] data_out=0;
+
+    the_logic "":
+        {
+
+            data_out_pulse = 0;
+            clk_divider <= clk_divider-1;
+            if (clk_divider==0)
+            {
+                clk_divider <= 5;
+                data_out_pulse = data_out_valid;
+            }
+
+            data_can_be_taken = !data_out_valid;
+            if (data_out_valid && (clk_divider==0))
+            {
+                data_can_be_taken = 0;
+            }
+
+            if (data_out_pulse && data_out_valid)
+            {
+                data_out_valid <= 0;
+            }
+            if (data_must_be_taken && data_can_be_taken)
+            {
+                data_out_valid <= 1;
+                data_out <= data_in;
+            }
+
+            print("sink: data_can_be_taken %d3% data_must_be_taken %d4% data_in %d5% data_out_pulse %d0% data_out_valid %d1% data_out %d2%",
+                  data_out_pulse, data_out_valid, data_out,
+                  data_can_be_taken, data_must_be_taken, data_in);
+        }
+}
+
+module hierarchy_comb_and_clocked2( clock io_clock,
+                                    input bit io_reset,
+                                    input bit[width] vector_input_0,
+                                    input bit[width] vector_input_1,
+                                    output bit[width] vector_output_0,
+                                    output bit[width] vector_output_1 )
+    "Test submodule that has comb path AND further combs prior to clock internally"
+{
+    default clock io_clock;
+    default  reset active_high io_reset;
+
+    comb bit start;
+
+    net bit data_out_pulse;
+    net bit[width] data_out;
+    net bit data_can_be_taken;
+    net bit data_must_be_taken;
+    net bit[width] data_src_2_sink;
+    net bit data_out_valid;
+    
+    comb bit data_must_be_taken_copy;
+
+    instances "Instances":
+        {
+            start = vector_input_0[0];
+            vector_output_0 = data_out;
+            vector_output_1 = data_out;
+            hierarchy_comb_and_clocked2_source src( clk <- io_clock,
+                                                    reset_n <= !io_reset,
+                                                    start <= start,
+                                                    data_can_be_taken <= data_can_be_taken,
+                                                    data_must_be_taken => data_must_be_taken, // Combinatorial on data_can_be_taken
+                                                    data_out => data_src_2_sink );
+
+
+            data_must_be_taken_copy = data_must_be_taken;
+            hierarchy_comb_and_clocked2_sink sink( clk <- io_clock,
+                                                   reset_n <= !io_reset,
+                                                   data_must_be_taken <= data_must_be_taken_copy, // From a combinatorial
+                                                   data_in <= data_src_2_sink, // Wired directly
+                                                   data_can_be_taken => data_can_be_taken, // From a register
+                                                   data_out_pulse => data_out_pulse,
+                                                   data_out_valid => data_out_valid,
+                                                   data_out => data_out );
+        }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

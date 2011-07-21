@@ -77,7 +77,7 @@ set tv_1 test_vectors.read(index)
 
 printf "   expected %x0% %x1% got %x2% %x3%" tv_0 tv_1 vector_output_0.value() vector_output_1.value()
 
-#bne tv_0 vector_output_0.value() test_fail
-#bne tv_1 vector_output_1.value() test_fail
+bne tv_0 vector_output_0.value() test_fail
+bne tv_1 vector_output_1.value() test_fail
 
 return

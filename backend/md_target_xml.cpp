@@ -1233,25 +1233,24 @@ extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_
         // module->documentation
         if (!module->external)
         {
+#if 0
     output_markers_mask_all( model, module, 0, -1 );
     output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 1, 0 );
     output_markers_mask_output_dependencies( model, module, 2, 0 );
     output_markers_mask_input_dependents( model, module, 4, 0 );
     output_markers_mask_all_matching( model, module, 7, 3,   8, -1,   0, 0 ); // Everything marked as '3' -> 8, everything else stays same current
-
-//    output_markers_mask_all( model, module, 0, -1 );
-//    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 0x10, 0 );
-//    output_markers_mask_output_dependencies( model, module, 0x20, 0 );
-//    output_markers_mask_all_matching( model, module, 0x30, 0x30,   3, 0,   0, 0 ); // Everything marked as '3' must be valid; others 0
-
-
-//    output_markers_mask_all( model, module, 1, -1 );
-//    output_markers_mask_all( model, module, 2, 0 );
-
-//    output_markers_mask_all( model, module, 1, -1 );
-//    output_markers_mask_input_dependents( model, module, 2, 0 );
-//    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 4, 0 );// All clock edges
-
+#elif 0
+    output_markers_mask_all( model, module, 0, -1 );
+    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 0x10, 0 );
+    output_markers_mask_output_dependencies( model, module, 0x20, 0 );
+    output_markers_mask_all_matching( model, module, 0x30, 0x30,   3, 0,   0, 0 ); // Everything marked as '3' must be valid; others 0
+#elif 0
+    output_markers_mask_all( model, module, 1, -1 );
+    output_markers_mask_all( model, module, 2, 0 );
+#elif 1
+    output_markers_mask_all( model, module, 0, -1 );
+    output_markers_mask_input_dependents( model, module, 4, 0 );
+#endif
             output_ports_nets_clocks( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
             output_submodules( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
             output_combinatorials( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );

@@ -43,7 +43,7 @@ read_hw_file check_64bits.hwex
 waves.reset
 waves.open "check_64bits.vcd"
 waves.add_hierarchy check_64bits th
-waves.enable
+#waves.enable
 reset
 step 5000
 return

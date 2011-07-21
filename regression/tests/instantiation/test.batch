@@ -15,7 +15,7 @@ setenv "width" 16
 setenv "module_name" hierarchy_test_harness
 setenv "module_mif_filename" "hierarchy_test_harness.mif"
 read_hw_file vector.hwex
-#vcd_file waves
+vcd_file waves
 
 #waves.reset
 #waves.open "hierarchy.vcd"
@@ -76,6 +76,25 @@ reset
 step 100
      
 #waves.close
+
+
+
+
+setenv "width" 16
+setenv "module_name" hierarchy_comb_and_clocked2
+setenv "module_mif_filename" "hierarchy_comb_and_clocked2.mif"
+read_hw_file vector.hwex
+
+waves.reset
+waves.open "hierarchy_comb_and_clocked2.vcd"
+waves.add  "vector_input_0" "vector_input_1" "vector_output_0" "vector_output_1"
+#waves.add  "src" "sink"
+
+reset
+#waves.enable
+step 80
+     
+waves.close
 
 
 end
