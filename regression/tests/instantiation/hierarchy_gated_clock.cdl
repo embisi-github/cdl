@@ -33,7 +33,7 @@ module hierarchy_gated_clock_add( clock io_clock,
     add_logic "":
         {
             c <= a+b;
-            print("a %d0% b %d1% c %d2%", a, b, c );
+            print("Gated module : Adding a and b -> a %d0% b %d1% c %d2%", a, b, c );
         }
 }
 
@@ -59,7 +59,6 @@ module hierarchy_gated_clock( clock io_clock,
         {
             clock_enable_0 = (clock_divider_0==3);
             clock_divider_0 <= clock_divider_0+1;
-            print("Clock div %d0%", clock_divider_0);
 
             in_a=0; in_b=0;
             if (clock_enable_0)
@@ -67,6 +66,8 @@ module hierarchy_gated_clock( clock io_clock,
                 in_a = vector_input_0;
                 in_b = vector_input_1;
             }
+            print("Clock divisor %d0% enable %d1% with in_a %d2% in_b %d3% - expecting the submodule to be adding these ONLY if enable is 1",
+                  clock_divider_0, clock_enable_0, in_a, in_b );
         }
 
     instances "Instances":

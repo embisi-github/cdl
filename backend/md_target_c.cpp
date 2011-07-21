@@ -2637,19 +2637,12 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
       This function assumes all inputs and state have changed, and propagates appropriately
       This is called on any clock edge for the module to get all submodule inputs valid
       Note that if reset is now asserted (and it was not before) then we should do this work anyway for any state that is reset
-      If a submodule has a combinatorial path from an input to an output, then that output IS NOT valid yet
+      If a submodule has a combinatorial path from an input to an output, then that output IS NOT valid at the start of this call
+      Note that this does a small amount of overkill: any work that is only required by an output, and not a next-state function or
+      a submodule input used on a clock edge, is work that need not be done. This is deemed irrelevant for now.
 
-      We are chasing in local_scratch.cpp:
-       combinatorials.cluster_local_push_request__valid = nets.push_request__valid[0];
-      happening in the propagate functions BEFORE the comb call for the module that generates it
-
-      So the bug happens if:
-        module x (clocked, input b, output c, clocked output d) { c=b; ...}
-        module y (clocked, input l, clocked output m, clocked output n) { n<=l; m<=~m; }
-        x x_i( clk, b<=m, c=>local_c, d=>local_d);
-        y y_i( clk, l<=local_c_copy, m=>m, n=>local_n );
-        local_c_copy = local_c;
- 
+      One can try all clock dependents, and all input dependents
+      However, this seems to fail to capture the clock enables for gated clocks
      */
     output( handle, 0, "/*f c_%s::propagate_inputs_to_combs_and_submodule_inputs\n", module->output_name );
     output( handle, 0, "*/\n");
@@ -2678,6 +2671,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output_markers_mask_all( model, module, om_valid, -1 );
     output_markers_mask_modules( model, module, 0, -1 );
     output_markers_mask_input_dependents( model, module, om_must_be_valid, -1 );
+    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, om_must_be_valid, -1 );// All clock edges
     output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
 
     /*b   Set inputs to all clocked modules even if the code has output them already
@@ -2817,6 +2811,23 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                                 {
                                     output( handle, 1, "engine->submodule_call_clock( instance_%s.%s__clock_handle, %d );\n", module_instance->name, clock_port->port_name, edge==md_edge_pos );
                                 }
+                            }
+                        }
+                    }
+                }
+
+                /*b   Call gated clocks 'clock' functions (dependent on run-time enables)
+                 */
+                {
+                    t_md_signal *clk2;
+                    for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
+                    {
+                        if (clk2->data.clock.clock_ref == clk)
+                        {
+                            if (clk2->data.clock.edges_used[edge])
+                            {
+                                output( handle, 1, "if (clock_enable__%s_%s)\n", edge_name[edge], clk2->name );
+                                output( handle, 2, "clock_%s_%s();\n", edge_name[edge], clk2->name );
                             }
                         }
                     }

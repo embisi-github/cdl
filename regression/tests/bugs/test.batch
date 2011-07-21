@@ -23,7 +23,7 @@ read_hw_file partial_ports.hwex
 waves.reset
 waves.open "pp.vcd"
 waves.add_hierarchy pp th
-waves.enable
+#waves.enable
 reset
 step 5000
 return

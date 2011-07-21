@@ -480,28 +480,29 @@ extern void output_markers_mask_clock_edge_dependencies( c_model_descriptor *mod
 extern void output_markers_mask_clock_edge_dependents( c_model_descriptor *model, t_md_module *module, t_md_signal *clock, int edge, int set_mask, int clr_mask )
 {
     t_md_state *state;
-    //debug=1;
-    for (state=module->registers; state; state=state->next_in_list)
+    t_md_reference_iter iter;
+    t_md_reference *reference;
+    if (clock==NULL)
     {
-        if ( (clock==NULL) || ((state->clock_ref==clock) && (state->edge==edge)) )
+        for (clock=module->clocks; clock; clock=clock->next_in_list)
         {
-            output_markers_mask_dependents( model, module, state, set_mask, clr_mask );
+            output_markers_mask_clock_edge_dependents( model, module, clock, 0, set_mask, clr_mask );
+            output_markers_mask_clock_edge_dependents( model, module, clock, 1, set_mask, clr_mask );
         }
+        return;
     }
-    //debug=0;
 
-    t_md_module_instance *module_instance;
-    t_md_module_instance_output_port *output_port;
-    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    model->reference_set_iterate_start( &clock->data.clock.dependents[edge], &iter );
+    while ((reference = model->reference_set_iterate(&iter))!=NULL)
     {
-        if ( (!module_instance->module_definition) ||
-             (!module_instance->module_definition->clocks) )
-            continue;
-
-        for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
+        if (reference->type==md_reference_type_instance)
         {
-            output_markers_mask( output_port->lvar->instance, set_mask, clr_mask );
-            output_markers_mask_dependents( model, module, output_port->lvar->instance, set_mask, clr_mask );
+            t_md_type_instance *dependent = reference->data.instance;
+            output_markers_mask( dependent, set_mask, clr_mask );
+        }
+        else
+        {
+            fprintf(stderr,"Unknown ref type %d\n",reference->type);
         }
     }
 }

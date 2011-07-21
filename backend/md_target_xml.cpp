@@ -428,7 +428,7 @@ static void output_submodules( c_model_descriptor *model, t_md_module *module, t
                             output( handle, indent, "<width value='%d'/>\n", output_port->lvar->subscript_length.data.integer );
                         break;
                     default:
-                        output( handle, indent, "<!-- unexpected lvar subscript type '%d'/>\n", output_port->lvar->subscript_start.type );
+                        output( handle, indent, "<!-- unexpected lvar subscript type '%d' -->\n", output_port->lvar->subscript_start.type );
                         break;
                     }
                 }
@@ -1244,10 +1244,12 @@ extern void target_xml_output( c_model_descriptor *model, t_md_output_fn output_
     output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 0x10, 0 );
     output_markers_mask_output_dependencies( model, module, 0x20, 0 );
     output_markers_mask_all_matching( model, module, 0x30, 0x30,   3, 0,   0, 0 ); // Everything marked as '3' must be valid; others 0
-#elif 0
-    output_markers_mask_all( model, module, 1, -1 );
-    output_markers_mask_all( model, module, 2, 0 );
 #elif 1
+    output_markers_mask_all( model, module, 1, -1 );
+    output_markers_mask_modules( model, module, 0, -1 );
+    output_markers_mask_input_dependents( model, module, 2, -1 );
+    output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 4, -1 );// All clock edges
+#elif 0
     output_markers_mask_all( model, module, 0, -1 );
     output_markers_mask_input_dependents( model, module, 4, 0 );
 #endif
