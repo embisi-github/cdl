@@ -1,7 +1,8 @@
-#!/usr/bin/php -q
-<?php
+#!/usr/bin/env python
 
 #a Documentation
+# Imported from the php version
+#
 # Xilinx bugs...
 #   map must be run with -ignore_keep_hierarchy on 7.1 else it core dumps
 #   xst adds 'keep_hierarchy' to _all_ submodules of a model when it synthesizes it if the xcf file has 'model $model keep_hierarchy=yes'
@@ -53,7 +54,7 @@
 
 #a Copyright
 #  
-#  This file 'create_make' copyright Gavin J Stark 2006
+#  This file 'create_make' copyright Gavin J Stark 2006, 2011
 #  
 #  This is free software; you can redistribute it and/or modify it however you wish,
 #  with no obligations
@@ -62,361 +63,341 @@
 #  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE.
 
-function usage()
-{
-    echo "Syntax: create_make -f <model_list> [-x <xilinx makefile>] [-m simulation/emulation makefile]\n";
-    exit(4);
-}
+#a Imports
+import sys
+import getopt
+import os
+import re
 
-#a Main
-$base_options = "";
-$options = getopt("f:x:m:t:");
-if (!isset($options["f"]))
-{
-    usage();
-}
-
-$model_list = $options["f"];
-
+#a Static global variables - models, libs, base_options
+#v parse_models - c_model, c_src, ef, cdl, lib
+models = { "c":[],
+           "ef":[],
+           "cdl":[],
+           "hash":{},
+           }
+libs = { "c":[],
+         }
+base_options = []
+           
 #a Read the descriptor list
 #f read_objs
-function read_objs( $file )
-{
-    $nobj=0;
-    while (!feof($file))
-    {
-        $buffer = fgets($file);
-        if ( (!preg_match("/^\s*#/", $buffer)) &&
-             (!preg_match("/^\s*;/", $buffer)) )
-        {
-            #echo "\n$buffer";
-            if ( preg_match("/^\s*(\S+)\s+(\S.*)/", $buffer, $matches ) )
-            {
-                $objs[$nobj]["type"] = $matches[1];
-                $objs[$nobj]["args"] = preg_split("/\s+/",$matches[2]);
-                #echo $matches[1].":".$objs[$nobj]["args"][0].":".$objs[$nobj]["args"][1].":::".$matches[2]."\n";
-                $nobj++;
-            }
-        }
-    }
-    return $objs;
-}
+def read_objs( model_list_file ):
+    object_list = []
+    for buffer in model_list_file:
+        if (re.match("^\s*#", buffer)):
+            continue
+        if (re.match("^\s*;", buffer)):
+            continue
+        result = re.match("^\s*(\S+)\s+(\S.*)", buffer)
+        if result:
+            object = {}
+            object["type"] = result.group(1)
+            object["args"] = result.group(2).split()
+            object_list.append( object )
+    return object_list
 
 #f objs_of_type
-function objs_of_type( $objs, $type_re )
-{
-    $nsel = 0;
-    $selection = array();
-    foreach ($objs as $obj)
-    {
-        if (preg_match($type_re,$obj["type"]))
-        {
-            $selection[$nsel] = $obj;
-            $nsel++;
-        }
-    }
-    return $selection;
-}
+def objs_of_type( object_list, type_list ):
+    selection = []
+    for object in object_list:
+        if object["type"] in type_list:
+            selection.append( object )
+    return selection
 
-#f parse_models - c_model, c_src, ef, cdl, lib
-function parse_models( $objs )
-{
-    global $models, $libs;
-    global $base_options;
+#f parse_c_model
+def parse_c_model( model_object ):
+    model_type = model_object["type"]
+    (dir, model_name) = model_object["args"][0:2]
 
-    $models["c"] = array();
-    $models["ef"] = array();
-    $models["cdl"] = array();
-    $libs["c"] = array();
-    $models["hash"] = array();
-    foreach (objs_of_type($objs,"/^c_(model|src)/") as $sel)
-    {
-        $obj["type"]  = $sel["type"];
-        $obj["dir"]   = $sel["args"][0];
-        $obj["model"] = $sel["args"][1];
-        $args = "";
-        if ($sel["args"])
-        {
-            $args =  array_slice($sel["args"],2);
-        }
+    args = []
+    if len(model_object["args"])>2:
+        args = model_object["args"]
 
-        $c_opts = "";
-        foreach ($args as $option)
-        {
-            if (preg_match("/^inc:(\S*)/",$option, $matches))
-            {
-                $c_opts .=" -I\${SRC_ROOT}/".$matches[1];
-            }
-            if (preg_match("/^def:(\S*)/",$option, $matches))
-            {
-                $c_opts .=" -D".$matches[1];
-            }
-        }
-        $obj["opts"] = $c_opts;
-        $models["c"][] = $obj;
-        $models["hash"][$obj["model"]] = "c";
-    }
+    options = []
+    for option in args[2:]:
+        (o,v) = parse_arg(option)
+        if o=="inc":
+            options.append("-I${SRC_ROOT}/"+v)
+        if o=="def":
+            options.append("-D"+v)
 
-    foreach (objs_of_type($objs,"/^ef/") as $sel)
-    {
-        $obj["type"]  = $sel["type"];
-        $obj["dir"]   = $sel["args"][0];
-        $obj["model"] = $sel["args"][1];
-        $obj["src"]   = $sel["args"][1].".ef";
-        $obj["c"]     = $sel["args"][1].".c";
-        $obj["obj"]   = $sel["args"][1].".o";
-        $args = "";
-        if ($sel["args"])
-        {
-            $args =  array_slice($sel["args"],2);
-        }
+    object = { "type":model_type,
+               "dir":dir,
+               "model":model_name,
+               "opts":options
+               }
+    models["c"].append(object)
+    models["hash"][model_name] = "c"
 
-        $ef_opts = $base_options;
-        foreach ($args as $option)
-        {
-            if (preg_match("/^model:(\S+)/",$option, $matches))
-            {
-                $obj["model"] = $matches[1];
-                $obj["c"]     = $matches[1].".cpp";
-                $obj["obj"]   = $matches[1].".o";
-            }
-            if (preg_match("/^rmn:(\S+)/",$option, $matches))
-            {
-                $ef_opts .= "@@@"."--remap-module-name@@@".$matches[1];
-            }
-            if (preg_match("/^rit:(\S+)/",$option, $matches))
-            {
-                $ef_opts .= "@@@"."--remap-instance-type@@@".$matches[1];
-            }
-        }
-        $obj["opts"] = $ef_opts;
-        $models["ef"][] = $obj;
-        $models["hash"][$obj["model"]] = "ef";
-    }
+#f parse_arg
+def parse_arg( arg ):
+    result = re.match("([^:]+):(\S+)", arg)
+    if result!=None:
+        return result.group(1), result.group(2)
+    return ("","")
 
-    foreach (objs_of_type($objs,"/clib/") as $sel)
-    {
-        $obj["lib"]   = $sel["args"][0];
-        $libs["c"][] = $obj;
-    }
+#f parse_ef
+def parse_ef( model_object ):
+    object = {}
+    model_type = model_object["type"]
+    dir        = model_object["args"][0]
+    model_name = model_object["args"][1]
+    object["type"] = model_type
+    object["dir"] = dir
+    object["model"] = model_name
+    object["src"]   = model_name+".ef"
+    object["c"]     = model_name+".cpp"
+    object["obj"]   = model_name+".o"
 
-    $cdl_options = array();
-    $cdl_options["coverage"]="off";
-    $cdl_options["assertions"]="off";
-    $cdl_options["statements"]="off";
-    foreach (objs_of_type($objs,"/^cdl(|_options)/") as $sel)
-    {
-        if ($sel["type"]=="cdl_options")
-        {
-            foreach ($sel["args"] as $option)
-            {
-                if (preg_match("/^ass:(\S+)/",$option, $matches))
-                {
-                    $cdl_options["assertions"]=($matches[1]=="on")?"on":"off";
-                }
-                if (preg_match("/^cov:(\S+)/",$option, $matches))
-                {
-                    $cdl_options["coverage"]=($matches[1]=="on")?"on":"off";
-                }
-                if (preg_match("/^stmt:(\S+)/",$option, $matches))
-                {
-                    $cdl_options["statements"]=($matches[1]=="on")?"on":"off";
-                }
-            }
-        }
-        else
-        {
-            $obj["dir"]   = $sel["args"][0];
-            $obj["model"] = $sel["args"][1];
-            $obj["src"]   = $sel["args"][1].".cdl";
-            $obj["c"]     = $sel["args"][1].".cpp";
-            $obj["v"]     = $sel["args"][1].".v";
-            $obj["obj"]   = $sel["args"][1].".o";
-            $args = "";
-            if ($sel["args"])
-            {
-                $args =  array_slice($sel["args"],2);
-            }
+    args = []
+    if len(model_object["args"])>2:
+        args = model_object["args"]
 
-            $base_options = "";
-            if ($cdl_options["assertions"]=="on") { $base_options.="--include-assertions@@@"; }
-            if ($cdl_options["coverage"]=="on")   { $base_options.="--include-coverage@@@"; }
-            if ($cdl_options["statements"]=="on") { $base_options.="--include-stmt-coverage@@@"; }
-            $cdl_opts = $base_options;
-            foreach ($args as $option)
-            {
-                if (preg_match("/^model:(\S+)/",$option, $matches))
-                {
-                    $obj["model"] = $matches[1];
-                    $obj["c"]     = $matches[1].".cpp";
-                    $obj["obj"]   = $matches[1].".o";
-                    $obj["v"]     = $matches[1].".v";
-                }
-                if (preg_match("/^rmn:(\S+)/",$option, $matches))
-                {
-                    $cdl_opts .= "@@@"."--remap-module-name@@@".$matches[1];
-                }
-                if (preg_match("/^rit:(\S+)/",$option, $matches))
-                {
-                    $cdl_opts .= "@@@"."--remap-instance-type@@@".$matches[1];
-                }
-                if (preg_match("/^inc:(\S+)/",$option, $matches))
-                {
-                    $cdl_opts .= "@@@"."--include-dir@@@\${SRC_ROOT}/".$matches[1];
-                }
-                if (preg_match("/^dc:(\S+)/",$option, $matches))
-                {
-                    $cdl_opts .= "@@@"."--constant@@@".$matches[1];
-                }
-            }
-            $cdl_opts .= "@@@"."--coverage-desc-file@@@"."\${TARGET_DIR}/".$obj["model"].".map";
-            $obj["opts"] = $cdl_opts;
-            $models["cdl"][] = $obj;
-            $models["hash"][$obj["model"]] = "cdl";
-        }
-    }
-}
+    options = list(base_options) # Copy base_options - it is local to this object now
+    for option in args[2:]:
+        (o,v) = parse_arg(option)
+        if o=="model":
+            model_name = v
+            object["model"] = model_name
+            object["c"]     = model_name+".cpp"
+            object["obj"]   = model_name+".o"
+        if o=="rmn":
+            options.append("--remap-module-name")
+            options.append(v)
+        if o=="rit":
+            options.append("--remap-instance-type")
+            options.append(v)
 
-#f parse_xilinx_descs
-function parse_xilinx_descs( $objs )
-{
-    global $xilinx;
+    object["opts"] = options
+    models["ef"].append(object)
+    models["hash"][model_name] = "ef"
 
-    $xilinx["srcs"] = array();
-    $xilinx["macros"] = array();
-    $xilinx["rpms"] = array();
-    $xilinx["rams"] = array();
-    $xilinx["cores"] = array();
-    $xilinx["subs"] = array();
-    $xilinx["comps"] = array();
-    $xilinx["toplevel"] = array();
-    $xilinx["type"] = array();
+#f parse_clib
+def parse_clib( model_object ):
+    object = { "lib":model_object["args"][0],
+               }
+    libs["c"].append( object )
 
-    # A Xilinx source file is expected to define a model of the same name, and it should be a .v file in the 'src' directory of the emulation tree
-    # Xilinx source files should only be referenced by Xilinx subcomponents and components
-    # A Xilinx source file with the same name as another model takes preference over that other model in Xilinx components
-    foreach (objs_of_type($objs,"/^xilinx_src/") as $sel)
-    {
-        $src = $sel["args"][0];
-        $obj = array();
-        $obj["model"] = $src;
-        $xilinx["srcs"][$src] = $obj;
-        $xilinx["type"][$src] = "src";
-    }
+#f parse_cdl_option
+def parse_cdl_option( selection, cdl_options ):
+    for option in selection["args"]:
+        (o,v) = parse_arg(option)
+        for (opt_short, opt_name) in [("ass", "assertions"),
+                                      ("cov", "coverage"),
+                                      ("stmt", "statements") ]:
+            if o==opt_short:
+                cdl_options[opt_name] = "off"
+                if v=="on":
+                    cdl_options[opt_name] = "on"
 
-    # A Xilinx macro is expected to define a model of the same name, and it should be a .v file in the 'macro' directory of the emulation tree
-    # Xilinx macro should only be referenced by Xilinx subcomponents and components
-    # A Xilinx macro with the same name as another model takes preference over that other model in Xilinx components
-    foreach (objs_of_type($objs,"/^xilinx_macro/") as $sel)
-    {
-        $src = $sel["args"][0];
-        $obj = array();
-        $obj["model"] = $src;
-        $xilinx["macros"][$src] = $obj;
-        $xilinx["type"][$src] = "macro";
-    }
+#f parse_cdl
+def parse_cdl( model_object, cdl_options ):
+    object = {}
+    model_type = model_object["type"]
+    dir        = model_object["args"][0]
+    model_name = model_object["args"][1]
+    object["type"] = model_type
+    object["dir"] = dir
+    object["model"] = model_name
+    object["src"]   = model_name+".cdl"
+    object["c"]     = model_name+".cpp"
+    object["v"]     = model_name+".v"
+    object["obj"]   = model_name+".o"
 
-    # A RAM is a Xilinx-specific item that is used in cores; it does not define a model
-    foreach (objs_of_type($objs,"/^xilinx_ram/") as $sel)
-    {
-        $src = $sel["args"][0];
-        $xilinx["rams"][] = $src;
-        $xilinx["type"][$src] = "ram";
-    }
+    args = []
+    if len(model_object["args"])>2:
+        args = model_object["args"]
 
-    # A core has a '.xco' file in 'cores', and may depend on RAMs or perhaps other things
-    # It defines a Xilinx-specific model.
-    # If a core is specified with the same name as another model, the core takes preference over that other model in Xilinx components
-    # A core will generate its own '.ngc' file
-    # The core should also generate a behavioural verilog file
-    foreach (objs_of_type($objs,"/^xilinx_core/") as $sel)
-    {
-        $src = $sel["args"][0];
-        $obj = array();
-        $obj["model"] = $src;
-        $obj["src"] = $src;
-        $obj["subs"] = array_slice($sel["args"],1);
-        $xilinx["cores"][$src] = $obj;
-        $xilinx["type"]["$src"] = "core";
-    }
-    # subcomponents are groups of source files, subcomponents, cores, components, or models
-    # a subcomponent is expected to have a model or source file that defines it, that is also declared
-    # subcomponents are basically handy groupings
-    foreach (objs_of_type($objs,"/^xilinx_subcomponent/") as $sel)
-    {
-        $src = $sel["args"][0];
-        $obj = array();
-        $obj["model"] = $src;
-        $obj["subs"] = array_slice($sel["args"],1);
-        $obj["src_models"] = array(); # The source models that make up the component
-        $obj["srcs"] = array(); # The sources (models/components/cores) (and their types) that make up the component
-        $xilinx["subs"][$src] = $obj;
-        $xilinx["type"][$src] = "sub";
-    }
-    # components are items that are built in the Xilinx world, and they consist of models, Xilinx source, and cores
-    # They may utilize subcomponents as a convenience, but subcomponents are not separately built (just used to gather files together neatly)
-    # A component will generate its own '.ngc' file
-    foreach (objs_of_type($objs,"/^xilinx_component/") as $sel)
-    {
-        $src = $sel["args"][0];
-        $obj = array();
-        $obj["model"] = $src;
-        $obj["subs"] = array_slice($sel["args"],1);
-        $obj["src_models"] = array(); # The source models that make up the component
-        $obj["srcs"] = array(); # The sources (models/components/cores) (and their types) that make up the component
-        $xilinx["comps"][$src] = $obj;
-        $xilinx["type"][$src] = "comp";
-    }
-    # A Xilinx RPM converts a component into a relationally-placed macro; it needs a floorplanner file as well as the component
-    # It requires some offline work to create a .ngc file from the floorplanner file and the synthesized ngc file.
-    foreach (objs_of_type($objs,"/^xilinx_rpm/") as $sel)
-    {
-        $src = $sel["args"][0];
-        $obj = array();
-        $obj["model"] = $src;
-        $xilinx["rpms"][$src] = $obj;
-        $xilinx["type"][$src] = "rpm";
-    }
-    # toplevels are built (if components...) with IOBs
-    foreach (objs_of_type($objs,"/^xilinx_toplevel/") as $sel)
-    {
-        echo "Parsing toplevel '".$sel["args"][0]."'\n";
-        $src = $sel["args"][0];
-        $obj["model"] = $sel["args"][1];
-        $obj["device"] = $sel["args"][2];
-        $obj["constraints"] = $sel["args"][3];
-        $xilinx["toplevels"][$src] = $obj;
-    }
-}
+    base_options = []
+    if (cdl_options["assertions"]=="on"): base_options.append("--include-assertions")
+    if (cdl_options["coverage"]=="on"):   base_options.append("--include-coverage")
+    if (cdl_options["statements"]=="on"): base_options.append("--include-stmt-coverage")
 
-#f find_xilinx_source
+    options = list(base_options)
+    for option in args[2:]:
+        (o,v) = parse_arg(option)
+        if o=="model":
+            model_name = v
+            object["model"] = model_name
+            object["c"]     = model_name+".cpp"
+            object["v"]     = model_name+".v"
+            object["obj"]   = model_name+".o"
+        if o=="rmn":
+            options.append("--remap-module-name")
+            options.append(v)
+        if o=="rit":
+            options.append("--remap-instance-type")
+            options.append(v)
+        if o=="inc":
+            options.append("--include-dir")
+            options.append("${SRC_ROOT}/"+v)
+        if o=="dc":
+            options.append("--constant")
+            options.append(v)
+
+    options.append("--coverage-desc-file")
+    options.append("${TARGET_DIR}/"+model_name+".map")
+
+    object["opts"] = options
+    models["cdl"].append(object)
+    models["hash"][model_name] = object
+
+#f parse_models
+def parse_models( object_list ):
+    for selection in objs_of_type(object_list,["c_model", "c_src"]):
+        parse_c_model( selection )
+
+    for selection in objs_of_type(object_list,["ef"]):
+        parse_ef_model( selection )
+
+    for selection in objs_of_type(object_list,["clib"]):
+        parse_clib( selection )
+
+    cdl_options = { "coverage":"off",
+                    "assertions":"off",
+                    "statements":"off" }
+    for selection in objs_of_type(object_list,["cdl", "cdl_options"]):
+        if selection["type"]=="cdl_options":
+            parse_cdl_option( selection, cdl_options )
+        else:
+            parse_cdl( selection, cdl_options )
+
+#f ZZZ parse_xilinx_descs
+def parse_xilinx_descs( object_list ):
+    pass
+#    $xilinx["srcs"] = array();
+#    $xilinx["macros"] = array();
+#    $xilinx["rpms"] = array();
+#    $xilinx["rams"] = array();
+#    $xilinx["cores"] = array();
+#    $xilinx["subs"] = array();
+#    $xilinx["comps"] = array();
+#    $xilinx["toplevel"] = array();
+#    $xilinx["type"] = array();
+#
+#    # A Xilinx source file is expected to define a model of the same name, and it should be a .v file in the 'src' directory of the emulation tree
+#    # Xilinx source files should only be referenced by Xilinx subcomponents and components
+#    # A Xilinx source file with the same name as another model takes preference over that other model in Xilinx components
+#    foreach (objs_of_type($objs,"/^xilinx_src/") as $sel)
+#    {
+#        $src = $sel["args"][0];
+#        $obj = array();
+#        $obj["model"] = $src;
+#        $xilinx["srcs"][$src] = $obj;
+#        $xilinx["type"][$src] = "src";
+#    }
+#
+#    # A Xilinx macro is expected to define a model of the same name, and it should be a .v file in the 'macro' directory of the emulation tree
+#    # Xilinx macro should only be referenced by Xilinx subcomponents and components
+#    # A Xilinx macro with the same name as another model takes preference over that other model in Xilinx components
+#    foreach (objs_of_type($objs,"/^xilinx_macro/") as $sel)
+#    {
+#        $src = $sel["args"][0];
+#        $obj = array();
+#        $obj["model"] = $src;
+#        $xilinx["macros"][$src] = $obj;
+#        $xilinx["type"][$src] = "macro";
+#    }
+#
+#    # A RAM is a Xilinx-specific item that is used in cores; it does not define a model
+#    foreach (objs_of_type($objs,"/^xilinx_ram/") as $sel)
+#    {
+#        $src = $sel["args"][0];
+#        $xilinx["rams"][] = $src;
+#        $xilinx["type"][$src] = "ram";
+#    }
+#
+#    # A core has a '.xco' file in 'cores', and may depend on RAMs or perhaps other things
+#    # It defines a Xilinx-specific model.
+#    # If a core is specified with the same name as another model, the core takes preference over that other model in Xilinx components
+#    # A core will generate its own '.ngc' file
+#    # The core should also generate a behavioural verilog file
+#    foreach (objs_of_type($objs,"/^xilinx_core/") as $sel)
+#    {
+#        $src = $sel["args"][0];
+#        $obj = array();
+#        $obj["model"] = $src;
+#        $obj["src"] = $src;
+#        $obj["subs"] = array_slice($sel["args"],1);
+#        $xilinx["cores"][$src] = $obj;
+#        $xilinx["type"]["$src"] = "core";
+#    }
+#    # subcomponents are groups of source files, subcomponents, cores, components, or models
+#    # a subcomponent is expected to have a model or source file that defines it, that is also declared
+#    # subcomponents are basically handy groupings
+#    foreach (objs_of_type($objs,"/^xilinx_subcomponent/") as $sel)
+#    {
+#        $src = $sel["args"][0];
+#        $obj = array();
+#        $obj["model"] = $src;
+#        $obj["subs"] = array_slice($sel["args"],1);
+#        $obj["src_models"] = array(); # The source models that make up the component
+#        $obj["srcs"] = array(); # The sources (models/components/cores) (and their types) that make up the component
+#        $xilinx["subs"][$src] = $obj;
+#        $xilinx["type"][$src] = "sub";
+#    }
+#    # components are items that are built in the Xilinx world, and they consist of models, Xilinx source, and cores
+#    # They may utilize subcomponents as a convenience, but subcomponents are not separately built (just used to gather files together neatly)
+#    # A component will generate its own '.ngc' file
+#    foreach (objs_of_type($objs,"/^xilinx_component/") as $sel)
+#    {
+#        $src = $sel["args"][0];
+#        $obj = array();
+#        $obj["model"] = $src;
+#        $obj["subs"] = array_slice($sel["args"],1);
+#        $obj["src_models"] = array(); # The source models that make up the component
+#        $obj["srcs"] = array(); # The sources (models/components/cores) (and their types) that make up the component
+#        $xilinx["comps"][$src] = $obj;
+#        $xilinx["type"][$src] = "comp";
+#    }
+#    # A Xilinx RPM converts a component into a relationally-placed macro; it needs a floorplanner file as well as the component
+#    # It requires some offline work to create a .ngc file from the floorplanner file and the synthesized ngc file.
+#    foreach (objs_of_type($objs,"/^xilinx_rpm/") as $sel)
+#    {
+#        $src = $sel["args"][0];
+#        $obj = array();
+#        $obj["model"] = $src;
+#        $xilinx["rpms"][$src] = $obj;
+#        $xilinx["type"][$src] = "rpm";
+#    }
+#    # toplevels are built (if components...) with IOBs
+#    foreach (objs_of_type($objs,"/^xilinx_toplevel/") as $sel)
+#    {
+#        echo "Parsing toplevel '".$sel["args"][0]."'\n";
+#        $src = $sel["args"][0];
+#        $obj["model"] = $sel["args"][1];
+#        $obj["device"] = $sel["args"][2];
+#        $obj["constraints"] = $sel["args"][3];
+#        $xilinx["toplevels"][$src] = $obj;
+
+#f ZZZ find_xilinx_source
 # Find the source of a model
 # Look first in $xilinx["type"][$model]
-function find_xilinx_source( $model )
-{
-    global $models, $xilinx;
-    $type = NULL;
-    $xtype = NULL;
-    if (isset($models["hash"][$model]))
-    {
-        $type = $models["hash"][$model];
-    }
-    if (isset($xilinx["type"][$model]))
-    {
-        $xtype = $xilinx["type"][$model];
-    }
-    if ($xtype)
-    {
-        return array("xmodel", $xtype );
-    }
-    if ($type)
-    {
-        return array("model", $type );
-    }
-    return NULL;
-}
+def find_xilinx_source( model ):
+    pass
+#    global $models, $xilinx;
+#    $type = NULL;
+#    $xtype = NULL;
+#    if (isset($models["hash"][$model]))
+#    {
+#        $type = $models["hash"][$model];
+#    }
+#    if (isset($xilinx["type"][$model]))
+#    {
+#        $xtype = $xilinx["type"][$model];
+#    }
+#    if ($xtype)
+#    {
+#        return array("xmodel", $xtype );
+#    }
+#    if ($type)
+#    {
+#        return array("model", $type );
+#    }
+#    return NULL;
 
-#a Build hierarchy
+#a ZZZ Build hierarchy
 #f build_xilinx_hierarchy
 # We here build the hierarchy for a Xilinx build
 # In the Xilinx world we build components, which are made up of other components, cores, or source files
@@ -424,645 +405,717 @@ function find_xilinx_source( $model )
 # We use subcomponents to group source files or other components together; they are for convenience, and do not effect build hierarchy
 # So for each component we need to identify all its constituents, and where they are subcomponents we must dig back deeper.
 # The first thing to do, therefore, is hack down the subcomponents
-function build_xilinx_hierarchy()
-{
-    global $models, $xilinx;
-
-    #b Build subcomponents down to their base constituents
-    $iter = 0;
-    # We need to iterate whilst changes occur...
-    $done = 0;
-    while (!$done)
-    {
-        #b Stop us going round forever!
-        $iter++;
-        if ($iter>50)
-        {
-            echo "Too many iterations in subcomponent hierarchy examination - probably a loop in the Xilinx components; check '$last_model'\n";
-            exit(4);
-        }
-        #b Run through all xilinx_subcomponents
-        $done = 1;
-        foreach ($xilinx["subs"] as $key=>$obj)
-        {
-            #b the subcomponent must be a xilinx source or model
-            # we expect to find its source and type in the source list
-            $src_models = $obj["src_models"];
-            $srcs = $obj["srcs"];
-            $model = $obj["model"];
-            #echo "Model $model now has source ";print_r($src_models);echo"\n";
-            #b Ensure the source for the subcomponent is in its own list
-            if (!in_array($model, $src_models))
-            {
-                $type = find_xilinx_source( $model );
-                if (!$type)
-                {
-                    echo "Subcomponent $model has no associated source file\n";
-                    exit(4);
-                }
-                #echo "Adding self $model\n";
-                $src_models[] = $model;
-                $srcs[] = array( $type, $model );
-                $done = 0;
-                $last_model = $model;
-            }
-            #b Run through all of the subcomponent ($obj)'s subs 
-            foreach ($obj["subs"] as $model)
-            {
-                #b Find the type of the subcomponent's sub ($model)
-                $type = find_xilinx_source( $model );
-                #echo "Sub $model type ";print_r($type);
-                if (!$type)
-                {
-                    echo "Subcomponent constituent $model has no associated source file\n";
-                    exit(4);
-                }
-                #b Add its source to the list for the subcomponent if not already present
-                if (!array_search($model, $src_models))
-                {
-                    $src_models[] = $model;
-                    $srcs[] = array( $type, $model );
-                    $last_model = $model;
-                    $done = 0;
-                }
-                #b If $model is a xilinx_subcomponent, then add all its source models to the set (if not already there)!
-                if ( ($type[0]=="xmodel") &&
-                     ($type[1]=="sub") )
-                {
-                    foreach ($xilinx["subs"][$model]["src_models"] as $src_model)
-                    {
-                        if (!in_array($src_model, $src_models))
-                        {
-                            $subtype = find_xilinx_source( $src_model );
-                            $src_models[] = $src_model;
-                            $srcs[] = array( $subtype, $src_model );
-                            $last_model = $model;
-                            $done = 0;
-                        }
-                    }
-                }
-            }
-            #b Set the sources for the subcomponent $obj
-            $xilinx["subs"][$key]["src_models"] = $src_models;
-            $xilinx["subs"][$key]["srcs"] = $srcs;
-            #print_r($src_models);
-        }
-    }
-
-    #b Now build components down to their base constituents
-    foreach ($xilinx["comps"] as $key=>$obj)
-    {
-        #b Clear arrys of sources and source models
-        $src_models = array();
-        $srcs = array();
-        #b the component must be a xilinx source or model
-        $model = $obj["model"];
-        $type = find_xilinx_source( $model );
-        if (!$type)
-        {
-            echo "Component $model has no associated source file\n";
-            exit(4);
-        }
-        #b Okay, so we have a source model - it may be a xilinx_src, xilinx_macro, or CDL source
-        $src_models[] = $model;
-        $srcs[] = array( $type, $model );
-        #b Now run through all the subcomponents
-        foreach ($obj["subs"] as $model)
-        {
-            #b Find type of subcomponent of our component
-            $type = find_xilinx_source( $model );
-            if (!$type)
-            {
-                echo "Component constituent $model has no associated source file\n";
-                exit(4);
-            }
-            #b Add it to the source models and sources, if it is not already there
-            if (!array_search($model, $src_models))
-            {
-                $src_models[] = $model;
-                $srcs[] = array( $type, $model );
-            }
-            #b If it is a xilinx_subcomponent, then push down in to that to add its sources also
-            if ( ($type[0]=="xmodel") &&
-                 ($type[1]=="sub") )
-            {
-                #b Add each source of our component's subs
-                foreach ($xilinx["subs"][$model]["src_models"] as $submodel)
-                {
-                    if (!in_array($submodel, $src_models))
-                    {
-                        $subtype = find_xilinx_source( $submodel );
-                        $src_models[] = $submodel;
-                        $srcs[] = array( $subtype, $submodel );
-                    }
-                }
-            }
-            #b Done that subcomponent
-        }
-        #b Set the sources and source models for the component to be the lists generated
-        $xilinx["comps"][$key]["src_models"] = $src_models;
-        $xilinx["comps"][$key]["srcs"] = $srcs;
-        #b Done that component
-    }
-}
+def build_xilinx_hierarchy():
+    pass
+#    global $models, $xilinx;
+#
+#    #b Build subcomponents down to their base constituents
+#    $iter = 0;
+#    # We need to iterate whilst changes occur...
+#    $done = 0;
+#    while (!$done)
+#    {
+#        #b Stop us going round forever!
+#        $iter++;
+#        if ($iter>50)
+#        {
+#            echo "Too many iterations in subcomponent hierarchy examination - probably a loop in the Xilinx components; check '$last_model'\n";
+#            exit(4);
+#        }
+#        #b Run through all xilinx_subcomponents
+#        $done = 1;
+#        foreach ($xilinx["subs"] as $key=>$obj)
+#        {
+#            #b the subcomponent must be a xilinx source or model
+#            # we expect to find its source and type in the source list
+#            $src_models = $obj["src_models"];
+#            $srcs = $obj["srcs"];
+#            $model = $obj["model"];
+#            #echo "Model $model now has source ";print_r($src_models);echo"\n";
+#            #b Ensure the source for the subcomponent is in its own list
+#            if (!in_array($model, $src_models))
+#            {
+#                $type = find_xilinx_source( $model );
+#                if (!$type)
+#                {
+#                    echo "Subcomponent $model has no associated source file\n";
+#                    exit(4);
+#                }
+#                #echo "Adding self $model\n";
+#                $src_models[] = $model;
+#                $srcs[] = array( $type, $model );
+#                $done = 0;
+#                $last_model = $model;
+#            }
+#            #b Run through all of the subcomponent ($obj)'s subs 
+#            foreach ($obj["subs"] as $model)
+#            {
+#                #b Find the type of the subcomponent's sub ($model)
+#                $type = find_xilinx_source( $model );
+#                #echo "Sub $model type ";print_r($type);
+#                if (!$type)
+#                {
+#                    echo "Subcomponent constituent $model has no associated source file\n";
+#                    exit(4);
+#                }
+#                #b Add its source to the list for the subcomponent if not already present
+#                if (!array_search($model, $src_models))
+#                {
+#                    $src_models[] = $model;
+#                    $srcs[] = array( $type, $model );
+#                    $last_model = $model;
+#                    $done = 0;
+#                }
+#                #b If $model is a xilinx_subcomponent, then add all its source models to the set (if not already there)!
+#                if ( ($type[0]=="xmodel") &&
+#                     ($type[1]=="sub") )
+#                {
+#                    foreach ($xilinx["subs"][$model]["src_models"] as $src_model)
+#                    {
+#                        if (!in_array($src_model, $src_models))
+#                        {
+#                            $subtype = find_xilinx_source( $src_model );
+#                            $src_models[] = $src_model;
+#                            $srcs[] = array( $subtype, $src_model );
+#                            $last_model = $model;
+#                            $done = 0;
+#                        }
+#                    }
+#                }
+#            }
+#            #b Set the sources for the subcomponent $obj
+#            $xilinx["subs"][$key]["src_models"] = $src_models;
+#            $xilinx["subs"][$key]["srcs"] = $srcs;
+#            #print_r($src_models);
+#        }
+#    }
+#
+#    #b Now build components down to their base constituents
+#    foreach ($xilinx["comps"] as $key=>$obj)
+#    {
+#        #b Clear arrys of sources and source models
+#        $src_models = array();
+#        $srcs = array();
+#        #b the component must be a xilinx source or model
+#        $model = $obj["model"];
+#        $type = find_xilinx_source( $model );
+#        if (!$type)
+#        {
+#            echo "Component $model has no associated source file\n";
+#            exit(4);
+#        }
+#        #b Okay, so we have a source model - it may be a xilinx_src, xilinx_macro, or CDL source
+#        $src_models[] = $model;
+#        $srcs[] = array( $type, $model );
+#        #b Now run through all the subcomponents
+#        foreach ($obj["subs"] as $model)
+#        {
+#            #b Find type of subcomponent of our component
+#            $type = find_xilinx_source( $model );
+#            if (!$type)
+#            {
+#                echo "Component constituent $model has no associated source file\n";
+#                exit(4);
+#            }
+#            #b Add it to the source models and sources, if it is not already there
+#            if (!array_search($model, $src_models))
+#            {
+#                $src_models[] = $model;
+#                $srcs[] = array( $type, $model );
+#            }
+#            #b If it is a xilinx_subcomponent, then push down in to that to add its sources also
+#            if ( ($type[0]=="xmodel") &&
+#                 ($type[1]=="sub") )
+#            {
+#                #b Add each source of our component's subs
+#                foreach ($xilinx["subs"][$model]["src_models"] as $submodel)
+#                {
+#                    if (!in_array($submodel, $src_models))
+#                    {
+#                        $subtype = find_xilinx_source( $submodel );
+#                        $src_models[] = $submodel;
+#                        $srcs[] = array( $subtype, $submodel );
+#                    }
+#                }
+#            }
+#            #b Done that subcomponent
+#        }
+#        #b Set the sources and source models for the component to be the lists generated
+#        $xilinx["comps"][$key]["src_models"] = $src_models;
+#        $xilinx["comps"][$key]["srcs"] = $srcs;
+#        #b Done that component
 
 #a Model makefile
+#f options_string_from_list
+def options_string_from_list( option_list ):
+    options = ""
+    for opt in option_list:
+        options = options + " " + opt
+    return options
+
 #f output_model_makefile
-function output_model_makefile( $file )
-{
-    global $models, $libs;
+def output_model_makefile( output_file ):
 
-    fwrite( $file, "MODEL_LIBS := \\\n" );
-    foreach ($libs["c"] as $i)
-    {
-        fwrite( $file, "    -l".$i["lib"]." \\\n");
-    }
-    fwrite( $file, " \n" );
+    print >>output_file, "#a Variables"
+    print >>output_file, "MODEL_LIBS := \\"
+    for lib in libs["c"]:
+        print >>output_file, "    -l"+lib["lib"]+" \\"
+    print >>output_file, " "
 
-    fwrite( $file, "MODELS := \\\n" );
-    foreach ($models["c"] as $i)
-    {
-        if ($i["type"] == "c_model")
-        {
-            fwrite( $file, "    ".$i["model"]." \\\n");
-        }
-    }
-    foreach ($models["ef"] as $i)
-    {
-        fwrite( $file, "    ".$i["model"]." \\\n");
-    }
-    foreach ($models["cdl"] as $i)
-    {
-        fwrite( $file, "    ".$i["model"]." \\\n");
-    }
-    fwrite( $file, " \n" );
+    print >>output_file, "MODELS :="
+#    for model in models["c"]:
+#        if (model["type"] == "c_model"):
+#            print >>output_file, "    "+model["model"]+" \\"
+#    for model in models["ef"]:
+#        print >>output_file, "    "+model["model"]+" \\"
+#    for model in models["cdl"]:
+#        print >>output_file, "    "+model["model"]+" \\"
+#    print >>output_file, ""
 
-    fwrite( $file, "C_MODEL_SRCS := \\\n" );
-    foreach ($models["c"] as $i)
-    {
-        fwrite( $file, "    \${SRC_ROOT}/".$i["dir"]."/".$i["model"].".cpp \\\n");
-    }
-    fwrite( $file, " \n" );
+    print >>output_file, "C_MODEL_SRCS :="
+#    for model in models["c"]:
+#        print >>output_file, "    ${SRC_ROOT}/"+model["dir"]+"/"+model["model"]+".cpp \\"
+#    print >>output_file, ""
 
-    fwrite( $file, "C_MODEL_OBJS := \\\n" );
-    foreach ($models["c"] as $i)
-    {
-        fwrite( $file, "    \${TARGET_DIR}/".$i["model"].".o \\\n");
-    }
-    foreach ($models["ef"] as $i)
-    {
-        fwrite( $file, "    \${TARGET_DIR}/".$i["obj"]." \\\n");
-    }
-    foreach ($models["cdl"] as $i)
-    {
-        fwrite( $file, "    \${TARGET_DIR}/".$i["obj"]." \\\n");
-    }
-    fwrite( $file, " \n" );
+    print >>output_file, "C_MODEL_OBJS :="
+    #for model in models["c"]:
+    #    print >>output_file, "    ${TARGET_DIR}/"+model["model"]+".o \\"
+    #for model in models["ef"]:
+    #    print >>output_file, "    ${TARGET_DIR}/"+model["obj"]+" \\"
+    #for model in models["cdl"]:
+    #    print >>output_file, "    ${TARGET_DIR}/"+model["obj"]+" \\"
+    #print >>output_file, ""
 
-    fwrite( $file, "VERILOG_FILES := \\\n" );
-    foreach ($models["cdl"] as $i)
-    {
-        fwrite( $file, "    \${TARGET_DIR}/".$i["v"]." \\\n");
-    }
-    fwrite( $file, " \n" );
+    print >>output_file, "VERILOG_FILES := "
+    #for model in models["cdl"]:
+    #    print >>output_file, "    ${TARGET_DIR}/"+model["v"]+" \\"
+    #print >>output_file, ""
 
-    foreach ($models["c"] as $i)
-    {
-        $c_file = $i["dir"]."/".$i["model"].".cpp";
-        $object_file = $i["model"].".o";
-        $options = preg_replace( "/@@@/", " ", $i["opts"] );
-        fwrite( $file, "\${TARGET_DIR}/$object_file : \${SRC_ROOT}/$c_file\n" );
-        fwrite( $file, "\t@echo \"CC \$< -o -\$@\"\n" );
-        fwrite( $file, "\t\$(Q)\$(CXX) \$(CXXFLAGS) -c -o \${TARGET_DIR}/$object_file \${SRC_ROOT}/$c_file $options\n\n" );
-    }
+    print >>output_file, ""
+    print >>output_file, "#a Templates"
+    print >>output_file, "#f cmodel_template"
+    print >>output_file, """define cmodel_template"""
+    print >>output_file, """# @param $1 c filename"""
+    print >>output_file, """# @param $2 object filename"""
+    print >>output_file, """# @param $3 options"""
+    print >>output_file, """${TARGET_DIR}/$2 : ${SRC_ROOT}/$1"""
+    print >>output_file, """\t@echo "CC $1 -o -$2" """
+    print >>output_file, """\t$(Q)$(CXX) $(CXXFLAGS) -c -o ${TARGET_DIR}/$2 ${SRC_ROOT}/$1 $3"""
+    print >>output_file, """C_MODEL_SRCS += ${SRC_ROOT}/$1"""
+    print >>output_file, """C_MODEL_OBJS += ${TARGET_DIR}/$2"""
+    print >>output_file
+    print >>output_file, """endef"""
+    print >>output_file
+    print >>output_file, "#f ef_template"
+    print >>output_file, """define ef_template"""
+    print >>output_file, """# @param $1 ef filename inside src_root"""
+    print >>output_file, """# @param $2 c filename in output dir"""
+    print >>output_file, """# @param $3 model name"""
+    print >>output_file, """# @param $4 object filename"""
+    print >>output_file, """# @param $5 options"""
+    print >>output_file, """${TARGET_DIR}/$2 : ${SRC_ROOT}/$1 $(CYCLICITY_BIN_DIR)/ef"""
+    print >>output_file, """\t@echo "EF $1 -cpp -$2" """
+    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/ef --model $3 --cpp ${TARGET_DIR}/$2 $5 ${SRC_ROOT}/$1"""
+    print >>output_file
+    print >>output_file, """${TARGET_DIR}/$4 : ${TARGET_DIR}/$2"""
+    print >>output_file, """\t@echo "CC $1 -o -$2" """
+    print >>output_file, """\t$(Q)$(CXX) $(CXXFLAGS) -c -o ${TARGET_DIR}/$4 ${TARGET_DIR}/$2"""
+    print >>output_file
+    print >>output_file, """MODELS += $3"""
+    print >>output_file, """C_MODEL_OBJS += ${TARGET_DIR}/$4"""
+    print >>output_file
+    print >>output_file, """endef"""
+    print >>output_file
+    print >>output_file, "#f cdl_template"
+    print >>output_file, """define cdl_template"""
+    print >>output_file, """# @param $1 cdl filename inside src_root"""
+    print >>output_file, """# @param $2 c filename in output dir"""
+    print >>output_file, """# @param $3 model name"""
+    print >>output_file, """# @param $4 object filename"""
+    print >>output_file, """# @param $5 verilog filename"""
+    print >>output_file, """# @param $6 options"""
+    print >>output_file, """${TARGET_DIR}/$2 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
+    print >>output_file, """\t@echo "CDL $1 -cpp -$2" """
+    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --cpp ${TARGET_DIR}/$2 $6 ${SRC_ROOT}/$1"""
+    print >>output_file
+    print >>output_file, """${TARGET_DIR}/$4 : ${TARGET_DIR}/$2"""
+    print >>output_file, """\t@echo "CC $2 -o -$4" """
+    print >>output_file, """\t$(Q)$(CXX) $(CXXFLAGS) -c -o ${TARGET_DIR}/$4 ${TARGET_DIR}/$2"""
+    print >>output_file
+    print >>output_file, """${TARGET_DIR}/$5 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
+    print >>output_file, """\t@echo "CDL $5 -v -$1" """
+    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --verilog ${TARGET_DIR}/$5 $6 ${SRC_ROOT}/$1"""
+    print >>output_file
+    print >>output_file, """MODELS += $3"""
+    print >>output_file, """C_MODEL_OBJS += ${TARGET_DIR}/$4"""
+    print >>output_file, """VERILOG_FILES += ${TARGET_DIR}/$5"""
+    print >>output_file
+    print >>output_file, """endef"""
+
+    print >>output_file
+    print >>output_file, "#a C models"
+    for model in models["c"]:
+        c_filename      = model["dir"]+"/"+model["model"]+".cpp"
+        object_filename = model["model"]+".o"
+        options = options_string_from_list(model["opts"])
+        print >>output_file, """$(eval $(call cmodel_template,%s,%s,%s))""" % (c_filename, object_filename, options)
     
-    foreach ($models["ef"] as $i)
-    {
-        $directory = $i["dir"];
-        $model = $i["model"];
-        $source_file = $i["src"];
-        $c_file = $i["c"];
-        $object_file = $i["obj"];
-        $options = preg_replace( "/@@@/", " ", $i["opts"] );
-        fwrite( $file, "\${TARGET_DIR}/$c_file : \${SRC_ROOT}/$directory/$source_file \$(CYCLICITY_BIN_DIR)/ef\n" );
-        fwrite( $file, "\t@echo \"EF \$< -cpp -\$@\"\n" );
-        fwrite( $file, "\t\$(Q)\$(CYCLICITY_BIN_DIR)/ef --model $model --cpp \${TARGET_DIR}/$c_file $options \${SRC_ROOT}/$directory/$source_file\n\n" );
-        fwrite( $file, "\${TARGET_DIR}/$object_file : \${TARGET_DIR}/$c_file\n" );
-        fwrite( $file, "\t@echo \"CC \$< -o -\$@\"\n" );
-        fwrite( $file, "\t\$(Q)\$(CXX) \$(CXXFLAGS) -c -o \${TARGET_DIR}/$object_file \${TARGET_DIR}/$c_file\n\n" );
-    }
+    print >>output_file
+    print >>output_file, "#a EF models"
+    for model in models["ef"]:
+        directory = model["dir"]
+        model_name = model["model"]
+        source_file = model["src"]
+        c_filename = model["c"]
+        object_filename = model["obj"]
+        ef_filename = directory + "/" + source_file
+        options = options_string_from_list(model["opts"])
+        print >>output_file, """$(eval $(call ef_template,%s,%s,%s,%s,%s))""" % (ef_filename, c_filename, model_name, object_filename, options)
 
-    foreach ($models["cdl"] as $i)
-    {
-        $directory = $i["dir"];
-        $model = $i["model"];
-        $source_file = $i["src"];
-        $c_file = $i["c"];
-        $object_file = $i["obj"];
-        $v_file = $i["v"];
-        $options = preg_replace( "/@@@/", " ", $i["opts"] );
-        fwrite($file, "\${TARGET_DIR}/$c_file : \${SRC_ROOT}/$directory/$source_file \${CREATE_MAKE} \$(CYCLICITY_BIN_DIR)/cdl\n" );
-        fwrite($file, "\t@echo \"CDL \$< -cpp -\$@\"\n" );
-        fwrite($file, "\t\$(Q)\$(CYCLICITY_BIN_DIR)/cdl --model $model --cpp \${TARGET_DIR}/$c_file $options \${SRC_ROOT}/$directory/$source_file\n\n" );
-        fwrite($file, "\${TARGET_DIR}/$object_file : \${TARGET_DIR}/$c_file\n" );
-        fwrite($file, "\t@echo \"CC \$< -o -\$@\"\n" );
-        fwrite($file, "\t\$(Q)\$(CXX) \$(CXXFLAGS) -c -o \${TARGET_DIR}/$object_file \${TARGET_DIR}/$c_file\n\n" );
-        fwrite($file, "\${TARGET_DIR}/$v_file : \${SRC_ROOT}/$directory/$source_file \${CREATE_MAKE} \$(CYCLICITY_BIN_DIR)/cdl\n" );
-        fwrite( $file, "\t@echo \"CDL \$< -v -\$@\"\n" );
-        fwrite($file, "\t\$(Q)\$(CYCLICITY_BIN_DIR)/cdl \$(CDL_TO_VERILOG_OPTIONS) --model $model --verilog \${TARGET_DIR}/$v_file $options \${SRC_ROOT}/$directory/$source_file\n\n" );
-    }
-}
+    print >>output_file
+    print >>output_file, "#a CDL models"
+    for model in models["cdl"]:
+        directory = model["dir"]
+        model_name = model["model"]
+        source_file = model["src"]
+        c_filename = model["c"]
+        object_filename = model["obj"]
+        verilog_filename = model["v"]
+        cdl_filename = directory + "/" + source_file
+        options = options_string_from_list(model["opts"])
+        print >>output_file, """$(eval $(call cdl_template,%s,%s,%s,%s,%s,%s))""" % (cdl_filename, c_filename, model_name, object_filename, verilog_filename, options)
 
-#a Xilinx makefile
+#a ZZZ Xilinx makefile
 #f output_xilinx_makefile
-function output_xilinx_makefile( $file, $toplevel )
-{
-    global $models, $xilinx;
+def output_xilinx_makefile( out_file, toplevel ):
+    pass
+#    global $models, $xilinx;
+#
+#    $device         = $xilinx["toplevels"][$toplevel]["device"];
+#    $toplevel_model = $xilinx["toplevels"][$toplevel]["model"];
+#    $constraints = "\${CONSTRAINTS}/".$xilinx["toplevels"][$toplevel]["constraints"];
+#
+#    #b Header
+#    print >>output_file, "export XIL_PLACE_ALLOW_LOCAL_BUFG_ROUTING := 1\n");
+#    print >>output_file, "REPOSITORY = ../../repository/emulation/xilinx\n");
+#    print >>output_file, "XMACRO = \${REPOSITORY}/macros\n");
+#    print >>output_file, "XSRC = \${REPOSITORY}/src\n");
+#    print >>output_file, "XRPM = \${REPOSITORY}/rpm\n");
+#    print >>output_file, "RAMS = \${REPOSITORY}/rams\n");
+#    print >>output_file, "CORES = \${REPOSITORY}/cores\n");
+#    print >>output_file, "CONSTRAINTS = \${REPOSITORY}/constraints\n");
+#    print >>output_file, "SRC = ../../build/emulation/linux\n");
+#    print >>output_file, "COREGEN_OBJ = obj/coregen\n");
+#    print >>output_file, "RPM_OBJ = obj/rpm\n");
+#    print >>output_file, "XST_OBJ = obj/xst\n");
+#    print >>output_file, "XST_TMP = tmp/xst\n");
+#    print >>output_file, "XST_DONE = obj/xst/.built\n");
+#    print >>output_file, "NGD_OBJ = obj/ngd\n");
+#    print >>output_file, "NGD_DONE = obj/ngd/.built\n");
+#    print >>output_file, "MAP_OBJ = obj/map\n");
+#    print >>output_file, "MAP_DONE = obj/map/.built\n");
+#    print >>output_file, "PAR_OBJ = obj/par\n");
+#    print >>output_file, "PAR_DONE = obj/par/.built\n");
+#    print >>output_file, "BIT_OBJ = obj/bit\n");
+#    print >>output_file, "BIT_DONE = obj/bit/.built\n");
+#    print >>output_file, "LOG = log\n");
+#    print >>output_file, "XST_OPTIONS = -p $device\n");
+#    print >>output_file, "XST_OPTIONS += -opt_mode Speed\n");
+#    print >>output_file, "XST_OPTIONS += -opt_level 1\n");
+#    print >>output_file, "XST_OPTIONS += -glob_opt AllClockNets\n");
+#    print >>output_file, "XST_OPTIONS += -rtlview No\n");
+#    print >>output_file, "XST_OPTIONS += -read_cores YES\n");
+#    print >>output_file, "XST_OPTIONS += -write_timing_constraints NO\n");
+#    print >>output_file, "XST_OPTIONS += -cross_clock_analysis NO\n");
+#    print >>output_file, "XST_OPTIONS += -hierarchy_separator /\n");
+#    print >>output_file, "XST_OPTIONS += -bus_delimiter <>\n");
+#    print >>output_file, "XST_OPTIONS += -case maintain\n");
+#    print >>output_file, "XST_OPTIONS += -slice_utilization_ratio 100\n");
+#    print >>output_file, "XST_OPTIONS += -verilog2001 YES\n");
+#    print >>output_file, "XST_OPTIONS += -fsm_extract YES\n");
+#    print >>output_file, "XST_OPTIONS += -fsm_encoding Auto\n");
+#    print >>output_file, "XST_OPTIONS += -safe_implementation No\n");
+#    print >>output_file, "XST_OPTIONS += -fsm_style lut\n");
+#    print >>output_file, "XST_OPTIONS += -ram_extract Yes\n");
+#    print >>output_file, "XST_OPTIONS += -ram_style Auto\n");
+#    print >>output_file, "XST_OPTIONS += -rom_extract Yes\n");
+#    print >>output_file, "XST_OPTIONS += -rom_style Auto\n");
+#    print >>output_file, "XST_OPTIONS += -mux_extract YES\n");
+#    print >>output_file, "XST_OPTIONS += -mux_style Auto\n");
+#    print >>output_file, "XST_OPTIONS += -decoder_extract YES\n");
+#    print >>output_file, "XST_OPTIONS += -priority_extract YES\n");
+#    print >>output_file, "XST_OPTIONS += -shreg_extract YES\n");
+#    print >>output_file, "XST_OPTIONS += -shift_extract YES\n");
+#    print >>output_file, "XST_OPTIONS += -xor_collapse YES\n");
+#    print >>output_file, "XST_OPTIONS += -resource_sharing YES\n");
+#    #Not for spartan3 print >>output_file, "XST_OPTIONS += -use_dsp48 auto\n");
+#    print >>output_file, "XST_OPTIONS += -max_fanout 500\n");
+#    print >>output_file, "XST_OPTIONS += -bufg 32\n");
+#    #Not for spartan3 print >>output_file, "XST_OPTIONS += -bufr Default\n");
+#    print >>output_file, "XST_OPTIONS += -register_duplication YES\n");
+#    print >>output_file, "XST_OPTIONS += -equivalent_register_removal YES\n");
+#    print >>output_file, "XST_OPTIONS += -register_balancing No\n");
+#    print >>output_file, "XST_OPTIONS += -slice_packing YES\n");
+#    print >>output_file, "XST_OPTIONS += -optimize_primitives NO\n");
+#    print >>output_file, "XST_OPTIONS += -use_clock_enable Auto\n");
+#    print >>output_file, "XST_OPTIONS += -use_sync_set Auto\n");
+#    print >>output_file, "XST_OPTIONS += -use_sync_reset Auto\n");
+#    print >>output_file, "XST_OPTIONS += -enable_auto_floorplanning No\n");
+#    print >>output_file, "XST_OPTIONS += -iob auto\n");
+#    print >>output_file, "XST_OPTIONS += -slice_utilization_ratio_maxmargin 5\n");
+#    print >>output_file, "\n");
+#    print >>output_file, "XST_RPM_OPTIONS = \${XST_OPTIONS} -iobuf no -ofmt ngc\n");
+#    print >>output_file, "XST_COMP_OPTIONS = \${XST_OPTIONS} -iobuf no -ofmt ngc\n");
+#    print >>output_file, "XST_TOP_OPTIONS = \${XST_OPTIONS} -keep_hierarchy yes -iobuf yes -ofmt ngc\n");
+#    print >>output_file, "\n");
+#
+#    #b Core generation
+#    foreach ($xilinx["cores"] as $i)
+#    {
+#        $model = $i["model"];
+#        print >>output_file, "\${COREGEN_OBJ}/$model.edn: \${CORES}/".$i["src"].".xco");
+#        if (isset($i["subs"][0]))
+#        {
+#            fwrite ($file, " \${RAMS}/".$i["subs"][0] );
+#        }
+#        fwrite ($file, "\n");
+#
+#        print >>output_file, "\t@mkdir -p \${COREGEN_OBJ}\n" );
+#        print >>output_file, "\trm -f \${COREGEN_OBJ}/$model*\n" );
+#        print >>output_file, "\tcoregen -b \${CORES}/".$i["src"].".xco\n\n");
+#        print >>output_file, "\${XST_OBJ}/$model.ngo: \${COREGEN_OBJ}/$model.edn\n");
+#        print >>output_file, "\t@mkdir -p \${XST_OBJ}\n");
+#        print >>output_file, "\tedif2ngd \${COREGEN_OBJ}/$model.edn \${XST_OBJ}/$model.ngo\n\n");
+#    }
+#    print >>output_file, "coregen: \\\n" );
+#    foreach ($xilinx["cores"] as $i)
+#    {
+#        $model = $i["model"];
+#        print >>output_file, "\t\${XST_OBJ}/$model.ngo\\\n");
+#    }
+#    print >>output_file, "\n\n" );
+#
+#    #b RPM generation
+#    foreach ($xilinx["rpms"] as $model=>$obj)
+#    {
+#        #b $obj["model"] is the source ngc and fnf file, and there should be a macro .v file too
+#        if (!isset($xilinx["macros"][$obj["model"]]))
+#        {
+#            echo "For a Xilinx RPM there should be an associated macro verilog file\n";
+#            exit(4);
+#        }
+#        #b Dependencies - basically the macro and the fnf
+#        print >>output_file, "\${RPM_OBJ}/$model.ngc: \\\n" );
+#        print >>output_file, "\t\${XMACRO}/".$obj["model"].".v \\\n");
+#        print >>output_file, "\t\${XST_OBJ}/".$obj["model"].".rpm.ngc \\\n");
+#        print >>output_file, "\t\${XRPM}/$model.ucf \n");
+#        print >>output_file, "\t@mkdir -p \${RPM_OBJ}\n");
+#        print >>output_file, "\tngcbuild -p xc3s4000 -uc \${XRPM}/$model.ucf \${XST_OBJ}/$model.rpm.ngc \${RPM_OBJ}/$model.ngc\n" );
+#        print >>output_file, "\n" );
+#        #b Now we also need an ngdbuild if the RPM is to be able to be built...
+#        print >>output_file, "\${NGD_OBJ}/$model.rpm.ngd: \${XST_OBJ}/$model.rpm.ngc\n");
+#        print >>output_file, "\t@mkdir -p \${NGD_OBJ}\n");
+#        print >>output_file, "\t@echo \"\"\n");
+#        print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#        print >>output_file, "\t@echo \"                               NGD Build for RPM $model                     \"\n");
+#        print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#        print >>output_file, "\tngdbuild -aul -insert_keep_hierarchy -dd ./tmp -nt timestamp \${XST_OBJ}/$model.rpm.ngc \${NGD_OBJ}/$model.rpm.ngd\n");
+#        print >>output_file, "$model.rpm: \${NGD_OBJ/$model.ngd}\n\n\n");
+#    }
+#    
+#    #b NGC generation (synthesis of components)
+#    foreach ($xilinx["comps"] as $model=>$obj)
+#    {
+#        #b Find all the verilog sources and hierarchical models that make the component, and output these as dependencies
+#        $v_files = array();
+#        $hier_models = array();
+#        $target_ngc = "\${XST_OBJ}/$model";
+#        if (isset($xilinx["rpms"][$model]))
+#        {
+#            $target_ngc = "\${XST_OBJ}/$model.rpm";
+#        }
+#        print >>output_file, "$target_ngc.ngc: \\\n" );
+#        foreach ($obj["srcs"] as $src)
+#        {
+#            #b First, if it is a core, then dependency is the .ngo, and there is a verilog source from the coregen
+#            $handled = 0;
+#            if ( ($src[0][0]=="xmodel") && ($src[0][1]=="core") )
+#            {
+#                $v = "\${COREGEN_OBJ}/".$src[1].".v";
+#                $handled = 1;
+#                print >>output_file, "\t\${XST_OBJ}/".$src[1].".ngo \\\n");
+#                $hier_models[] = $src[1];
+#                $v_files[] = $v;
+#            }
+#            #b Else if it is a component (hierarchical build :-), then the dependency is xst's .ngc, no source required
+#            if ( ($model!=$src[1]) && (($src[0][0]=="xmodel") && ($src[0][1]=="comp") ))
+#            {
+#                $handled = 1;
+#                print >>output_file, "\t\${XST_OBJ}/".$src[1].".ngc \\\n");
+#                $hier_models[] = $src[1];
+#            }
+#            #b Else if it is a xilinx_src, then the dependency is the verilog source, and that is needed in the .prj
+#            if (!$handled && isset($xilinx["srcs"][$src[1]]))
+#            {
+#                $v = "\${XSRC}/".$src[1].".v";
+#                print >>output_file, "\t$v \\\n");
+#                $v_files[] = $v;
+#                $handled = 1;
+#            }
+#            #b Else if it is a xilinx_rpm, then the dependency is the RPM ngc, and a black box wrapper is needed in the .prj
+#            if (!$handled && ($model!=$src[1]) && isset($xilinx["rpms"][$src[1]]))
+#            {
+#                $v = "\${XRPM}/".$src[1].".v";
+#                print >>output_file, "\t\${RPM_OBJ}/".$src[1].".ngc \\\n");
+#                $v_files[] = $v;
+#                $handled = 1;
+#            }
+#            #b Else if it is a xilinx_macro, then the dependency is the macro .v, and that is needed in the .prj
+#            if (!$handled && isset($xilinx["macros"][$src[1]]))
+#            {
+#                $v = "\${XMACRO}/".$src[1].".v";
+#                print >>output_file, "\t$v \\\n");
+#                $v_files[] = $v;
+#                $handled = 1;
+#            }
+#            #b Else we had better have some CDL source... the dependency is the emulation source .v, and that is needed in the .prj
+#            if (!$handled && isset($models["hash"][$src[1]]))
+#            {
+#                $v = "\${SRC}/".$src[1].".v";
+#                print >>output_file, "\t$v \\\n");
+#                $v_files[] = $v;
+#                $handled = 1;
+#            }
+#            if (!$handled)
+#            {
+#                echo "Could not handle source file $src[1]\n";
+#            }
+#        }
+#        print >>output_file, "\n" );
+#        #b Routine housekeping for directories
+#        print >>output_file, "\t@mkdir -p \${LOG}\n" );
+#        print >>output_file, "\t@mkdir -p \${XST_OBJ}\n" );
+#        print >>output_file, "\t@mkdir -p \${XST_TMP}\n" );
+#        print >>output_file, "\t@rm -f $target_ngc.ngc\n" );
+#        print >>output_file, "\t@rm -f \${XST_DONE}\n" );
+#        #b Set filenames
+#        $xst_file = "\${XST_TMP}/$model.xst";
+#        $prj_file = "\${XST_TMP}/$model.prj";
+#        $xcf_file = "\${XST_TMP}/$model.xcf";
+#        $lso_file = "\${XST_TMP}/$model.lso";
+#        #b Create LSO file - library search order; this is probably unnecessary, but it works
+#        print >>output_file, "\t@echo \"work\" > $lso_file\n");
+#        #b Create xcf file - basically we would want to handle hierarchical builds here, but we cannot as the Xilinx tools don't work
+#        print >>output_file, "\t@echo \"\" > $xcf_file\n");
+#        foreach ($xilinx["comps"] as $submodel=>$dummy)
+#        {
+#            #if ($submodel!=$model) # Don't include itself, that messes up xst
+#            #{
+#            #    print >>output_file, "\t@echo \"MODEL \\\"$submodel\\\" incremental_synthesis=yes;\" >> $xcf_file\n");
+#            #}
+#        }
+#        #b Create prj file - all the submodules that are needed as verilog
+#        print >>output_file, "\t@echo \"\" > $prj_file\n");
+#        foreach ($v_files as $v)
+#        {
+#            print >>output_file, "\t@echo \"verilog work $v\" >> $prj_file\n");
+#        }
+#        #b Create xst file - the build options required for XST to run
+#        print >>output_file, "\t@echo \"set -tmpdir ./tmp\" > $xst_file\n");
+#        print >>output_file, "\t@echo \"set -xsthdpdir ./xst\" >> $xst_file\n");
+#        print >>output_file, "\t@echo \"run\" >> $xst_file\n");
+#        #if (isset($xilinx["toplevels"][$model]))
+#        if ($model==$toplevel_model)
+#        {
+#            print >>output_file, "\t@echo \"\${XST_TOP_OPTIONS} -lso $lso_file -uc $xcf_file -ifmt mixed -ifn $prj_file -ofn $target_ngc.ngc -top $model\" >> $xst_file\n" );
+#        }
+#        else if (isset($xilinx["rpms"][$model]))
+#        {
+#            print >>output_file, "\t@echo \"\${XST_RPM_OPTIONS} -lso $lso_file -uc $xcf_file -ifmt mixed -ifn $prj_file -ofn $target_ngc.ngc -top $model\" >> $xst_file\n" );
+#        }
+#        else
+#        {
+#            print >>output_file, "\t@echo \"\${XST_COMP_OPTIONS} -lso $lso_file -uc $xcf_file -ifmt mixed -ifn $prj_file -ofn $target_ngc.ngc -top $model\" >> $xst_file\n" );
+#        }
+#        #b Add the xst line to the makefile with a message
+#        print >>output_file, "\t@echo \"\"\n");
+#        print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#        print >>output_file, "\t@echo \"                               Synthesizing $model                          \"\n");
+#        print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#        print >>output_file, "\txst -ifn $xst_file -ofn \${LOG}/$model.syr" );
+#        print >>output_file, "\n\n" );
+#        #b Done that xst
+#    }
+#
+#    #b Mark NGC as done when the toplevel NGC file is ready
+#    print >>output_file, "\${XST_DONE}: \${XST_OBJ}/$toplevel_model.ngc\n" );
+#    print >>output_file, "\ttouch \${XST_DONE}\n" );
+#    print >>output_file, "synth: \${XST_DONE}\n\n" );
+#
+#    #b NGDbuild
+#    print >>output_file, "\${NGD_OBJ}/$toplevel_model.ngd: \${XST_OBJ}/$toplevel_model.ngc\\\n");
+#    $obj = $xilinx["comps"][$toplevel_model];
+#    $ngos = array();
+#    foreach ($obj["srcs"] as $src)
+#    {
+#        #b First, if it is a core, then dependency is the .ngo, and there is a verilog source from the coregen
+#        if ( ($src[0][0]=="xmodel") && ($src[0][1]=="core") )
+#        {
+#            print >>output_file, "\t\${XST_OBJ}/".$src[1].".ngo \\\n");
+#        }
+#        #b Else if it is a xilinx_rpm, then the dependency is the RPM ngc, and a black box wrapper is needed in the .prj
+#        if (isset($xilinx["rpms"][$src[1]]))
+#        {
+#            print >>output_file, "\t\${RPM_OBJ}/".$src[1].".ngc \\\n");
+#        }
+#    }
+#    print >>output_file, "\t\${XST_OBJ}/.built $constraints\n" );
+#    #print >>output_file, "\${NGD_OBJ}/$toplevel_model.ngd: \${XST_OBJ}/boot_rom.ngo \${XST_OBJ}/.built $constraints \${XST_OBJ}/$toplevel_model.ngc\n");
+#    print >>output_file, "\t@mkdir -p \${NGD_OBJ}\n");
+#    print >>output_file, "\t@rm -f \${NGD_DONE}\n");
+#    print >>output_file, "\t@echo \"\"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\t@echo \"                               NGD Build                                    \"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\tngdbuild -aul -insert_keep_hierarchy -dd ./tmp -nt timestamp -sd \${RPM_OBJ} -uc $constraints -p $device \${XST_OBJ}/$toplevel_model.ngc \${NGD_OBJ}/$toplevel_model.ngd\n");
+#    print >>output_file, "\${NGD_DONE}: \${NGD_OBJ}/$toplevel_model.ngd\n" );
+#    print >>output_file, "\ttouch \${NGD_DONE}\n" );
+#    print >>output_file, "ngd: \${NGD_DONE}\n\n\n");
+#
+#    #b Map
+#    print >>output_file, "\${MAP_OBJ}/$toplevel_model.ncd: \${NGD_DONE} \${NGD_OBJ}/$toplevel_model.ngd\n");
+#    print >>output_file, "\t@mkdir -p \${MAP_OBJ}\n");
+#    print >>output_file, "\t@rm -f \${MAP_DONE}\n");
+#    print >>output_file, "\t@echo \"\"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\t@echo \"                               Mapping                                      \"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\tmap -ignore_keep_hierarchy -p $device -cm area -detail -pr b -k 4 -c 100 -o \${MAP_OBJ}/$toplevel_model.ncd \${NGD_OBJ}/$toplevel_model.ngd \${MAP_OBJ}/$toplevel_model.pcf\n");
+#    print >>output_file, "\${MAP_DONE}: \${MAP_OBJ}/$toplevel_model.ncd\n" );
+#    print >>output_file, "\ttouch \${MAP_DONE}\n");
+#    print >>output_file, "\${MAP_OBJ}/$toplevel_model.pcf: \${MAP_DONE}\n");
+#    print >>output_file, "map: \${MAP_DONE}\n\n\n");
+#
+#    #b PAR
+#    print >>output_file, "\${PAR_OBJ}/$toplevel_model.par:\${MAP_DONE} \${MAP_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
+#    print >>output_file, "\t@mkdir -p \${PAR_OBJ}\n");
+#    print >>output_file, "\t@rm -f \${PAR_DONE}\n");
+#    print >>output_file, "\t@echo \"\"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\t@echo \"                               Place and route                              \"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\tpar -w -ol med -t 1 \${MAP_OBJ}/$toplevel_model.ncd \${PAR_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
+#    print >>output_file, "\${PAR_DONE}: \${PAR_OBJ}/$toplevel_model.par\n");
+#    print >>output_file, "\ttouch \${PAR_DONE}\n");
+#    print >>output_file, "par: \${PAR_DONE}\n\n\n");
+#
+#    #b Trace (timing analysis)
+#    print >>output_file, "obj/trace/.built: \${PAR_DONE} \${PAR_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
+#    print >>output_file, "\t@mkdir -p obj/trace\n");
+#    #print >>output_file, "\t@rm -f obj/trace/.built\n");
+#    print >>output_file, "\t@echo \"\"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\t@echo \"                               Timing analysis                              \"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\ttrce -e 3 -l 3 -s 12 -xml $toplevel_model \${PAR_OBJ}/$toplevel_model.ncd -o obj/trace/$toplevel_model.twr \${MAP_OBJ}/$toplevel_model.pcf\n");
+#    print >>output_file, "\ttouch obj/trace/.built\n");
+#    print >>output_file, "\n");
+#    print >>output_file, "trace: obj/trace/.built\n\n\n");
+#
+#    #b Bit file generation
+#    print >>output_file, "\${BIT_DONE}: \${PAR_DONE} \${PAR_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
+#    print >>output_file, "\t@mkdir -p \${BIT_OBJ}\n");
+#    #print >>output_file, "\t@rm -f \${BIT_DONE}\n");
+#    print >>output_file, "\t@echo \"\"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\t@echo \"                               Bitfile generation                           \"\n");
+#    print >>output_file, "\t@echo \"----------------------------------------------------------------------------\"\n");
+#    print >>output_file, "\tbitgen -f build/$toplevel_model.ut \${PAR_OBJ}/$toplevel_model.ncd \${BIT_OBJ}/$toplevel_model.bit \${MAP_OBJ}/$toplevel_model.pcf\n");
+#    print >>output_file, "\ttouch \${BIT_DONE}\n");
+#    print >>output_file, "bit: \${BIT_DONE}\n\n\n");
+#}
 
-    $device         = $xilinx["toplevels"][$toplevel]["device"];
-    $toplevel_model = $xilinx["toplevels"][$toplevel]["model"];
-    $constraints = "\${CONSTRAINTS}/".$xilinx["toplevels"][$toplevel]["constraints"];
+#a Handle options
+#f usage
+def usage(rc):
+    print >>sys.stderr, """\
+create_make -f <model_list> [-x <xilinx makefile>] [-m simulation/emulation makefile] [other options]
+    Other options
+    -toplevel toplevel for xilinx build (required for xilinx makefiles if rpm not given)
+    -rpm rpm for xilinx buid (required for xilinx makefiles if toplevel not given)
 
-    #b Header
-    fwrite( $file, "export XIL_PLACE_ALLOW_LOCAL_BUFG_ROUTING := 1\n");
-    fwrite( $file, "REPOSITORY = ../../repository/emulation/xilinx\n");
-    fwrite( $file, "XMACRO = \${REPOSITORY}/macros\n");
-    fwrite( $file, "XSRC = \${REPOSITORY}/src\n");
-    fwrite( $file, "XRPM = \${REPOSITORY}/rpm\n");
-    fwrite( $file, "RAMS = \${REPOSITORY}/rams\n");
-    fwrite( $file, "CORES = \${REPOSITORY}/cores\n");
-    fwrite( $file, "CONSTRAINTS = \${REPOSITORY}/constraints\n");
-    fwrite( $file, "SRC = ../../build/emulation/linux\n");
-    fwrite( $file, "COREGEN_OBJ = obj/coregen\n");
-    fwrite( $file, "RPM_OBJ = obj/rpm\n");
-    fwrite( $file, "XST_OBJ = obj/xst\n");
-    fwrite( $file, "XST_TMP = tmp/xst\n");
-    fwrite( $file, "XST_DONE = obj/xst/.built\n");
-    fwrite( $file, "NGD_OBJ = obj/ngd\n");
-    fwrite( $file, "NGD_DONE = obj/ngd/.built\n");
-    fwrite( $file, "MAP_OBJ = obj/map\n");
-    fwrite( $file, "MAP_DONE = obj/map/.built\n");
-    fwrite( $file, "PAR_OBJ = obj/par\n");
-    fwrite( $file, "PAR_DONE = obj/par/.built\n");
-    fwrite( $file, "BIT_OBJ = obj/bit\n");
-    fwrite( $file, "BIT_DONE = obj/bit/.built\n");
-    fwrite( $file, "LOG = log\n");
-    fwrite( $file, "XST_OPTIONS = -p $device\n");
-    fwrite( $file, "XST_OPTIONS += -opt_mode Speed\n");
-    fwrite( $file, "XST_OPTIONS += -opt_level 1\n");
-    fwrite( $file, "XST_OPTIONS += -glob_opt AllClockNets\n");
-    fwrite( $file, "XST_OPTIONS += -rtlview No\n");
-    fwrite( $file, "XST_OPTIONS += -read_cores YES\n");
-    fwrite( $file, "XST_OPTIONS += -write_timing_constraints NO\n");
-    fwrite( $file, "XST_OPTIONS += -cross_clock_analysis NO\n");
-    fwrite( $file, "XST_OPTIONS += -hierarchy_separator /\n");
-    fwrite( $file, "XST_OPTIONS += -bus_delimiter <>\n");
-    fwrite( $file, "XST_OPTIONS += -case maintain\n");
-    fwrite( $file, "XST_OPTIONS += -slice_utilization_ratio 100\n");
-    fwrite( $file, "XST_OPTIONS += -verilog2001 YES\n");
-    fwrite( $file, "XST_OPTIONS += -fsm_extract YES\n");
-    fwrite( $file, "XST_OPTIONS += -fsm_encoding Auto\n");
-    fwrite( $file, "XST_OPTIONS += -safe_implementation No\n");
-    fwrite( $file, "XST_OPTIONS += -fsm_style lut\n");
-    fwrite( $file, "XST_OPTIONS += -ram_extract Yes\n");
-    fwrite( $file, "XST_OPTIONS += -ram_style Auto\n");
-    fwrite( $file, "XST_OPTIONS += -rom_extract Yes\n");
-    fwrite( $file, "XST_OPTIONS += -rom_style Auto\n");
-    fwrite( $file, "XST_OPTIONS += -mux_extract YES\n");
-    fwrite( $file, "XST_OPTIONS += -mux_style Auto\n");
-    fwrite( $file, "XST_OPTIONS += -decoder_extract YES\n");
-    fwrite( $file, "XST_OPTIONS += -priority_extract YES\n");
-    fwrite( $file, "XST_OPTIONS += -shreg_extract YES\n");
-    fwrite( $file, "XST_OPTIONS += -shift_extract YES\n");
-    fwrite( $file, "XST_OPTIONS += -xor_collapse YES\n");
-    fwrite( $file, "XST_OPTIONS += -resource_sharing YES\n");
-    #Not for spartan3 fwrite( $file, "XST_OPTIONS += -use_dsp48 auto\n");
-    fwrite( $file, "XST_OPTIONS += -max_fanout 500\n");
-    fwrite( $file, "XST_OPTIONS += -bufg 32\n");
-    #Not for spartan3 fwrite( $file, "XST_OPTIONS += -bufr Default\n");
-    fwrite( $file, "XST_OPTIONS += -register_duplication YES\n");
-    fwrite( $file, "XST_OPTIONS += -equivalent_register_removal YES\n");
-    fwrite( $file, "XST_OPTIONS += -register_balancing No\n");
-    fwrite( $file, "XST_OPTIONS += -slice_packing YES\n");
-    fwrite( $file, "XST_OPTIONS += -optimize_primitives NO\n");
-    fwrite( $file, "XST_OPTIONS += -use_clock_enable Auto\n");
-    fwrite( $file, "XST_OPTIONS += -use_sync_set Auto\n");
-    fwrite( $file, "XST_OPTIONS += -use_sync_reset Auto\n");
-    fwrite( $file, "XST_OPTIONS += -enable_auto_floorplanning No\n");
-    fwrite( $file, "XST_OPTIONS += -iob auto\n");
-    fwrite( $file, "XST_OPTIONS += -slice_utilization_ratio_maxmargin 5\n");
-    fwrite( $file, "\n");
-    fwrite( $file, "XST_RPM_OPTIONS = \${XST_OPTIONS} -iobuf no -ofmt ngc\n");
-    fwrite( $file, "XST_COMP_OPTIONS = \${XST_OPTIONS} -iobuf no -ofmt ngc\n");
-    fwrite( $file, "XST_TOP_OPTIONS = \${XST_OPTIONS} -keep_hierarchy yes -iobuf yes -ofmt ngc\n");
-    fwrite( $file, "\n");
+The program creates makefiles for building simulations and emulations
+"""
+    exit(rc)
 
-    #b Core generation
-    foreach ($xilinx["cores"] as $i)
-    {
-        $model = $i["model"];
-        fwrite( $file, "\${COREGEN_OBJ}/$model.edn: \${CORES}/".$i["src"].".xco");
-        if (isset($i["subs"][0]))
-        {
-            fwrite ($file, " \${RAMS}/".$i["subs"][0] );
-        }
-        fwrite ($file, "\n");
-
-        fwrite( $file, "\t@mkdir -p \${COREGEN_OBJ}\n" );
-        fwrite( $file, "\trm -f \${COREGEN_OBJ}/$model*\n" );
-        fwrite( $file, "\tcoregen -b \${CORES}/".$i["src"].".xco\n\n");
-        fwrite( $file, "\${XST_OBJ}/$model.ngo: \${COREGEN_OBJ}/$model.edn\n");
-        fwrite( $file, "\t@mkdir -p \${XST_OBJ}\n");
-        fwrite( $file, "\tedif2ngd \${COREGEN_OBJ}/$model.edn \${XST_OBJ}/$model.ngo\n\n");
+#b read in options
+# args is the list of options that need an argument - the text here is the default values
+args={"model_list":"please specify which file to use as the model_list",
+      "sim_makefile":None,
+      "xilinx_makefile":None,
     }
-    fwrite( $file, "coregen: \\\n" );
-    foreach ($xilinx["cores"] as $i)
-    {
-        $model = $i["model"];
-        fwrite( $file, "\t\${XST_OBJ}/$model.ngo\\\n");
-    }
-    fwrite( $file, "\n\n" );
+arg_options = ["model_list", "sim_makefile", "xilinx_makefile"] # List of all options
+arg_shoptions = {"f":"model_list", "m":"sim_makefile", "x":"xilinx_makefile" }
 
-    #b RPM generation
-    foreach ($xilinx["rpms"] as $model=>$obj)
-    {
-        #b $obj["model"] is the source ngc and fnf file, and there should be a macro .v file too
-        if (!isset($xilinx["macros"][$obj["model"]]))
-        {
-            echo "For a Xilinx RPM there should be an associated macro verilog file\n";
-            exit(4);
-        }
-        #b Dependencies - basically the macro and the fnf
-        fwrite( $file, "\${RPM_OBJ}/$model.ngc: \\\n" );
-        fwrite( $file, "\t\${XMACRO}/".$obj["model"].".v \\\n");
-        fwrite( $file, "\t\${XST_OBJ}/".$obj["model"].".rpm.ngc \\\n");
-        fwrite( $file, "\t\${XRPM}/$model.ucf \n");
-        fwrite( $file, "\t@mkdir -p \${RPM_OBJ}\n");
-        fwrite( $file, "\tngcbuild -p xc3s4000 -uc \${XRPM}/$model.ucf \${XST_OBJ}/$model.rpm.ngc \${RPM_OBJ}/$model.ngc\n" );
-        fwrite( $file, "\n" );
-        #b Now we also need an ngdbuild if the RPM is to be able to be built...
-        fwrite( $file, "\${NGD_OBJ}/$model.rpm.ngd: \${XST_OBJ}/$model.rpm.ngc\n");
-        fwrite( $file, "\t@mkdir -p \${NGD_OBJ}\n");
-        fwrite( $file, "\t@echo \"\"\n");
-        fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-        fwrite( $file, "\t@echo \"                               NGD Build for RPM $model                     \"\n");
-        fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-        fwrite( $file, "\tngdbuild -aul -insert_keep_hierarchy -dd ./tmp -nt timestamp \${XST_OBJ}/$model.rpm.ngc \${NGD_OBJ}/$model.rpm.ngd\n");
-        fwrite( $file, "$model.rpm: \${NGD_OBJ/$model.ngd}\n\n\n");
-    }
-    
-    #b NGC generation (synthesis of components)
-    foreach ($xilinx["comps"] as $model=>$obj)
-    {
-        #b Find all the verilog sources and hierarchical models that make the component, and output these as dependencies
-        $v_files = array();
-        $hier_models = array();
-        $target_ngc = "\${XST_OBJ}/$model";
-        if (isset($xilinx["rpms"][$model]))
-        {
-            $target_ngc = "\${XST_OBJ}/$model.rpm";
-        }
-        fwrite( $file, "$target_ngc.ngc: \\\n" );
-        foreach ($obj["srcs"] as $src)
-        {
-            #b First, if it is a core, then dependency is the .ngo, and there is a verilog source from the coregen
-            $handled = 0;
-            if ( ($src[0][0]=="xmodel") && ($src[0][1]=="core") )
-            {
-                $v = "\${COREGEN_OBJ}/".$src[1].".v";
-                $handled = 1;
-                fwrite( $file, "\t\${XST_OBJ}/".$src[1].".ngo \\\n");
-                $hier_models[] = $src[1];
-                $v_files[] = $v;
-            }
-            #b Else if it is a component (hierarchical build :-), then the dependency is xst's .ngc, no source required
-            if ( ($model!=$src[1]) && (($src[0][0]=="xmodel") && ($src[0][1]=="comp") ))
-            {
-                $handled = 1;
-                fwrite( $file, "\t\${XST_OBJ}/".$src[1].".ngc \\\n");
-                $hier_models[] = $src[1];
-            }
-            #b Else if it is a xilinx_src, then the dependency is the verilog source, and that is needed in the .prj
-            if (!$handled && isset($xilinx["srcs"][$src[1]]))
-            {
-                $v = "\${XSRC}/".$src[1].".v";
-                fwrite( $file, "\t$v \\\n");
-                $v_files[] = $v;
-                $handled = 1;
-            }
-            #b Else if it is a xilinx_rpm, then the dependency is the RPM ngc, and a black box wrapper is needed in the .prj
-            if (!$handled && ($model!=$src[1]) && isset($xilinx["rpms"][$src[1]]))
-            {
-                $v = "\${XRPM}/".$src[1].".v";
-                fwrite( $file, "\t\${RPM_OBJ}/".$src[1].".ngc \\\n");
-                $v_files[] = $v;
-                $handled = 1;
-            }
-            #b Else if it is a xilinx_macro, then the dependency is the macro .v, and that is needed in the .prj
-            if (!$handled && isset($xilinx["macros"][$src[1]]))
-            {
-                $v = "\${XMACRO}/".$src[1].".v";
-                fwrite( $file, "\t$v \\\n");
-                $v_files[] = $v;
-                $handled = 1;
-            }
-            #b Else we had better have some CDL source... the dependency is the emulation source .v, and that is needed in the .prj
-            if (!$handled && isset($models["hash"][$src[1]]))
-            {
-                $v = "\${SRC}/".$src[1].".v";
-                fwrite( $file, "\t$v \\\n");
-                $v_files[] = $v;
-                $handled = 1;
-            }
-            if (!$handled)
-            {
-                echo "Could not handle source file $src[1]\n";
-            }
-        }
-        fwrite( $file, "\n" );
-        #b Routine housekeping for directories
-        fwrite( $file, "\t@mkdir -p \${LOG}\n" );
-        fwrite( $file, "\t@mkdir -p \${XST_OBJ}\n" );
-        fwrite( $file, "\t@mkdir -p \${XST_TMP}\n" );
-        fwrite( $file, "\t@rm -f $target_ngc.ngc\n" );
-        fwrite( $file, "\t@rm -f \${XST_DONE}\n" );
-        #b Set filenames
-        $xst_file = "\${XST_TMP}/$model.xst";
-        $prj_file = "\${XST_TMP}/$model.prj";
-        $xcf_file = "\${XST_TMP}/$model.xcf";
-        $lso_file = "\${XST_TMP}/$model.lso";
-        #b Create LSO file - library search order; this is probably unnecessary, but it works
-        fwrite( $file, "\t@echo \"work\" > $lso_file\n");
-        #b Create xcf file - basically we would want to handle hierarchical builds here, but we cannot as the Xilinx tools don't work
-        fwrite( $file, "\t@echo \"\" > $xcf_file\n");
-        foreach ($xilinx["comps"] as $submodel=>$dummy)
-        {
-            #if ($submodel!=$model) # Don't include itself, that messes up xst
-            #{
-            #    fwrite( $file, "\t@echo \"MODEL \\\"$submodel\\\" incremental_synthesis=yes;\" >> $xcf_file\n");
-            #}
-        }
-        #b Create prj file - all the submodules that are needed as verilog
-        fwrite( $file, "\t@echo \"\" > $prj_file\n");
-        foreach ($v_files as $v)
-        {
-            fwrite( $file, "\t@echo \"verilog work $v\" >> $prj_file\n");
-        }
-        #b Create xst file - the build options required for XST to run
-        fwrite( $file, "\t@echo \"set -tmpdir ./tmp\" > $xst_file\n");
-        fwrite( $file, "\t@echo \"set -xsthdpdir ./xst\" >> $xst_file\n");
-        fwrite( $file, "\t@echo \"run\" >> $xst_file\n");
-        #if (isset($xilinx["toplevels"][$model]))
-        if ($model==$toplevel_model)
-        {
-            fwrite( $file, "\t@echo \"\${XST_TOP_OPTIONS} -lso $lso_file -uc $xcf_file -ifmt mixed -ifn $prj_file -ofn $target_ngc.ngc -top $model\" >> $xst_file\n" );
-        }
-        else if (isset($xilinx["rpms"][$model]))
-        {
-            fwrite( $file, "\t@echo \"\${XST_RPM_OPTIONS} -lso $lso_file -uc $xcf_file -ifmt mixed -ifn $prj_file -ofn $target_ngc.ngc -top $model\" >> $xst_file\n" );
-        }
-        else
-        {
-            fwrite( $file, "\t@echo \"\${XST_COMP_OPTIONS} -lso $lso_file -uc $xcf_file -ifmt mixed -ifn $prj_file -ofn $target_ngc.ngc -top $model\" >> $xst_file\n" );
-        }
-        #b Add the xst line to the makefile with a message
-        fwrite( $file, "\t@echo \"\"\n");
-        fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-        fwrite( $file, "\t@echo \"                               Synthesizing $model                          \"\n");
-        fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-        fwrite( $file, "\txst -ifn $xst_file -ofn \${LOG}/$model.syr" );
-        fwrite( $file, "\n\n" );
-        #b Done that xst
-    }
+getopt_options = []
+for x in arg_options:
+    if x not in args.keys():
+        args[x] = None
+    getopt_options.append( x+"=" )
 
-    #b Mark NGC as done when the toplevel NGC file is ready
-    fwrite( $file, "\${XST_DONE}: \${XST_OBJ}/$toplevel_model.ngc\n" );
-    fwrite( $file, "\ttouch \${XST_DONE}\n" );
-    fwrite( $file, "synth: \${XST_DONE}\n\n" );
+getopt_shopts = ""
+for x in arg_shoptions.keys():
+    getopt_shopts = getopt_shopts + x + ":"
 
-    #b NGDbuild
-    fwrite( $file, "\${NGD_OBJ}/$toplevel_model.ngd: \${XST_OBJ}/$toplevel_model.ngc\\\n");
-    $obj = $xilinx["comps"][$toplevel_model];
-    $ngos = array();
-    foreach ($obj["srcs"] as $src)
-    {
-        #b First, if it is a core, then dependency is the .ngo, and there is a verilog source from the coregen
-        if ( ($src[0][0]=="xmodel") && ($src[0][1]=="core") )
-        {
-            fwrite( $file, "\t\${XST_OBJ}/".$src[1].".ngo \\\n");
-        }
-        #b Else if it is a xilinx_rpm, then the dependency is the RPM ngc, and a black box wrapper is needed in the .prj
-        if (isset($xilinx["rpms"][$src[1]]))
-        {
-            fwrite( $file, "\t\${RPM_OBJ}/".$src[1].".ngc \\\n");
-        }
-    }
-    fwrite( $file, "\t\${XST_OBJ}/.built $constraints\n" );
-    #fwrite( $file, "\${NGD_OBJ}/$toplevel_model.ngd: \${XST_OBJ}/boot_rom.ngo \${XST_OBJ}/.built $constraints \${XST_OBJ}/$toplevel_model.ngc\n");
-    fwrite( $file, "\t@mkdir -p \${NGD_OBJ}\n");
-    fwrite( $file, "\t@rm -f \${NGD_DONE}\n");
-    fwrite( $file, "\t@echo \"\"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\t@echo \"                               NGD Build                                    \"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\tngdbuild -aul -insert_keep_hierarchy -dd ./tmp -nt timestamp -sd \${RPM_OBJ} -uc $constraints -p $device \${XST_OBJ}/$toplevel_model.ngc \${NGD_OBJ}/$toplevel_model.ngd\n");
-    fwrite( $file, "\${NGD_DONE}: \${NGD_OBJ}/$toplevel_model.ngd\n" );
-    fwrite( $file, "\ttouch \${NGD_DONE}\n" );
-    fwrite( $file, "ngd: \${NGD_DONE}\n\n\n");
+try:
+    (optlist,file_list) = getopt.getopt(sys.argv[1:],getopt_shopts,getopt_options)
+except:
+    print >>sys.stderr, "Exception parsing options:", sys.exc_info()[1]
+    usage(4)
 
-    #b Map
-    fwrite( $file, "\${MAP_OBJ}/$toplevel_model.ncd: \${NGD_DONE} \${NGD_OBJ}/$toplevel_model.ngd\n");
-    fwrite( $file, "\t@mkdir -p \${MAP_OBJ}\n");
-    fwrite( $file, "\t@rm -f \${MAP_DONE}\n");
-    fwrite( $file, "\t@echo \"\"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\t@echo \"                               Mapping                                      \"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\tmap -ignore_keep_hierarchy -p $device -cm area -detail -pr b -k 4 -c 100 -o \${MAP_OBJ}/$toplevel_model.ncd \${NGD_OBJ}/$toplevel_model.ngd \${MAP_OBJ}/$toplevel_model.pcf\n");
-    fwrite( $file, "\${MAP_DONE}: \${MAP_OBJ}/$toplevel_model.ncd\n" );
-    fwrite( $file, "\ttouch \${MAP_DONE}\n");
-    fwrite( $file, "\${MAP_OBJ}/$toplevel_model.pcf: \${MAP_DONE}\n");
-    fwrite( $file, "map: \${MAP_DONE}\n\n\n");
+for opt,value in optlist:
+    if opt[1:] in arg_shoptions.keys():
+        opt = "--"+arg_shoptions[opt[1:]]
+    if (opt[0:2]=='--') and (opt[2:] in arg_options):
+        args[opt[2:]] = value
+    else:
+        print >>sys.stderr, "Unknown option", opt, "with value", value
+        usage(4)
 
-    #b PAR
-    fwrite( $file, "\${PAR_OBJ}/$toplevel_model.par:\${MAP_DONE} \${MAP_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
-    fwrite( $file, "\t@mkdir -p \${PAR_OBJ}\n");
-    fwrite( $file, "\t@rm -f \${PAR_DONE}\n");
-    fwrite( $file, "\t@echo \"\"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\t@echo \"                               Place and route                              \"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\tpar -w -ol med -t 1 \${MAP_OBJ}/$toplevel_model.ncd \${PAR_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
-    fwrite( $file, "\${PAR_DONE}: \${PAR_OBJ}/$toplevel_model.par\n");
-    fwrite( $file, "\ttouch \${PAR_DONE}\n");
-    fwrite( $file, "par: \${PAR_DONE}\n\n\n");
-
-    #b Trace (timing analysis)
-    fwrite( $file, "obj/trace/.built: \${PAR_DONE} \${PAR_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
-    fwrite( $file, "\t@mkdir -p obj/trace\n");
-    #fwrite( $file, "\t@rm -f obj/trace/.built\n");
-    fwrite( $file, "\t@echo \"\"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\t@echo \"                               Timing analysis                              \"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\ttrce -e 3 -l 3 -s 12 -xml $toplevel_model \${PAR_OBJ}/$toplevel_model.ncd -o obj/trace/$toplevel_model.twr \${MAP_OBJ}/$toplevel_model.pcf\n");
-    fwrite( $file, "\ttouch obj/trace/.built\n");
-    fwrite( $file, "\n");
-    fwrite( $file, "trace: obj/trace/.built\n\n\n");
-
-    #b Bit file generation
-    fwrite( $file, "\${BIT_DONE}: \${PAR_DONE} \${PAR_OBJ}/$toplevel_model.ncd \${MAP_OBJ}/$toplevel_model.pcf\n");
-    fwrite( $file, "\t@mkdir -p \${BIT_OBJ}\n");
-    #fwrite( $file, "\t@rm -f \${BIT_DONE}\n");
-    fwrite( $file, "\t@echo \"\"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\t@echo \"                               Bitfile generation                           \"\n");
-    fwrite( $file, "\t@echo \"----------------------------------------------------------------------------\"\n");
-    fwrite( $file, "\tbitgen -f build/$toplevel_model.ut \${PAR_OBJ}/$toplevel_model.ncd \${BIT_OBJ}/$toplevel_model.bit \${MAP_OBJ}/$toplevel_model.pcf\n");
-    fwrite( $file, "\ttouch \${BIT_DONE}\n");
-    fwrite( $file, "bit: \${BIT_DONE}\n\n\n");
-}
+model_list_filename = args["model_list"]
+simulation_make_filename =  args["sim_makefile"]
+xilinx_make_filename =  args["xilinx_makefile"]
 
 #a Main
-$desc = fopen( $model_list, 'r' );
-if (!$desc)
-{
-    echo "Could not open file $model_list\n";
-    exit();
-}
-$objs = read_objs( $desc );
-fclose( $desc );
+model_list = open( model_list_filename )
+if not model_list:
+    print >>sys.stderr, "Failed to open file model list file", model_list_filename
+    usage(4)
 
-parse_models( $objs );
-parse_xilinx_descs( $objs );
+object_list = read_objs( model_list )
+model_list.close()
 
-build_xilinx_hierarchy();
+parse_models( object_list )
+#parse_xilinx_descs( $objs )
+#
+#build_xilinx_hierarchy();
+#
+if simulation_make_filename!=None:
+    output_file = open( simulation_make_filename, "w" )
+    output_model_makefile( output_file )
+    output_file.close()
 
-if (isset($options["m"]))
-{
-    $file = fopen( $options["m"], 'w' );
-    output_model_makefile( $file );
-    fclose($file);
-}
-
-if (isset($options["x"]))
-{
-    if (!isset($options["t"]) && !!isset($options["r"]))
-    {
-        echo "For a Xilinx build you must specify a xilinx_toplevel or xilinx_rpm to build\n";
-        exit(4);
-    }
-    $toplevel = $options["t"];
-    if (!$xilinx["toplevels"][$toplevel])
-    {
-        echo "xilinx_toplevel '$toplevel' not found in model list when building Xilinx makefile\n";
-        exit(4);
-    }
-
-    $file = fopen( $options["x"], 'w' );
-    output_xilinx_makefile( $file, $toplevel );
-    fclose($file);
-}
+#if args["xilinx"]!=None:
+#    if (!isset($options["t"]) && !!isset($options["r"])):
+#        usage(4)
+#    toplevel = $options["t"];
+#    if (!$xilinx["toplevels"][$toplevel]):
+#        echo "xilinx_toplevel '$toplevel' not found in model list when building Xilinx makefile\n";
+#        exit(4);
+#
+#    $file = fopen( $options["x"], 'w' );
+#    output_xilinx_makefile( $file, $toplevel );
+#    fclose($file);
 
 #a Editor preferences and notes
 # Local Variables: ***
