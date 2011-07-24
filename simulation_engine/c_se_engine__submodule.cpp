@@ -27,6 +27,20 @@
 
 /*a Types
  */
+/*t t_engine_submodule_clock_set_entry
+ */
+typedef struct t_engine_submodule_clock_set_entry
+{
+    void *submodule_clock_handle;
+} t_engine_submodule_clock_set_entry;
+
+/*t t_engine_submodule_clock_set
+ */
+typedef struct t_engine_submodule_clock_set
+{
+    int num_submodule_clocks;
+    t_engine_submodule_clock_set_entry entries[1];
+} t_engine_submodule_clock_set;
 
 /*a Handle management methods
  */
@@ -80,6 +94,8 @@ int c_engine::submodule_clock_has_edge( void *submodule_clock_handle, int posedg
     return 0;
 }
 
+/*a Handle calls of submodule functions
+ */
 /*f c_engine::submodule_call_reset
  */
 void c_engine::submodule_call_reset( void *submodule_handle, int pass )
@@ -169,19 +185,10 @@ void c_engine::submodule_call_comb( void *submodule_handle )
     }
 }
 
+/*a Handle clock sets
+ */
 /*f c_engine::submodule_clock_set_declare
  */
-typedef struct t_engine_submodule_clock_set_entry
-{
-    void *submodule_clock_handle;
-} t_engine_submodule_clock_set_entry;
-
-typedef struct t_engine_submodule_clock_set
-{
-    int num_submodule_clocks;
-    t_engine_submodule_clock_set_entry entries[1];
-} t_engine_submodule_clock_set;
-
 t_engine_submodule_clock_set_ptr c_engine::submodule_clock_set_declare( int n )
 {
     t_engine_submodule_clock_set *scs;
@@ -236,6 +243,8 @@ void c_engine::submodule_clock_set_invoke( t_engine_submodule_clock_set_ptr scs,
     }
 }
 
+/*a Submodule inputs
+ */
 /*f c_engine::submodule_input_type
  */
 int c_engine::submodule_input_type( void *submodule_handle, const char *name, int *comb, int *size )
@@ -371,6 +380,8 @@ t_sl_error_level c_engine::submodule_drive_input_with_submodule_output( void *su
      return error_level_okay;
 }
 
+/*a Submodule outputs
+ */
 /*f c_engine::submodule_output_type
  */
 int c_engine::submodule_output_type( void *submodule_handle, const char *name, int *comb, int *size )
@@ -472,6 +483,86 @@ NEED MUCH BETTER ERROR CHECKING
 NEED BETTER ERROR ON 'drive a b' if a is not a global
 */
 
+/*a Submodule work list
+ */
+/*
+worklist c_engine::submodule_init_clock_worklist( int number_of_calls )
+{
+    t_sl_wl_thread_pool_ptr thread_pool; // A copy of the engine if really threading, else local if not
+    t_sl_wl_worklist *worklist;
+    if (want_to_subthread(module_instance)) // Then the module_instance thread pool should be valid
+    {
+        module_instance->thread_pool = engine->thread_pool;
+    }
+    else
+    {
+        module_instance->thread_pool = sl_wl_create_thread_pool();
+    }
+    module_instance->worklist = sl_wl_add_worklist( module_instance->thread_pool, module_instance->name, number_of_calls, (int)wl_item_count );
+}
+*/
+
+/*f submodule_set_clock_worklist_prepreclock
+  Set a worklist item to 'prepreclock' a module
+ */
+ /*
+t_sl_wl_callback_fn wl_callback_prepreclock( void *submodule_handle );
+t_sl_error_level c_engine::submodule_set_clock_worklist_prepreclock( submodule_clock_worklist, int call_number, void *submodule_handle )
+{
+    t_engine_module_instance *emi;
+    emi = (t_engine_module_instance *)submodule_handle;
+
+    thread_name = thread_name_from_submodule( module, submodule_handle );
+    sl_wl_set_work_head( module_instance->worklist, call_number, const char *name, "prepreclock", NULL );
+    sl_wl_set_work_item( module_instance->worklist, call_number, wl_item_prepreclock, wl_callback_prepreclock, submodule_handle );
+    if (thread_name)
+        return sl_wl_assign_work_to_thread( module_instance->worklist, call_number, thread_name );
+    return error_level_okay; // No thread to assign it to; use default
+}
+ */
+
+/*f submodule_set_clock_worklist_clock
+  Set a worklist item to 'preclock' and 'clock' a module clock
+ */
+/*
+t_sl_error_level c_engine::submodule_set_clock_worklist_clock( submodule_clock_worklist, int call_number, void *submodule_clock_handle, int posedge, NULL )
+{
+    t_engine_function *clk;
+    clk = (t_engine_function *)submodule_clock_handle;
+    if (!clk)
+        return error_level_fatal;
+
+    sl_wl_set_work_head( module_instance->worklist, call_number, const char *name, char *clockname, NULL );
+    sl_wl_set_work_item( module_instance->worklist, call_number, wl_item_preclock, wl_callback_preclock, submodule_clock_handle );
+    sl_wl_set_work_item( module_instance->worklist, call_number, wl_item_clock,    wl_callback_clock,    submodule_clock_handle );
+
+    return error_level_okay;
+}
+*/
+
+/*f submodule_enable_clock_worklist_item
+  Enable a preclock/clock call for a worklist item - actually should be done in md_target_c.cpp
+ */
+ /*
+t_sl_error_level c_engine::submodule_enable_clock_worklist_item( int call_number )
+{
+    return error_level_okay;
+}
+
+typedef enum
+{
+    wl_item_prepreclock,
+    wl_item_preclock,
+    wl_item_clock,
+    wl_item_count // Must be last - indicates the number of elements
+} t_se_worklist_call;
+
+t_sl_error_level c_engine::submodule_call_worklist( submodule_clock_worklist, t_se_worklist_call wl_call, int *guard )
+{
+    return sl_wl_execute_worklist( submodule_clock_worklist->worklist, guard, wl_call );
+}
+ */
+    
 /*a Editor preferences and notes
 mode: c ***
 c-basic-offset: 4 ***
