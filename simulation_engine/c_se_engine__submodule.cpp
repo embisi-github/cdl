@@ -20,6 +20,7 @@
 #include <stdarg.h>
 #include "sl_debug.h"
 #include "sl_exec_file.h"
+#include "sl_work_list.h"
 #include "se_engine_function.h"
 #include "se_errors.h"
 #include "c_se_engine.h"
@@ -483,85 +484,251 @@ NEED MUCH BETTER ERROR CHECKING
 NEED BETTER ERROR ON 'drive a b' if a is not a global
 */
 
+/*a Thread pool methods
+ */
+/*f thread_pool_init
+ */
+t_sl_error_level c_engine::thread_pool_init( void )
+{
+    if (thread_pool)
+        return error_level_fatal;
+    thread_pool = sl_wl_create_thread_pool();
+    if (!thread_pool)
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f thread_pool_delete
+ */
+t_sl_error_level c_engine::thread_pool_delete( void )
+{
+    if (thread_pool)
+        sl_wl_terminate_all_worker_threads((t_sl_wl_thread_pool_ptr)thread_pool);
+    thread_pool = NULL;
+    return error_level_okay;
+}
+
+/*f thread_pool_add_thread
+ */
+t_sl_error_level c_engine::thread_pool_add_thread( const char *thread_name )
+{
+    return sl_wl_spawn_worker_thread( (t_sl_wl_thread_pool_ptr) thread_pool, thread_name, NULL ); // No affinity to start with
+}
+
+/*f thread_pool_map_thread_to_module
+ */
+t_sl_error_level c_engine::thread_pool_map_thread_to_module( const char *thread_name, const char *submodule_name )
+{
+    t_sl_wl_thread_ptr thread_ptr;
+    t_thread_pool_mapping *tpm;
+    t_thread_pool_submodule_mapping *tpsm;
+    int i;
+
+    thread_ptr = sl_wl_find_thread( (t_sl_wl_thread_pool_ptr) thread_pool, thread_name );
+    if (!thread_ptr)
+        return error_level_fatal;
+
+    for (i=strlen(submodule_name)-1; (i>=0) && (submodule_name[i]!='.'); i--);
+
+    if (i<=0)
+        return error_level_fatal;
+
+    tpm = thread_pool_mapping_find( submodule_name, i );
+    if (!tpm)
+        tpm = thread_pool_mapping_add( submodule_name, i );
+    if (!tpm)
+        return error_level_serious;
+    tpsm = thread_pool_submodule_mapping_find( tpm, submodule_name+i+1 );
+    if (!tpsm)
+        tpsm = thread_pool_submodule_mapping_add( tpm, submodule_name+i+1, thread_ptr );
+    if (!tpsm)
+        return error_level_serious;
+    return error_level_okay;
+}
+
+/*f thread_pool_mapped_submodules
+ */
+int c_engine::thread_pool_mapped_submodules(t_engine_module_instance *emi )
+{
+    if (thread_pool_mapping_find( emi->full_name, strlen(emi->full_name) ))
+        return 1;
+    return 0;
+}
+
+/*f thread_pool_mapping_find
+ */
+t_thread_pool_mapping *c_engine::thread_pool_mapping_find( const char *emi_full_name, int length )
+{
+    t_thread_pool_mapping *tpm;
+    if (!emi_full_name)
+        return NULL;
+    for (tpm=thread_pool_mapping; tpm; tpm=tpm->next_in_list)
+        if (!strncmp(tpm->module_name,emi_full_name,length))
+            if (tpm->module_name[length]==0)
+                break;
+    if (!tpm)
+        return NULL;
+    return tpm;
+}
+
+/*f thread_pool_mapping_add
+ */
+t_thread_pool_mapping *c_engine::thread_pool_mapping_add( const char *emi_full_name, int length )
+{
+    t_thread_pool_mapping *tpm;
+    if (!emi_full_name)
+        return NULL;
+    tpm = (t_thread_pool_mapping *)malloc(sizeof(t_thread_pool_mapping)+length+1);
+    tpm->next_in_list = thread_pool_mapping;
+    thread_pool_mapping = tpm;
+    strncpy( tpm->module_name, emi_full_name, length );
+    tpm->module_name[length] = 0;
+    tpm->mapping_list = NULL;
+    return tpm;
+}
+
+/*f thread_pool_submodule_mapping_add
+ */
+t_thread_pool_submodule_mapping *c_engine::thread_pool_submodule_mapping_add( t_thread_pool_mapping *tpm, const char *smi_name, void *thread_ptr )
+{
+    t_thread_pool_submodule_mapping *tpsm;
+    if ((!smi_name) || (!tpm))
+        return NULL;
+
+    printf("Add submapping for %s, %s\n", tpm->module_name, smi_name );
+
+    tpsm = (t_thread_pool_submodule_mapping *)malloc(sizeof(t_thread_pool_submodule_mapping)+strlen(smi_name)+4);
+    tpsm->next_in_list = tpm->mapping_list;
+    strcpy( tpsm->submodule_name, smi_name );
+    tpsm->thread_ptr = (t_sl_wl_thread_ptr)thread_ptr;
+    tpm->mapping_list = tpsm;
+    return tpsm;
+}
+
+/*t thread_pool_submodule_mapping_find
+ */
+t_thread_pool_submodule_mapping *c_engine::thread_pool_submodule_mapping_find( t_thread_pool_mapping *tpm, const char *name )
+{
+    t_thread_pool_submodule_mapping *tpsm;
+    if (!name)
+        return NULL;
+    for (tpsm=tpm->mapping_list; tpsm; tpsm=tpsm->next_in_list)
+        if (!strcmp(tpsm->submodule_name,name))
+            return tpsm;
+    return NULL;
+}
+
+/*t thread_pool_submodule_mapping
+ */
+const char *c_engine::thread_pool_submodule_mapping( t_engine_module_instance *emi, t_engine_module_instance *smi )
+{
+    t_thread_pool_mapping *tpm;
+    t_thread_pool_submodule_mapping *tpsm;
+    tpm = thread_pool_mapping_find( emi->full_name, strlen(emi->full_name) );
+    if (!tpm)
+        return NULL;
+
+    tpsm = thread_pool_submodule_mapping_find( tpm, smi->name );
+    printf("Find submapping for %s, %s got %p\n", emi->full_name, smi->name, tpsm );
+    if (!tpsm)
+        return NULL;
+    return sl_wl_thread_name( tpsm->thread_ptr );
+}
+
 /*a Submodule work list
  */
-/*
-worklist c_engine::submodule_init_clock_worklist( int number_of_calls )
+/*f submodule_init_clock_worklist
+  Create a worklist of the given size - each call must permit prepreclock, preclock and clock function calls, and will be assigned to a module
+ */
+void c_engine::submodule_init_clock_worklist( void *engine_handle, int number_of_calls )
 {
-    t_sl_wl_thread_pool_ptr thread_pool; // A copy of the engine if really threading, else local if not
-    t_sl_wl_worklist *worklist;
-    if (want_to_subthread(module_instance)) // Then the module_instance thread pool should be valid
+    t_engine_module_instance *emi;
+    emi = (t_engine_module_instance *)engine_handle;
+
+    if (thread_pool_mapped_submodules(emi)) // Then the module_instance thread pool should be valid
     {
-        module_instance->thread_pool = engine->thread_pool;
+        emi->thread_pool = this->thread_pool;
     }
     else
     {
-        module_instance->thread_pool = sl_wl_create_thread_pool();
+        emi->thread_pool = sl_wl_create_thread_pool();
     }
-    module_instance->worklist = sl_wl_add_worklist( module_instance->thread_pool, module_instance->name, number_of_calls, (int)wl_item_count );
+    emi->worklist = sl_wl_add_worklist( (t_sl_wl_thread_pool_ptr)(emi->thread_pool), emi->full_name, number_of_calls, (int)se_wl_item_count );
 }
-*/
 
 /*f submodule_set_clock_worklist_prepreclock
   Set a worklist item to 'prepreclock' a module
  */
- /*
-t_sl_wl_callback_fn wl_callback_prepreclock( void *submodule_handle );
-t_sl_error_level c_engine::submodule_set_clock_worklist_prepreclock( submodule_clock_worklist, int call_number, void *submodule_handle )
+t_sl_error_level c_engine::submodule_set_clock_worklist_prepreclock( void *engine_handle, int call_number, void *submodule_handle )
 {
-    t_engine_module_instance *emi;
-    emi = (t_engine_module_instance *)submodule_handle;
+    t_engine_module_instance *emi, *smi;
+    emi = (t_engine_module_instance *)engine_handle;
+    smi = (t_engine_module_instance *)submodule_handle;
 
-    thread_name = thread_name_from_submodule( module, submodule_handle );
-    sl_wl_set_work_head( module_instance->worklist, call_number, const char *name, "prepreclock", NULL );
-    sl_wl_set_work_item( module_instance->worklist, call_number, wl_item_prepreclock, wl_callback_prepreclock, submodule_handle );
+    if ((!emi) || (!smi))
+        return error_level_serious;
+
+    sl_wl_set_work_head( (t_sl_wl_worklist *)(emi->worklist), call_number, smi->name, "prepreclock", NULL );
+    if (smi->prepreclock_fn_list)
+    {
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_prepreclock, (t_sl_wl_callback_fn)(smi->prepreclock_fn_list->data.prepreclock.prepreclock_fn), smi->prepreclock_fn_list->handle );
+    }
+
+    const char *thread_name;
+    thread_name = thread_pool_submodule_mapping( emi, smi );
     if (thread_name)
-        return sl_wl_assign_work_to_thread( module_instance->worklist, call_number, thread_name );
+        return sl_wl_assign_work_to_thread( (t_sl_wl_worklist *)(emi->worklist), call_number, thread_name );
     return error_level_okay; // No thread to assign it to; use default
 }
- */
 
 /*f submodule_set_clock_worklist_clock
   Set a worklist item to 'preclock' and 'clock' a module clock
  */
-/*
-t_sl_error_level c_engine::submodule_set_clock_worklist_clock( submodule_clock_worklist, int call_number, void *submodule_clock_handle, int posedge, NULL )
+t_sl_error_level c_engine::submodule_set_clock_worklist_clock( void *engine_handle, void *submodule_handle, int call_number, void *submodule_clock_handle, int posedge )
 {
+    t_engine_module_instance *emi, *smi;
     t_engine_function *clk;
+    emi = (t_engine_module_instance *)engine_handle;
+    smi = (t_engine_module_instance *)submodule_handle;
     clk = (t_engine_function *)submodule_clock_handle;
+
+    if ((!emi) || (!smi))
+        return error_level_serious;
+
     if (!clk)
         return error_level_fatal;
 
-    sl_wl_set_work_head( module_instance->worklist, call_number, const char *name, char *clockname, NULL );
-    sl_wl_set_work_item( module_instance->worklist, call_number, wl_item_preclock, wl_callback_preclock, submodule_clock_handle );
-    sl_wl_set_work_item( module_instance->worklist, call_number, wl_item_clock,    wl_callback_clock,    submodule_clock_handle );
+    sl_wl_set_work_head( (t_sl_wl_worklist *)(emi->worklist), call_number, smi->name, clk->name, NULL );
+    if (posedge)
+    {
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_preclock, (t_sl_wl_callback_fn)(clk->data.clock.posedge_preclock_fn), clk->handle );
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_clock,    (t_sl_wl_callback_fn)(clk->data.clock.posedge_clock_fn), clk->handle );
+    }
+    else
+    {
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_preclock, (t_sl_wl_callback_fn)(clk->data.clock.negedge_preclock_fn), clk->handle );
+        sl_wl_set_work_item( (t_sl_wl_worklist *)(emi->worklist), call_number, se_wl_item_clock,    (t_sl_wl_callback_fn)(clk->data.clock.negedge_clock_fn), clk->handle );
+    }
 
+    const char *thread_name;
+    thread_name = thread_pool_submodule_mapping( emi, smi );
+    if (thread_name)
+        return sl_wl_assign_work_to_thread( (t_sl_wl_worklist *)(emi->worklist), call_number, thread_name );
     return error_level_okay;
 }
-*/
 
-/*f submodule_enable_clock_worklist_item
-  Enable a preclock/clock call for a worklist item - actually should be done in md_target_c.cpp
+/*f submodule_call_worklist
  */
- /*
-t_sl_error_level c_engine::submodule_enable_clock_worklist_item( int call_number )
+t_sl_error_level c_engine::submodule_call_worklist( void *engine_handle, t_se_worklist_call wl_call, int *guard )
 {
-    return error_level_okay;
-}
+    t_engine_module_instance *emi;
+    emi = (t_engine_module_instance *)engine_handle;
 
-typedef enum
-{
-    wl_item_prepreclock,
-    wl_item_preclock,
-    wl_item_clock,
-    wl_item_count // Must be last - indicates the number of elements
-} t_se_worklist_call;
+    if (!emi)
+        return error_level_serious;
 
-t_sl_error_level c_engine::submodule_call_worklist( submodule_clock_worklist, t_se_worklist_call wl_call, int *guard )
-{
-    return sl_wl_execute_worklist( submodule_clock_worklist->worklist, guard, wl_call );
+    return sl_wl_execute_worklist( (t_sl_wl_worklist *)(emi->worklist), guard, wl_call );
 }
- */
     
 /*a Editor preferences and notes
 mode: c ***

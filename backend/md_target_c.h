@@ -24,7 +24,7 @@
 
 /*a External functions
  */
-extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage );
+extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage, int multithread );
 
 /*a Wrapper
  */

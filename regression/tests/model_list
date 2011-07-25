@@ -53,7 +53,9 @@ cdl tests/vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_
 cdl tests/instantiation hierarchy_reg
 cdl tests/instantiation hierarchy_and
 cdl tests/instantiation hierarchy_gated_clock
+cdl_options mul:on
 cdl tests/instantiation hierarchy_comb_and_clocked
+cdl_options mul:off
 cdl tests/instantiation hierarchy_comb_and_clocked2
 cdl tests/instantiation hierarchy_complex             inc:tests/instantiation
 cdl tests/instantiation hierarchy                     inc:tests/instantiation

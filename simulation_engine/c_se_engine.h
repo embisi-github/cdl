@@ -111,6 +111,16 @@ typedef enum
  */
 typedef t_sl_error_level (*t_se_instantiation_fn)( class c_engine *engine, void *engine_handle );
 
+/*t t_se_worklist_call
+ */
+typedef enum
+{
+    se_wl_item_prepreclock,
+    se_wl_item_preclock,
+    se_wl_item_clock,
+    se_wl_item_count // Must be last - indicates the number of elements
+} t_se_worklist_call;
+
 /*t t_engine_callback_fn
  */
 typedef t_sl_error_level (*t_engine_callback_fn)( void *handle );
@@ -380,6 +390,20 @@ public:
      int submodule_output_type( void *submodule_handle, const char *name, int *comb, int *size );
      t_sl_error_level submodule_output_add_receiver( void *submodule_handle, const char *name, t_se_signal_value **signal, int size ); // Use an output of a submodule to drive a signal
      t_sl_error_level submodule_output_drive_module_output( void *submodule_output_handle, const char *submodule_output_name, void *module_output_handle, const char *module_output_name );
+     void submodule_init_clock_worklist( void *engine_handle, int number_of_calls );
+     t_sl_error_level submodule_set_clock_worklist_prepreclock( void *engine_handle, int call_number, void *submodule_handle );
+     t_sl_error_level submodule_set_clock_worklist_clock( void *engine_handle, void *submodule_handle, int call_number, void *submodule_clock_handle, int posedge );
+     t_sl_error_level submodule_call_worklist( void *engine_handle, t_se_worklist_call wl_call, int *guard );
+     t_sl_error_level thread_pool_init( void );
+     t_sl_error_level thread_pool_delete( void );
+     t_sl_error_level thread_pool_add_thread( const char *thread_name );
+     t_sl_error_level thread_pool_map_thread_to_module( const char *thread_name, const char *submodule_name );
+     int thread_pool_mapped_submodules(t_engine_module_instance *emi );
+     struct t_thread_pool_mapping *thread_pool_mapping_find( const char *emi_full_name, int length );
+     struct t_thread_pool_mapping *thread_pool_mapping_add( const char *emi_full_name, int length );
+     struct t_thread_pool_submodule_mapping *thread_pool_submodule_mapping_add( struct t_thread_pool_mapping *tpm, const char *smi_name, void *thread_ptr );
+     struct t_thread_pool_submodule_mapping *thread_pool_submodule_mapping_find( struct t_thread_pool_mapping *tpm, const char *smi_name );
+     const char *thread_pool_submodule_mapping( struct t_engine_module_instance *emi, struct t_engine_module_instance *smi );
 
      /*b Waveform methods
       */
@@ -456,6 +480,9 @@ private:
 
      struct t_engine_checkpoint *checkpoint_list; // List of checkpoints for the simulation
      struct t_engine_checkpoint *checkpoint_tail; // Tail of list of checkpoints for the simulation
+
+     void *thread_pool; // Used for multithreaded simulations
+     struct t_thread_pool_mapping *thread_pool_mapping;
 
      int cycle_number;
 

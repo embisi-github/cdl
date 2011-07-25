@@ -184,6 +184,7 @@ def parse_cdl_option( selection, cdl_options ):
     for option in selection["args"]:
         (o,v) = parse_arg(option)
         for (opt_short, opt_name) in [("ass", "assertions"),
+                                      ("mul", "multithread"),
                                       ("cov", "coverage"),
                                       ("stmt", "statements") ]:
             if o==opt_short:
@@ -210,9 +211,10 @@ def parse_cdl( model_object, cdl_options ):
         args = model_object["args"]
 
     base_options = []
-    if (cdl_options["assertions"]=="on"): base_options.append("--include-assertions")
-    if (cdl_options["coverage"]=="on"):   base_options.append("--include-coverage")
-    if (cdl_options["statements"]=="on"): base_options.append("--include-stmt-coverage")
+    if (cdl_options["assertions"]=="on"):  base_options.append("--include-assertions")
+    if (cdl_options["coverage"]=="on"):    base_options.append("--include-coverage")
+    if (cdl_options["statements"]=="on"):  base_options.append("--include-stmt-coverage")
+    if (cdl_options["multithread"]=="on"): base_options.append("--multithread")
 
     options = list(base_options)
     for option in args[2:]:
@@ -256,6 +258,7 @@ def parse_models( object_list ):
 
     cdl_options = { "coverage":"off",
                     "assertions":"off",
+                    "multithread":"off",
                     "statements":"off" }
     for selection in objs_of_type(object_list,["cdl", "cdl_options"]):
         if selection["type"]=="cdl_options":
@@ -560,41 +563,34 @@ def output_model_makefile( output_file ):
     print >>output_file, "MODEL_LIBS := \\"
     for lib in libs["c"]:
         print >>output_file, "    -l"+lib["lib"]+" \\"
-    print >>output_file, " "
+    print >>output_file
 
     print >>output_file, "MODELS :="
-#    for model in models["c"]:
-#        if (model["type"] == "c_model"):
-#            print >>output_file, "    "+model["model"]+" \\"
-#    for model in models["ef"]:
-#        print >>output_file, "    "+model["model"]+" \\"
-#    for model in models["cdl"]:
-#        print >>output_file, "    "+model["model"]+" \\"
-#    print >>output_file, ""
-
     print >>output_file, "C_MODEL_SRCS :="
-#    for model in models["c"]:
-#        print >>output_file, "    ${SRC_ROOT}/"+model["dir"]+"/"+model["model"]+".cpp \\"
-#    print >>output_file, ""
-
     print >>output_file, "C_MODEL_OBJS :="
-    #for model in models["c"]:
-    #    print >>output_file, "    ${TARGET_DIR}/"+model["model"]+".o \\"
-    #for model in models["ef"]:
-    #    print >>output_file, "    ${TARGET_DIR}/"+model["obj"]+" \\"
-    #for model in models["cdl"]:
-    #    print >>output_file, "    ${TARGET_DIR}/"+model["obj"]+" \\"
-    #print >>output_file, ""
-
     print >>output_file, "VERILOG_FILES := "
-    #for model in models["cdl"]:
-    #    print >>output_file, "    ${TARGET_DIR}/"+model["v"]+" \\"
-    #print >>output_file, ""
 
-    print >>output_file, ""
+    print >>output_file
     print >>output_file, "#a Templates"
     print >>output_file, "#f cmodel_template"
     print >>output_file, """define cmodel_template"""
+    print >>output_file, """# @param $1 c filename"""
+    print >>output_file, """# @param $2 object filename"""
+    print >>output_file, """# @param $3 model name"""
+    print >>output_file, """# @param $4 options"""
+    print >>output_file
+    print >>output_file, """${TARGET_DIR}/$2 : ${SRC_ROOT}/$1"""
+    print >>output_file, """\t@echo "CC $1 -o $2" """
+    print >>output_file, """\t$(Q)$(CXX) $(CXXFLAGS) -c -o ${TARGET_DIR}/$2 ${SRC_ROOT}/$1 $4"""
+    print >>output_file
+    print >>output_file, """MODELS += $3"""
+    print >>output_file, """C_MODEL_SRCS += ${SRC_ROOT}/$1"""
+    print >>output_file, """C_MODEL_OBJS += ${TARGET_DIR}/$2"""
+    print >>output_file
+    print >>output_file, """endef"""
+    print >>output_file
+    print >>output_file, "#f csrc_template"
+    print >>output_file, """define csrc_template"""
     print >>output_file, """# @param $1 c filename"""
     print >>output_file, """# @param $2 object filename"""
     print >>output_file, """# @param $3 options"""
@@ -658,7 +654,11 @@ def output_model_makefile( output_file ):
         c_filename      = model["dir"]+"/"+model["model"]+".cpp"
         object_filename = model["model"]+".o"
         options = options_string_from_list(model["opts"])
-        print >>output_file, """$(eval $(call cmodel_template,%s,%s,%s))""" % (c_filename, object_filename, options)
+        if (model["type"] == "c_model"):
+            model_name = model["model"]
+            print >>output_file, """$(eval $(call cmodel_template,%s,%s,%s,%s))""" % (c_filename, object_filename, model_name, options)
+        else:
+            print >>output_file, """$(eval $(call csrc_template,%s,%s,%s))""" % (c_filename, object_filename, options)
     
     print >>output_file
     print >>output_file, "#a EF models"

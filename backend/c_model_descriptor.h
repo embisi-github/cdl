@@ -45,6 +45,7 @@
      { "v_displays", no_argument, NULL, option_be_v_displays }, \
      { "vhdl", required_argument, NULL, option_be_vhdl }, \
      { "include-assertions", no_argument, NULL, option_be_include_assertions }, \
+     { "multithread", no_argument, NULL, option_be_multithread }, \
      { "include-coverage", no_argument, NULL, option_be_include_coverage }, \
      { "include-stmt-coverage", no_argument, NULL, option_be_include_stmt_coverage }, \
      { "coverage-desc-file", required_argument, NULL, option_be_coverage_desc_file }, \
@@ -78,6 +79,7 @@ enum
     option_be_xml,
     option_be_model,
     option_be_include_assertions,
+    option_be_multithread,
     option_be_include_coverage,
     option_be_include_stmt_coverage,
     option_be_coverage_desc_file,

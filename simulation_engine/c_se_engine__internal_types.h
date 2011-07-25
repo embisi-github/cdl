@@ -21,6 +21,7 @@ for more details.
 /*a Includes
  */
 #include "sl_timer.h"
+#include "sl_work_list.h"
 #include "c_sl_error.h"
 #include "c_se_engine.h"
 
@@ -30,6 +31,24 @@ for more details.
 
 /*a Types
  */
+/*t t_thread_pool_submodule_mapping
+ */
+typedef struct t_thread_pool_submodule_mapping
+{
+    struct t_thread_pool_submodule_mapping *next_in_list;
+    t_sl_wl_thread_ptr thread_ptr;
+    char submodule_name[1];
+} t_thread_pool_submodule_mapping;
+
+/*t t_thread_pool_mapping
+ */
+typedef struct t_thread_pool_mapping
+{
+    struct t_thread_pool_mapping *next_in_list;
+    struct t_thread_pool_submodule_mapping *mapping_list;
+    char module_name[1];
+} t_thread_pool_mapping;
+
 /*t t_engine_function
   for ports on instances.
   basically this structure contains the set of items that may be linked as a port or function of an instance
@@ -194,6 +213,7 @@ typedef struct t_engine_module_instance
     char *name; // Instance name inside this level of hierarchy
     char *full_name; // Full instance name from global level
     char *type; // Module type
+
     t_sl_option_list option_list;
     t_engine_function_list *delete_fn_list;
     t_engine_function_list *reset_fn_list;
@@ -208,6 +228,9 @@ typedef struct t_engine_module_instance
     t_engine_function_list *checkpoint_fn_list;
     t_engine_function_list *message_fn_list;
     struct t_engine_log_event_array *log_event_list;
+
+    void *thread_pool; // Used for multithreaded modules
+    void *worklist; // Used for multithreaded modules
 
     t_engine_state_desc_list *sdl_to_view;
     int state_to_view;

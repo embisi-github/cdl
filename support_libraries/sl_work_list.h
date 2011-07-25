@@ -36,6 +36,10 @@ typedef struct
  */
 typedef void (*t_sl_wl_callback_fn)( void *handle );
 
+/*t t_sl_wl_thread_ptr
+ */
+typedef struct t_sl_wl_thread *t_sl_wl_thread_ptr;
+
 /*t t_sl_wl_thread_pool_ptr
  */
 typedef struct t_sl_wl_thread_pool *t_sl_wl_thread_pool_ptr;
@@ -89,6 +93,14 @@ extern t_sl_error_level sl_wl_delete_thread_pool( t_sl_wl_thread_pool_ptr thread
   Spawn a worker thread
  */
 extern t_sl_error_level sl_wl_spawn_worker_thread( t_sl_wl_thread_pool_ptr thread_pool, const char *thread_name, t_wl_affinity *affinity );
+
+/*f sl_wl_find_thread
+ */
+extern t_sl_wl_thread_ptr sl_wl_find_thread( t_sl_wl_thread_pool_ptr thread_pool, const char *name );
+
+/*f sl_wl_thread_name
+ */
+extern const char *sl_wl_thread_name( t_sl_wl_thread_ptr thread_ptr );
 
 /*f sl_wl_terminate_worker_thread
   Terminate a worker thread

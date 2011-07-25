@@ -5699,7 +5699,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
 {
      const char *filename;
      FILE *f;
-     int include_stmt_coverage, include_coverage, include_assertions;
+     int include_stmt_coverage, include_coverage, include_assertions, multithread;
      t_md_module *module;
      t_md_module_instance *mi;
      int i, j;
@@ -5773,6 +5773,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      include_coverage = 0;
      include_stmt_coverage = 0;
      include_assertions = 0;
+     multithread = 0;
 
      if (sl_option_get_string( env_options, "be_assertions" ))
      {
@@ -5782,6 +5783,11 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      if (sl_option_get_string( env_options, "be_stmt_coverage" ))
      {
          include_stmt_coverage = 1;
+     }
+
+     if (sl_option_get_string( env_options, "be_multithread" ))
+     {
+         multithread = 1;
      }
 
      if (sl_option_get_string( env_options, "be_coverage" ))
@@ -5804,7 +5810,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
           f = fopen(filename, "w");
           if (f)
           {
-              target_c_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage );
+              target_c_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage, multithread );
               fclose(f);
           }
           else
@@ -5931,6 +5937,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_include_assertions:
           *env_options = sl_option_list( *env_options, "be_assertions", "yes" );
+          return 1;
+     case option_be_multithread:
+          *env_options = sl_option_list( *env_options, "be_multithread", "yes" );
           return 1;
      case option_be_coverage_desc_file:
           *env_options = sl_option_list( *env_options, "be_coverage_map", optarg );

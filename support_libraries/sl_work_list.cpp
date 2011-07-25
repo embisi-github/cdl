@@ -21,9 +21,11 @@
 
 /*a Types
  */
-typedef struct t_thread_data
+/*t t_sl_wl_thread
+ */
+typedef struct t_sl_wl_thread
 {
-    struct t_thread_data *next_in_list;
+    struct t_sl_wl_thread *next_in_list;
     pthread_t id;
     pthread_mutex_t mutex_start;
     pthread_cond_t cond_start;
@@ -38,10 +40,13 @@ typedef struct t_thread_data
     int entry_number; // which function to call per item to execute if it is this thread
     t_sl_timer timer;
     char name[1]; // Must be at the end
-} t_thread_data;
+} t_sl_wl_thread;
+
+/*t t_sl_wl_thread_pool
+ */
 typedef struct t_sl_wl_thread_pool
 {
-    t_thread_data *threads;
+    t_sl_wl_thread *threads;
     t_sl_wl_worklist *worklists;
 } t_sl_wl_thread_pool;
 
@@ -57,7 +62,7 @@ typedef struct t_sl_wl_thread_pool
   If the state variable is 0, then the neither end is waiting, so set to 1 and wait
 
  */
-static int thread_sync( t_thread_data *thread )
+static int thread_sync( t_sl_wl_thread *thread )
 {
     int alive;
     pthread_mutex_lock( &thread->mutex_start );
@@ -78,7 +83,7 @@ static int thread_sync( t_thread_data *thread )
 
 /*f thread_sync_kill
  */
-static void thread_sync_kill( t_thread_data *thread )
+static void thread_sync_kill( t_sl_wl_thread *thread )
 {
     pthread_mutex_lock( &thread->mutex_start );
     thread->alive=0;
@@ -92,13 +97,14 @@ static void thread_sync_kill( t_thread_data *thread )
         thread->state_start=1;
         pthread_cond_wait( &thread->cond_start, &thread->mutex_start );
     }
+    printf("Thread %s killed total work time %f us\n", thread->name, SL_TIMER_VALUE_US(thread->timer));
     pthread_mutex_unlock( &thread->mutex_start );
 }
 
 /*f do_thread_work
   Do all the work on the worklist for this thread
  */
-static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int entry_number, t_thread_data *thread )
+static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int entry_number, t_sl_wl_thread *thread )
 {
     int i;
     int data_per_item;
@@ -108,7 +114,7 @@ static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int ent
     {
         SL_TIMER_ENTRY(thread->timer);
     }       
-    printf("Doing work %p worklist %p\n", pthread_self(), worklist);
+    //printf("Doing work %p worklist %p\n", pthread_self(), worklist);
 
     if (!worklist)
         return;
@@ -117,17 +123,27 @@ static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int ent
 
     for (i=0; i<worklist->number_of_items; i++)
     {
+        //printf("Worklist item %d, %x, %p\n", i, guard, guard_bits );
         if (guard_bits)
         {
             if ((i % (8*sizeof(int)))==0)
+            {
                 guard = *guard_bits++;
+                //printf("guard now %08x\n", guard );
+            }
             if ((guard&1)==0)
+            {
+                //printf("Skipping\n", i, guard );
                 continue;
+            }
             guard=guard>>1;
         }
 
         if (worklist->heads[i].affinity != (void *)thread)
-                continue;
+        {
+            //printf("Itme for other thread %p %p\n", thread, worklist->heads[i].affinity);
+            continue;
+        }
 
         if (worklist->heads[i].guard_ptr)
             if (worklist->heads[i].guard_ptr[0]==0)
@@ -141,11 +157,11 @@ static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int ent
     if (thread)
     {
         SL_TIMER_EXIT(thread->timer);
-        printf("Done work %p total time %f\n", pthread_self(), SL_TIMER_VALUE_US(thread->timer));
+        //printf("Done work %p total time %f\n", pthread_self(), SL_TIMER_VALUE_US(thread->timer));
     }   
     else
     {
-        printf("Done work for thread %p\n", pthread_self() );
+        //printf("Done work for thread %p\n", pthread_self() );
     }
 }
 
@@ -154,7 +170,7 @@ static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int ent
  */
 void *worker_thread( void *handle )
 {
-    t_thread_data *thread = (t_thread_data *)handle;
+    t_sl_wl_thread *thread = (t_sl_wl_thread *)handle;
     //printf("Worker thread %p\n", thread);
     while (1)
     {
@@ -174,7 +190,7 @@ void *worker_thread( void *handle )
 
 /*f thread_kill
  */
-static t_sl_error_level thread_kill( t_thread_data *thread )
+static t_sl_error_level thread_kill( t_sl_wl_thread *thread )
 {
     if (thread->busy)
     {
@@ -215,12 +231,15 @@ extern t_sl_error_level sl_wl_delete_thread_pool( t_sl_wl_thread_pool_ptr thread
 
 /*f thread_add
  */
-static t_thread_data *thread_add( t_sl_wl_thread_pool_ptr thread_pool, const char *thread_name )
+static t_sl_wl_thread *thread_add( t_sl_wl_thread_pool_ptr thread_pool, const char *thread_name )
 {
-    t_thread_data *thread;
+    t_sl_wl_thread *thread;
     int rc;
 
-    thread = (t_thread_data *)malloc(sizeof(t_thread_data)+strlen(thread_name));
+    if (!thread_pool)
+        return NULL;
+
+    thread = (t_sl_wl_thread *)malloc(sizeof(t_sl_wl_thread)+strlen(thread_name));
 
     rc = pthread_mutex_init( &thread->mutex_start, NULL );
     if (rc==0) rc=pthread_mutex_init( &thread->mutex_done, NULL );
@@ -246,9 +265,11 @@ static t_thread_data *thread_add( t_sl_wl_thread_pool_ptr thread_pool, const cha
 
 /*f thread_find
  */
-static t_thread_data *thread_find( t_sl_wl_thread_pool_ptr thread_pool, const char *thread_name )
+static t_sl_wl_thread *thread_find( t_sl_wl_thread_pool_ptr thread_pool, const char *thread_name )
 {
-    t_thread_data *thread;
+    t_sl_wl_thread *thread;
+    if (!thread_pool)
+        return NULL;
     for (thread=thread_pool->threads; thread; thread=thread->next_in_list)
         if (!strcmp(thread->name,thread_name))
             return thread;
@@ -258,9 +279,9 @@ static t_thread_data *thread_find( t_sl_wl_thread_pool_ptr thread_pool, const ch
 
 /*f thread_delete
  */
-static void thread_delete( t_sl_wl_thread_pool_ptr thread_pool, t_thread_data *thread )
+static void thread_delete( t_sl_wl_thread_pool_ptr thread_pool, t_sl_wl_thread *thread )
 {
-    t_thread_data **thread_ptr;
+    t_sl_wl_thread **thread_ptr;
     for ( thread_ptr=&(thread_pool->threads); (*thread_ptr); thread_ptr=&((*thread_ptr)->next_in_list) )
     {
         if ((*thread_ptr)==thread)
@@ -281,7 +302,7 @@ static void thread_delete( t_sl_wl_thread_pool_ptr thread_pool, t_thread_data *t
  */
 extern t_sl_error_level sl_wl_spawn_worker_thread( t_sl_wl_thread_pool_ptr thread_pool, const char *thread_name, t_wl_affinity *affinity )
 {
-    t_thread_data *thread;
+    t_sl_wl_thread *thread;
     thread = thread_add( thread_pool, thread_name );
 
     if (!thread)
@@ -293,12 +314,26 @@ extern t_sl_error_level sl_wl_spawn_worker_thread( t_sl_wl_thread_pool_ptr threa
     return error_level_okay;
 }
 
+/*f sl_wl_find_thread
+ */
+extern t_sl_wl_thread_ptr sl_wl_find_thread( t_sl_wl_thread_pool_ptr thread_pool, const char *name )
+{
+    return thread_find( thread_pool, name );
+}
+
+/*f sl_wl_thread_name
+ */
+extern const char *sl_wl_thread_name( t_sl_wl_thread_ptr thread_ptr )
+{
+    return thread_ptr->name;
+}
+
 /*f sl_wl_terminate_worker_thread
   Terminate a worker thread
  */
 int sl_wl_terminate_worker_thread( t_sl_wl_thread_pool_ptr thread_pool, const char *thread_name )
 {
-    t_thread_data *thread;
+    t_sl_wl_thread *thread;
     thread = thread_find( thread_pool, thread_name );
     if (!thread)
     {
@@ -316,7 +351,7 @@ int sl_wl_terminate_worker_thread( t_sl_wl_thread_pool_ptr thread_pool, const ch
  */
 extern void sl_wl_terminate_all_worker_threads( t_sl_wl_thread_pool_ptr thread_pool )
 {
-    t_thread_data *thread;
+    t_sl_wl_thread *thread;
     while ((thread=thread_pool->threads)!=NULL)
     {
         thread_kill( thread );
@@ -352,6 +387,7 @@ extern t_sl_wl_worklist *sl_wl_add_worklist( t_sl_wl_thread_pool_ptr thread_pool
         worklist->heads[i].name = NULL;
         worklist->heads[i].subname = NULL;
         worklist->heads[i].guard_ptr = NULL;
+        worklist->heads[i].affinity = NULL;
         for (j=0; j<data_per_item; j++)
         {
             worklist->data[i*data_per_item+j].callback=NULL;
@@ -419,7 +455,7 @@ extern void sl_wl_set_work_item( t_sl_wl_worklist *worklist, int item, int entry
  */
 extern t_sl_error_level sl_wl_assign_work_to_thread( t_sl_wl_worklist *worklist, int item, const char *thread_name )
 {
-    t_thread_data *thread;
+    t_sl_wl_thread *thread;
     thread = thread_find( worklist->thread_pool, thread_name );
     if (!thread)
         return error_level_serious;
@@ -440,7 +476,7 @@ extern t_sl_error_level sl_wl_assign_work_to_thread( t_sl_wl_worklist *worklist,
  */
 extern t_sl_error_level sl_wl_execute_worklist( t_sl_wl_worklist *worklist, int *guard_bits, int entry_number )
 {
-    t_thread_data *thread;
+    t_sl_wl_thread *thread;
 
     // Run through each subthread and check they are idle, and set them to see the available work
     for (thread=worklist->thread_pool->threads; thread; thread=thread->next_in_list)

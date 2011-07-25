@@ -104,11 +104,12 @@ c_engine::c_engine( c_sl_error *error, const char *name )
      message->add_text_list( 1, default_error_messages );
 }
 
-/*f c_engine::c_engine
+/*f c_engine::~c_engine
  */
 c_engine::~c_engine()
 {
      c_engine **eptr;
+
 
      /*b Delete our engine instance from the global list
       */
@@ -120,6 +121,7 @@ c_engine::~c_engine()
 
      /* Free our data
       */
+     thread_pool_delete();
      delete_instances_and_signals();
      error->reset();
      message->reset();
@@ -360,7 +362,7 @@ extern void se_c_engine_init( void )
  */
 extern void se_c_engine_exit( void )
 {
-     se_external_module_deregister_all();
+    se_external_module_deregister_all();
 }
 
 /*a To do

@@ -54,6 +54,8 @@ enum
     cmd_read_hw_file=0,
     cmd_verbose,
     cmd_reset,
+    cmd_thread_pool,
+    cmd_thread_map,
     cmd_step,
     cmd_setenv,
     cmd_setenv_int,
@@ -95,6 +97,8 @@ static t_sl_exec_file_cmd file_cmds[] =
      {cmd_read_hw_file,  1, "read_hw_file", "s", "read_hw_file <filename>"},
      {cmd_verbose,       1, "verbose", "i", "verbose <leve> - set verbose level - 1 is default"},
      {cmd_reset,         0, "reset", "", "reset"},
+     {cmd_thread_pool,   1, "thread_pool", "ssssssssssssssss", "thread_pool <thread name>+"},
+     {cmd_thread_map,    2, "thread_map", "ssssssssssssssss", "thread_map <thread name> <module instances>+"},
      {cmd_step,          1, "step", "i", "step <cycle count>"},
      {cmd_setenv,        2, "setenv", "ss", "setenv <name> <value>"},
      {cmd_display_state, 0, "display_state", "display_state"},
@@ -158,6 +162,7 @@ static t_sl_error_level exec_file_cmd_handler( struct t_sl_exec_file_cmd_cb *cmd
 {
     c_engine *hw_engine;
     hw_engine = (c_engine *)handle;
+    int i;
     switch (cmd_cb->cmd)
     {
     case cmd_read_hw_file:
@@ -177,6 +182,23 @@ static t_sl_error_level exec_file_cmd_handler( struct t_sl_exec_file_cmd_cb *cmd
             printf("se_engine: Resetting\n");
         fflush(stdout);
         hw_engine->reset_state();
+        break;
+    case cmd_thread_pool:
+        if (verbose)
+            printf("se_engine: Thread pool\n");
+        hw_engine->thread_pool_init();
+        for (i=0; i<sl_exec_file_get_number_of_arguments( cmd_cb->file_data, cmd_cb->args ); i++)
+            hw_engine->thread_pool_add_thread( sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, i ) );
+        break;
+    case cmd_thread_map:
+        if (verbose)
+            printf("se_engine: Thread map\n");
+        {
+            const char *thread_name;
+            thread_name = sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 );
+            for (i=1; i<sl_exec_file_get_number_of_arguments( cmd_cb->file_data, cmd_cb->args ); i++)
+                hw_engine->thread_pool_map_thread_to_module( thread_name, sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, i ) );
+        }
         break;
     case cmd_step:
         if (verbose)

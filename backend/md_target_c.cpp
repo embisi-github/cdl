@@ -1124,7 +1124,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
     if (module->number_submodule_clock_calls>0)
     {
         t_md_module_instance_clock_port *clock_port;
-        output( handle, 1, "submodule_clock_worklist = engine->submodule_init_clock_worklist( %d );\n", module->number_submodule_clock_calls );
+        output( handle, 1, "engine->submodule_init_clock_worklist( engine_handle, %d );\n", module->number_submodule_clock_calls );
 
         for (clk=module->clocks; clk; clk=clk->next_in_list)
         {
@@ -1144,10 +1144,11 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                                     worklist_item = output_markers_value( clock_port, -1 );
                                     if (output_markers_value(module_instance,om_valid_mask)!=om_valid)
                                     {
-                                        output( handle, 1, "engine->submodule_set_clock_worklist_prepreclock( submodule_clock_worklist, %d, instance_%s.handle );\n", worklist_item, module_instance->name );
+                                        output( handle, 1, "engine->submodule_set_clock_worklist_prepreclock( engine_handle, %d, instance_%s.handle );\n", worklist_item, module_instance->name );
                                         output_markers_mask(module_instance,om_valid,0);
                                     }
-                                    output( handle, 1, "engine->submodule_set_clock_worklist_clock( submodule_clock_worklist, %d, instance_%s.%s__clock_handle, %d, NULL );\n", // Do not use a gate for the enable, as the parent will enable it
+                                    output( handle, 1, "engine->submodule_set_clock_worklist_clock( engine_handle, instance_%s.handle, %d, instance_%s.%s__clock_handle, %d );\n", // Do not use a gate for the enable, as the parent will enable it
+                                            module_instance->name,
                                             worklist_item,
                                             module_instance->name, clock_port->port_name, edge==md_edge_pos );
                                 }
@@ -2888,7 +2889,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                                 {
                                     int worklist_item;
                                     worklist_item = output_markers_value( clock_port, -1 );
-                                    output( handle, 1, "engine->submodule_enable_clock_worklist_item(%d);\n", worklist_item );
+                                    output( handle, 1, "submodule_clock_guard[%d] |= 0x%08x;\n", worklist_item/32, 1<<(worklist_item%32) );
                                 }
                             }
                         }
@@ -3007,7 +3008,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         // Stage 2
         if (module->number_submodule_clock_calls>0)
         {
-            output( handle, 2, "engine->submodule_call_worklist( submodule_clock_worklist, wl_item_prepreclock, NULL );\n" ); // prepreclock all submodules
+            output( handle, 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_prepreclock, NULL );\n" ); // prepreclock all submodules
             for (i=0; i<(module->number_submodule_clock_calls+31)/32; i++)
                 output( handle, 2, "submodule_clock_guard[%d] = 0;\n", i ); // Clear all submodule clock guard entries
         }
@@ -3029,20 +3030,20 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         // Stage 3b. Call all required submodule preclock functions
         if (module->number_submodule_clock_calls>0)
         {
-            output( handle, 2, "engine->submodule_call_worklist( submodule_clock_worklist, wl_item_preclock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
+            output( handle, 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_preclock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
         }
         // Stage 4a. Call all required local preclock functions - calculates next_state
         output( handle, 2, "for (i=0; i<clocks_to_call; i++)\n" );
         output( handle, 3, "(this->*clocks_fired[i].clock)();\n" );
-        output( handle, 1, "}\n" );
         // Stage 4b. Call all required submodule clock functions - their outputs will be valid afterwards
         if (module->number_submodule_clock_calls>0)
         {
-            output( handle, 2, "engine->submodule_call_worklist( submodule_clock_worklist, wl_item_clock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
+            output( handle, 2, "engine->submodule_call_worklist( engine_handle, se_wl_item_clock, submodule_clock_guard );\n" ); // preclock all submodule's preclock functions required
         }
         // Stage 5. Propagate from all state (inc submodule outputs dependent on state) to outputs
-        output( handle, 1, "propagate_state_to_outputs();\n" );
-        output( handle, 1, "clocks_to_call=0;\n");
+        output( handle, 2, "propagate_state_to_outputs();\n" );
+        output( handle, 2, "clocks_to_call=0;\n");
+        output( handle, 1, "}\n" );
         output( handle, 1, "return error_level_okay;\n");
         output( handle, 0, "}\n");
 
@@ -3088,7 +3089,7 @@ static void output_initalization_functions( c_model_descriptor *model, t_md_outp
  */
 /*f target_c_output
  */
-extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage )
+extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn, void *output_handle, int include_assertions, int include_coverage, int include_stmt_coverage, int multithread )
 {
     t_md_module *module;
 
@@ -3098,33 +3099,32 @@ extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn
     {
         if (module->external)
             continue;
-        {
 
         module->number_submodule_clock_calls=0;
-        t_md_module_instance_clock_port *clock_port;
-        t_md_module_instance *module_instance;
-        int edge;
-        t_md_signal *clk;
-
-        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+        if (multithread)
         {
-            output_markers_mask( module_instance, 0, -1 );
-            for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
+            t_md_module_instance_clock_port *clock_port;
+            t_md_module_instance *module_instance;
+            int edge;
+            t_md_signal *clk;
+
+            for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
             {
-                output_markers_mask( clock_port, 0, -1 );
+                output_markers_mask( module_instance, 0, -1 );
+                for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
+                {
+                    output_markers_mask( clock_port, 0, -1 );
+                }
             }
+            for (clk=module->clocks; clk; clk=clk->next_in_list)
+                for (edge=0; edge<2; edge++)
+                    if (clk->data.clock.edges_used[edge])
+                        for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+                            if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
+                                for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
+                                    if (clock_port->local_clock_signal==clk)
+                                        output_markers_mask( clock_port, module->number_submodule_clock_calls++, -1 );
         }
-        for (clk=module->clocks; clk; clk=clk->next_in_list)
-            for (edge=0; edge<2; edge++)
-                if (clk->data.clock.edges_used[edge])
-                    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
-                        if (model->reference_set_includes( &module_instance->dependencies, clk, edge ))
-                            for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
-                                if (clock_port->local_clock_signal==clk)
-                                    output_markers_mask( clock_port, module->number_submodule_clock_calls++, -1 );
-        }
-
-        module->number_submodule_clock_calls=0;
 
         output_types( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
         output_static_variables( model, module, output_fn, output_handle );
