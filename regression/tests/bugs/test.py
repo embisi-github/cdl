@@ -82,7 +82,7 @@ class bundle_width_test_harness(pycdl.th):
 
             temp = value - 1
             if self.wireout.value() != temp:
-                print "%d Expected input of value+1: got input %d Value %d" % (self.global_cycle(), self.out.value(), temp)
+                print "%d Expected input of value+1: got input %d Value %d" % (self.global_cycle(), self.wireout.value(), temp)
                 self.failtest(self.global_cycle(), "**************************************************************************** Test failed")
 
         self.passtest(self.global_cycle(), "Test succeeded")
