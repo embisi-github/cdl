@@ -2138,11 +2138,16 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
     {
         int need_to_output;
 
-        /*b If module_instance is not clocked then skip to next
+        /*b If module_instance is not clocked AND is combinatorial then skip to next
          */
         need_to_output=1;
-        if ( (!module_instance->module_definition) ||
-             (!module_instance->module_definition->clocks) )
+        if (!module_instance->module_definition)
+        {
+            need_to_output=0;
+        }
+        if ( need_to_output &&
+             (!module_instance->module_definition->clocks) &&
+             (module_instance->module_definition->combinatorial_component) )
         {
             need_to_output=0;
         }
@@ -2150,7 +2155,6 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
 
         /*b Find all purely clocked outputs and mark them valid
          */
-
         for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
         {
             int used_comb = output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially;

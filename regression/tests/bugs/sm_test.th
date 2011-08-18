@@ -1,0 +1,99 @@
+###########################################################
+# Declare Variables
+###########################################################
+
+int expected_result
+int actual_result
+string test_vector
+
+printf "Regression batch arg Instantiation sm_test bug noted by Netronome"
+
+###########################################################
+# Main
+###########################################################
+gosub main
+
+main:
+ rst_n.drive 0
+ bfm_wait 1
+ rst_n.drive 1
+ bfm_wait 1
+ spawn "nand" nand 100
+ bfm_wait 100
+ gosub reset
+end
+
+###########################################################s
+# Spawn 
+###########################################################
+
+nand:
+ gosub test1
+ #gosub test0
+ pass global_cycle() "Test succeeded"
+ end
+
+
+test1:
+ printf "##### Writing 1 #####"
+ in.drive 1
+ sprintf test_vector "%s0% " "1"
+ set expected_result 1
+ bfm_wait 1
+ in.drive 0
+ gosub test_check_sig_top
+ gosub test_check_sig_sub
+ bfm_wait 1
+ gosub test_check_reg_top
+ gosub test_check_reg_sub
+return
+
+test_check_sig_top:
+ printf "# Checking Top Signal"
+ set actual_result top_sig.value()
+ beq actual_result expected_result pass
+ printf "Input is %s0%. Actual Result %d1% Expected Result %d2% Fail x-(" test_vector actual_result expected_result
+ fail global_cycle() "**************************************************************************** Test failed"
+ end
+return
+
+test_check_sig_sub:
+ printf "# Checking Sub Signal"
+ set actual_result sub_sig.value()
+ beq actual_result expected_result pass
+ printf "Input is %s0%. Actual Result %d1% Expected Result %d2% Fail x-(" test_vector actual_result expected_result
+ fail global_cycle() "**************************************************************************** Test failed"
+ end
+return
+
+test_check_reg_top:
+ printf "# Checking Top Register"
+ set actual_result top_reg.value()
+ beq actual_result expected_result pass
+ printf "Input is %s0%. Actual Result %d1% Expected Result %d2% Fail x-(" test_vector actual_result expected_result
+ fail global_cycle() "**************************************************************************** Test failed"
+ end
+return
+
+test_check_reg_sub:
+ printf "# Checking Sub Register"
+ set actual_result sub_reg.value()
+ beq actual_result expected_result pass
+ printf "Input is %s0%. Actual Result %d1% Expected Result %d2% Fail x-(" test_vector actual_result expected_result
+ fail global_cycle() "**************************************************************************** Test failed"
+ end
+return
+
+
+pass:
+ printf "Input is %s0%. Actual Result %d1% Expected Result %d2% Pass :-)" test_vector actual_result expected_result
+return
+
+###########################################################
+# Reset
+###########################################################
+
+reset:
+ rst_n.drive 0
+ in.drive 0
+return

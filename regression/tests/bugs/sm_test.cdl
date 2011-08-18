@@ -1,0 +1,60 @@
+/*m Test File
+This is a CDL exercise area.
+*/
+
+include "sm_inc.h"
+
+module sm_test (
+            clock clk,
+            input  bit rst_n "active low reset",
+
+            input  bit in "input in",
+
+            output bit top_sig "output signal from top module",
+            output bit top_reg "output register from top module",
+
+            output bit sub_sig "output signal from submodule",
+            output bit sub_reg "output register from submodule"
+
+	    )
+  
+  "Simulating a Nand gate through the flow"
+{
+  
+ default clock rising clk;
+ default reset active_low rst_n;
+
+ clocked bit top_reg_r=0;
+ comb bit top_sig_i;
+ net bit sub_reg_r;
+ net bit sub_sig_i;
+
+ assign_to_out "assigning to output": 
+ {
+
+   top_sig = top_sig_i;
+   top_reg = top_reg_r;
+   sub_sig = sub_sig_i;
+   sub_reg = sub_reg_r;
+ }
+
+ assign_top_module "assigining to register in top module":
+   {
+     top_sig_i =  in;
+     top_reg_r <= in;
+   }
+
+ sub "test submodule":
+ {
+   sm_sub sub_0
+     ( 
+      clk           <- clk,
+      rst_n         <= rst_n,
+      sub_in        <= in,
+      sub_out_sig   => sub_sig_i,
+      sub_out_reg   => sub_reg_r
+      );
+   
+ }
+ 
+}
