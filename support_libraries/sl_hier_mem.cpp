@@ -86,6 +86,8 @@ static void init_memory( t_sl_hier_mem *shm, t_sl_hier_mem_data_ptr data, t_sl_u
         }
         return;
     }
+    default:
+        break;
     }
     memset( data, 0, length*shm->bytes_per_memory );
     return;

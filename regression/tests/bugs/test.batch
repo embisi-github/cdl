@@ -15,7 +15,9 @@ vcd_file waves
 gosub partial_ports
 gosub bundle_width
 gosub check_64bits
+gosub sm_test
 end
+
 
 
 partial_ports:
@@ -26,6 +28,23 @@ waves.add_hierarchy pp th
 #waves.enable
 reset
 step 5000
+return
+
+sm_test:
+string vcd_full_filename
+sprintf vcd_full_filename "sm_test.vcd"
+printf "Simulating the great Nand Gate!" 
+printf "Full filename %s0%" vcd_full_filename
+read_hw_file sm_test.hwex
+waves.reset
+waves.open vcd_full_filename
+waves.add_hierarchy sm_test
+waves.add_hierarchy th0
+waves.add_hierarchy system_clock
+waves.enable
+reset
+step 1000
+waves.close
 return
 
 bundle_width:

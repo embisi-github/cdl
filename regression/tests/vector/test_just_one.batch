@@ -10,14 +10,18 @@
 #  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
 #  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
 #  for more details.
+vcd_file waves
 
 setenv "width" 16
 setenv "module_name" vector_toggle__width_16
 setenv "module_mif_filename" "vector_toggle__width_16.mif"
 read_hw_file vector.hwex
+waves.open "vector_toggle__width_16_b.vcd"
+waves.add_hierarchy dut_0
+waves.enable
 reset
 step 50
-
+waves.close
 
 end
 

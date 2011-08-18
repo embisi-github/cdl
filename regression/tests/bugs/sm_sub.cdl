@@ -1,0 +1,38 @@
+/*m Test File
+This is a CDL exercise area.
+*/
+
+include "sm_inc.h"
+
+module sm_sub
+(
+ clock clk,
+ input  bit rst_n "active low reset",
+ 
+ input  bit sub_in,
+ output bit sub_out_sig,
+ output bit sub_out_reg 
+ )
+  
+  "This submodule assigns input to a register and a signal and outputs both."
+{
+      
+ default clock clk;
+ default reset active_low rst_n;
+ 
+ clocked bit  sub_out_reg_r=0;
+ comb bit sub_out_sig_i;
+ 
+ assign_to_out: 
+ {
+   sub_out_sig  = sub_out_sig_i;
+   sub_out_reg  = sub_out_reg_r;
+ }
+ 
+ assign_internal: 
+ {
+   sub_out_reg_r <= sub_in;
+   sub_out_sig_i  = sub_in;
+ }
+ 
+}

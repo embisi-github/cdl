@@ -1354,10 +1354,12 @@ t_sl_error_level c_engine::step_cycles( int cycles )
           {
                if (clk->edge==1)
                {
+                   WHERE_I_AM;
                     se_engine_function_call_invoke_all( clk->posedge.prepreclock );
                }
                else if (clk->edge==-1)
                {
+                   WHERE_I_AM;
                     se_engine_function_call_invoke_all( clk->negedge.prepreclock );
                }
           }
@@ -1368,10 +1370,12 @@ t_sl_error_level c_engine::step_cycles( int cycles )
           {
                if (clk->edge==1)
                {
+                   WHERE_I_AM;
                     se_engine_function_call_invoke_all( clk->posedge.preclock );
                }
                else if (clk->edge==-1)
                {
+                   WHERE_I_AM;
                     se_engine_function_call_invoke_all( clk->negedge.preclock );
                }
           }
@@ -1382,10 +1386,12 @@ t_sl_error_level c_engine::step_cycles( int cycles )
           {
                if (clk->edge==1)
                {
+                   WHERE_I_AM;
                     se_engine_function_call_invoke_all( clk->posedge.clock );
                }
                else if (clk->edge==-1)
                {
+                   WHERE_I_AM;
                     se_engine_function_call_invoke_all( clk->negedge.clock );
                }
                clk->value = clk->next_value;

@@ -65,6 +65,8 @@ cdl tests/instantiation hierarchy_struct_test_harness inc:tests/instantiation
 cdl tests/instantiation failure_0
 
 cdl tests/bugs empty_case_statements
+cdl tests/bugs sm_test inc:tests/bugs
+cdl tests/bugs sm_sub inc:tests/bugs
 cdl tests/bugs check_64bits
 cdl tests/bugs bundle_width
 cdl tests/bugs operator_precedence

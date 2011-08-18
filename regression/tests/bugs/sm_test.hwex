@@ -1,0 +1,37 @@
+#b Modules
+
+option_int "verbose" 1
+option_string "clock" "clk"
+
+clock system_clock 0 1 1
+option_string "inputs" "top_sig top_reg sub_sig sub_reg"
+option_string "outputs" "rst_n in"
+option_string "filename" "sm_test.th"
+module se_test_harness "th0"
+module sm_test "sm_test"
+
+drive th0.clk      system_clock
+drive sm_test.clk system_clock
+
+wire rst_n
+wire in
+wire top_sig
+wire top_reg
+wire sub_sig
+wire sub_reg
+
+drive rst_n   	    th0.rst_n
+drive in      	    th0.in
+drive th0.top_sig   top_sig
+drive th0.top_reg   top_reg
+drive th0.sub_sig   sub_sig
+drive th0.sub_reg   sub_reg
+
+drive sm_test.rst_n rst_n
+drive sm_test.in    in	
+drive top_sig        sm_test.top_sig
+drive top_reg        sm_test.top_reg
+drive sub_sig        sm_test.sub_sig
+drive sub_reg        sm_test.sub_reg
+
+end

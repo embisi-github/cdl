@@ -220,6 +220,7 @@ static void mif_compare_callback( void *handle, t_sl_uint64 address, t_sl_uint64
     mem = info->mem;
     address -= info->address_offset;
 
+    okay=0;
     if (mem->bit_size<=8)
     {
         okay = (((const unsigned char *)mem->contents)[address] == ((*data)&0xff));
@@ -285,6 +286,7 @@ static t_sl_error_level ef_method_eval_read( t_sl_exec_file_cmd_cb *cmd_cb, void
     address = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
     if ( (address<0) || (address>=mem->max_size) )
     {
+        data = 0xdeadbeef000add00LL;
         //cmd_cb->error->add_error( (void *)file_data->user, error_level_serious, error_number_sl_exec_file_memory_address_out_of_range, error_id_sl_exec_file_get_next_cmd,
 //                                     error_arg_type_integer, (int)address,
 //                                     error_arg_type_malloc_string, thread->id,

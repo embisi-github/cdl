@@ -16,6 +16,7 @@
  */
 include "hierarchy_reg.h"
 include "hierarchy_gray_code.h"
+include "hierarchy_tied_outputs.h"
 
 /*a Module prototypes
  */
@@ -34,6 +35,8 @@ module hierarchy_complex( clock clock_a,
      */
     default clock clock_a;
     default reset active_high int_reset;
+
+    net bit tied_high;
 
     clocked bit[4] ptr_a_gc = 0;
     comb bit[4] ptr_a_gc_copy;
@@ -67,6 +70,13 @@ module hierarchy_complex( clock clock_a,
     net bit[4] ptr_a_gc_sync;
     net bit[4] ptr_b_gc_sync;
 
+    /*b Tied outputs logic
+     */
+    tied_outputs_logic "Simple logic with tied outputs - so the module has neither comb nor clock (hence it is comb...)":
+        {
+            hierarchy_tied_outputs hto( in_a<=add_a[0], in_b<=add_b[0], out_tied=>tied_high );
+        }
+
     /*b Clock domain A logic
      */
     clock_a_logic "'A' clock domain logic - the adding domain":
@@ -76,7 +86,11 @@ module hierarchy_complex( clock clock_a,
             ptr_a_plus_one = ptr_a+1;
             hierarchy_gray_code_g2b g2b_ptr_b_a( gc <= ptr_b_gc_sync, bin => ptr_b_sync );
 
-            next_ptr_a = ptr_a;
+            next_ptr_a = 0;
+            if (tied_high) // This is an always
+            {
+                next_ptr_a = ptr_a;
+            }
             add_a_copy = 0;
             if (add_a)
             {
