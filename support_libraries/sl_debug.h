@@ -25,7 +25,7 @@
  */
 #define SL_DEBUG_ENABLED
 #ifdef SL_DEBUG_ENABLED
-#define SL_DEBUG(level,...) sl_debug(level,__FILE__,__LINE__,__func__, __VA_ARGS__ )
+#define SL_DEBUG(level,...) sl_debug(level,__FILE__,__LINE__,__PRETTY_FUNCTION__, __VA_ARGS__ )
 #define SL_DEBUG_TEST(level) (sl_debug__internal_if(level))
 #else
 #define SL_DEBUG(level,fmt,arg...) 

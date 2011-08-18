@@ -910,32 +910,32 @@ t_sl_error_level c_engine::build_schedule( void )
                      */
                    if (posedge && efr->signal->module_instance->prepreclock_fn_list)
                     {
-                        SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding posedge prepreclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->posedge_remainder);
+                        SL_DEBUG( sl_debug_level_info, "adding posedge prepreclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->posedge_remainder);
                         se_engine_function_call_add( &clk->posedge.prepreclock, efr->signal->module_instance->prepreclock_fn_list->handle, efr->signal->module_instance->prepreclock_fn_list->data.prepreclock.prepreclock_fn );
                     }
                    if (!posedge && efr->signal->module_instance->prepreclock_fn_list)
                     {
-                        SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding negedge prepreclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->negedge_remainder);
+                        SL_DEBUG( sl_debug_level_info, "adding negedge prepreclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->negedge_remainder);
                         se_engine_function_call_add( &clk->negedge.prepreclock, efr->signal->module_instance->prepreclock_fn_list->handle, efr->signal->module_instance->prepreclock_fn_list->data.prepreclock.prepreclock_fn );
                     }
                     if (posedge && efr->signal->data.clock.posedge_preclock_fn)
                     {
-                        SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding posedge preclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->posedge_remainder);
+                        SL_DEBUG( sl_debug_level_info, "adding posedge preclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->posedge_remainder);
                         se_engine_function_call_add( &clk->posedge.preclock, efr, efr->signal->data.clock.posedge_preclock_fn );
                     }
                     if (posedge && efr->signal->data.clock.posedge_clock_fn)
                     {
-                        SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding posedge clock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->posedge_remainder);
+                        SL_DEBUG( sl_debug_level_info, "adding posedge clock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->posedge_remainder);
                          se_engine_function_call_add( &clk->posedge.clock, efr, efr->signal->data.clock.posedge_clock_fn );
                     }
                     if ((!posedge) && efr->signal->data.clock.negedge_preclock_fn)
                     {
-                        SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding negedge preclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->negedge_remainder);
+                        SL_DEBUG( sl_debug_level_info, "adding negedge preclock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->negedge_remainder);
                          se_engine_function_call_add( &clk->negedge.preclock, efr, efr->signal->data.clock.negedge_preclock_fn );
                     }
                     if ((!posedge) && efr->signal->data.clock.negedge_clock_fn)
                     {
-                        SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding negedge clock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->negedge_remainder);
+                        SL_DEBUG( sl_debug_level_info, "adding negedge clock '%s.%s' fn delay %d remainder %d", efr->signal->module_instance->name, efr->signal->name, clk->delay, clk->negedge_remainder);
                          se_engine_function_call_add( &clk->negedge.clock, efr, efr->signal->data.clock.negedge_clock_fn );
                     }
                     for (emi_sig=efr->signal->module_instance->output_list; emi_sig; emi_sig=emi_sig->next_in_list)
@@ -949,7 +949,7 @@ t_sl_error_level c_engine::build_schedule( void )
                             {
                                 sig = sig_ref->signal;
                                 sig->changed = 1;
-                                SL_DEBUG( sl_debug_level_verbose_info, "c_se_engine::build_schedule", "global signal '%s' (output '%s') changed by clock", sig->global_name, emi_sig->name );
+                                SL_DEBUG( sl_debug_level_verbose_info, "global signal '%s' (output '%s') changed by clock", sig->global_name, emi_sig->name );
                             }
                         }
                     }
@@ -970,12 +970,12 @@ t_sl_error_level c_engine::build_schedule( void )
                               {
                                    if (emi_sig->data.input.driven_by)
                                    {
-                                       SL_DEBUG( sl_debug_level_verbose_info, "c_se_engine::build_schedule", "try to check module '%s', input '%s', global '%s' (v %d c %d)", emi->name, emi_sig->name, emi_sig->data.input.driven_by->global_name, emi_sig->data.input.driven_by->valid, emi_sig->data.input.driven_by->changed );
+                                       SL_DEBUG( sl_debug_level_verbose_info, "try to check module '%s', input '%s', global '%s' (v %d c %d)", emi->name, emi_sig->name, emi_sig->data.input.driven_by->global_name, emi_sig->data.input.driven_by->valid, emi_sig->data.input.driven_by->changed );
                                        if ( (emi_sig->data.input.combinatorial) &&
                                             ((!emi_sig->data.input.driven_by->valid) || (emi_sig->data.input.driven_by->changed)) )
                                        {
                                            check=1;
-                                           SL_DEBUG( sl_debug_level_verbose_info, "c_se_engine::build_schedule", "need to check module '%s' as input '%s' is tied to something that may have changed", emi->name, emi_sig->name );
+                                           SL_DEBUG( sl_debug_level_verbose_info, "need to check module '%s' as input '%s' is tied to something that may have changed", emi->name, emi_sig->name );
                                        }
                                    }
                               }
@@ -1042,12 +1042,12 @@ t_sl_error_level c_engine::build_schedule( void )
                               {
                                    if (posedge)
                                    {
-                                       SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding posedge comb '%s' fn", emi->name );
+                                       SL_DEBUG( sl_debug_level_info, "adding posedge comb '%s' fn", emi->name );
                                         se_engine_function_call_add( &clk->posedge.comb, emi->comb_fn_list->handle, emi->comb_fn_list->data.comb.comb_fn );
                                    }
                                    else
                                    {
-                                       SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding negedge comb '%s' fn", emi->name );
+                                       SL_DEBUG( sl_debug_level_info, "adding negedge comb '%s' fn", emi->name );
                                         se_engine_function_call_add( &clk->negedge.comb, emi->comb_fn_list->handle, emi->comb_fn_list->data.comb.comb_fn );
                                    }
                                    for (emi_sig = emi->output_list; emi_sig; emi_sig=emi_sig->next_in_list)
@@ -1088,12 +1088,12 @@ t_sl_error_level c_engine::build_schedule( void )
                        {
                            if (posedge)
                            {
-                               SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding input propagation fn for module %s", emi->name );
+                               SL_DEBUG( sl_debug_level_info, "adding input propagation fn for module %s", emi->name );
                                se_engine_function_call_add( &clk->posedge.propagate, emi->propagate_fn_list->handle, emi->propagate_fn_list->data.propagate.propagate_fn );
                            }
                            else
                            {
-                               SL_DEBUG( sl_debug_level_info, "c_se_engine::build_schedule", "adding input propagation fn for module %s", emi->name );
+                               SL_DEBUG( sl_debug_level_info, "adding input propagation fn for module %s", emi->name );
                                se_engine_function_call_add( &clk->negedge.propagate, emi->propagate_fn_list->handle, emi->propagate_fn_list->data.propagate.propagate_fn );
                            }
                        }
@@ -1215,9 +1215,7 @@ void c_engine::reset_state( void )
         for (emi=module_instance_list; emi; emi=emi->next_instance )
         {
             if (emi->parent_instance) continue; // Don't do submodules - they should be reset by their parents
-            SL_DEBUG( sl_debug_level_info,
-                      "c_se_engine::reset_state",
-                      "calling reset of %s", emi->name); 
+            SL_DEBUG( sl_debug_level_info, "calling reset of %s", emi->name); 
             se_engine_function_call_invoke_all_arg( emi->reset_fn_list, i ); // First pass for each is purely internal state, second allows for inputs to be used
         }
     }
@@ -1294,9 +1292,7 @@ t_sl_error_level c_engine::step_cycles( int cycles )
 
      /*b Debug
       */
-     SL_DEBUG( sl_debug_level_info,
-              "c_engine::step_cycles",
-              "cycle at start of step is %d, stepping %d", cycle_number, cycles ) ;
+     SL_DEBUG( sl_debug_level_info, "cycle at start of step is %d, stepping %d", cycle_number, cycles ) ;
 
      /*b Make simulation consistent
       */
@@ -1324,9 +1320,7 @@ t_sl_error_level c_engine::step_cycles( int cycles )
 
           /*b Debug
            */
-          SL_DEBUG( sl_debug_level_verbose_info,
-                   "c_engine::step_cycles",
-                   "******************** cycle %d ********************", cycle_number ) ;
+          SL_DEBUG( sl_debug_level_verbose_info, "******************** cycle %d ********************", cycle_number ) ;
 
           /*b Run through all the clocks, determining if we are a posedge, negedge, or no edge on this cycle
            */
