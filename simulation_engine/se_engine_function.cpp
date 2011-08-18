@@ -37,6 +37,14 @@
 #include "sl_timer.h"
 #include "se_engine_function.h"
 
+/*a Defines
+ */
+#if 0
+#define WHERE_I_AM(x) {fprintf(stderr,"%s:%s:%d:%p\n",__FILE__,__func__,__LINE__,x );}
+#else
+#define WHERE_I_AM(x) {}
+#endif
+
 /*a Signal reference function add
  */
 /*f se_engine_signal_reference_add
@@ -181,6 +189,7 @@ extern void se_engine_function_call_invoke_all( t_engine_function_list *list )
     {
         SL_TIMER_ENTRY(efl->timer);
         efl->invocation_count++;
+        WHERE_I_AM(efl->handle);
         (efl->callback_fn)( efl->handle );
         SL_TIMER_EXIT(efl->timer);
     }
@@ -195,6 +204,7 @@ extern void se_engine_function_call_invoke_all_arg( t_engine_function_list *list
     {
         SL_TIMER_ENTRY(efl->timer);
         efl->invocation_count++;
+        WHERE_I_AM(efl->handle);
         ((t_engine_callback_arg_fn)(efl->callback_fn))( efl->handle, arg );
         SL_TIMER_EXIT(efl->timer);
     }
@@ -209,6 +219,7 @@ extern void se_engine_function_call_invoke_all_argp( t_engine_function_list *lis
     {
         SL_TIMER_ENTRY(efl->timer);
         efl->invocation_count++;
+        WHERE_I_AM(efl->handle);
         ((t_engine_callback_argp_fn)(efl->callback_fn))( efl->handle, arg );
         SL_TIMER_EXIT(efl->timer);
     }

@@ -63,7 +63,7 @@ class vector_hw(pycdl.hw):
                                                             "vector_input_0": self.vector_input_0,
                                                             "vector_input_1": self.vector_input_1 },
                                                   vectors_filename=module_mif_filename)
-	pycdl.hw.__init__(self, self.dut_0, self.test_harness_0, self.system_clock)
+	pycdl.hw.__init__(self, self.test_harness_0, self.dut_0, self.system_clock)
 
 
 

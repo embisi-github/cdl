@@ -43,7 +43,8 @@ drive dut_0.io_clock system_clock
 wire test_reset
 wire in_0 in_1 out_0 out_1
 
-drive test_reset test_harness_0.test_reset
+#drive test_reset test_harness_0.test_reset
+assign test_reset 1 5 0
 drive dut_0.io_reset test_reset
 
 drive vector_input_0 test_harness_0.vector_input_0

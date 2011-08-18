@@ -27,7 +27,7 @@ import itertools, collections
 
 if "CDL_BUILD_DIR" in os.environ:
     oldpath = sys.path
-    sys.path = [os.environ("CDL_BUILD_DIR")]
+    sys.path = [os.environ["CDL_BUILD_DIR"]]
     try:
         import py_engine
     except ImportError:
