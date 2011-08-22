@@ -7,7 +7,6 @@ class vector_test_harness(pycdl.th):
         pycdl.th.__init__(self, clocks, inputs, outputs)
         self.vector_output_0 = inputs["vector_output_0"]
         self.vector_output_1 = inputs["vector_output_1"]
-        self.test_reset = outputs["test_reset"]
         self.vector_input_0 = outputs["vector_input_0"]
         self.vector_input_1 = outputs["vector_input_1"]
         self.vectors_filename = vectors_filename
@@ -25,12 +24,10 @@ class vector_test_harness(pycdl.th):
         
     def run(self):
         self.test_vectors = pycdl.load_mif(self.vectors_filename, 2048, 64)
-        self.test_reset.reset(1)
         self.bfm_wait(1)
         self.test_values(0)
         self.bfm_wait(1)
         self.test_values(1)
-        self.test_reset.drive(0)
         self.bfm_wait(1)
         self.test_values(2)
         for i in range(10):
@@ -59,11 +56,11 @@ class vector_hw(pycdl.hw):
         self.test_harness_0 = vector_test_harness(clocks={ "clock": self.system_clock }, 
                                                   inputs={ "vector_output_0": self.vector_output_0,
                                                            "vector_output_1": self.vector_output_1 },
-                                                  outputs={ "test_reset": self.test_reset,
-                                                            "vector_input_0": self.vector_input_0,
+                                                  outputs={ "vector_input_0": self.vector_input_0,
                                                             "vector_input_1": self.vector_input_1 },
                                                   vectors_filename=module_mif_filename)
-	pycdl.hw.__init__(self, self.dut_0, self.test_harness_0, self.system_clock)
+        self.rst_seq = pycdl.timed_assign(self.test_reset, 1, 5, 0)        
+        pycdl.hw.__init__(self, self.dut_0, self.test_harness_0, self.system_clock, self.rst_seq)
 
 
 

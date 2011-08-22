@@ -465,20 +465,16 @@ class _wave_hook(_internal_th):
     def run(self):
         pass
 
-class timed_assign(_internal_th):
+class timed_assign(_instantiable):
     """
     A timed assignment, often used for a reset sequence.
     """
     def __init__(self, signal, init_value, wait, later_value):
-        self._timed_signal = signal
-        self._timed_init = init_value
-        self._timed_wait = wait
-        self._timed_later = later_value
-        th.__init__(self, clocks={}, inputs={}, outputs={"sig": self._timed_signal})
-    def run(self):
-        self._timed_signal.reset(self._timed_init)
-        self.bfm_wait(self._timed_wait)
-        self._timed_signal.drive(self._timed_later)
+        self._outputs = {"sig": signal}
+        self._ports = self._ports_from_ios([[], [], [["sig", signal._size]]], None)
+        self._firstval = init_value
+        self._wait = wait
+        self._afterval = later_value
 
 class module(_instantiable):
     """
@@ -514,7 +510,7 @@ class _hwexfile(py_engine.exec_file):
         self._instantiation_anonid = 0
         py_engine.exec_file.__init__(self)
 
-    def _connect_wire(self, name, wireinst, connectedwires, inputs, ports):
+    def _connect_wire(self, name, wireinst, connectedwires, inputs, ports, assign, firstval, wait, afterval):
         wire_basename = name.split('.')[-1].split('__')[-1]
         if wire_basename not in ports:
             raise WireError("Connecting to undefined port %s" % wire_basename)
@@ -545,19 +541,23 @@ class _hwexfile(py_engine.exec_file):
             port._is_driven_by(wireinst)
         else:
             # This is an output from the module, so the port drives the wire.
-            self.cdlsim_instantiation.drive(wireinst._instantiated_name, name)
-            #print "DRIVE %s %s" % (wireinst._instantiated_name, name)
+            if assign is True:
+                self.cdlsim_instantiation.assign(wireinst._instantiated_name, firstval, wait, afterval)
+                #print "ASSIGN %s %d %d %d" % (wireinst._instantiated_name, firstval, wait, afterval)
+            else:
+                self.cdlsim_instantiation.drive(wireinst._instantiated_name, name)
+                #print "DRIVE %s %s" % (wireinst._instantiated_name, name)
             #print "Wire %s driven by port %s" % (repr(wireinst), repr(port))
             wireinst._is_driven_by(port)
 
-    def _connect_wires(self, name, wiredict, connectedwires, inputs, ports):
+    def _connect_wires(self, name, wiredict, connectedwires, inputs, ports, assign=False, firstval=None, wait=None, afterval=None):
         for i in wiredict:
             if isinstance(wiredict[i], wire):
-                self._connect_wire(name+i, wiredict[i], connectedwires, inputs, ports)
+                self._connect_wire(name+i, wiredict[i], connectedwires, inputs, ports, assign, firstval, wait, afterval)
             elif isinstance(wiredict[i], wirebundle):
                 if i not in ports or not isinstance(ports[i], wirebundle):
                     raise WireError("Connecting wire bundle %s to unknown port!" % i)
-                self._connect_wires(name+i+"__", wiredict[i]._dict, connectedwires, inputs, ports[i]._dict)
+                self._connect_wires(name+i+"__", wiredict[i]._dict, connectedwires, inputs, ports[i]._dict, assign, firstval, wait, afterval)
             else:
                 raise WireError("Connecting unknown wire type %s" % repr(wiredict[i].__class__))
 
@@ -587,6 +587,7 @@ class _hwexfile(py_engine.exec_file):
                         self.cdlsim_instantiation.option_string(j, i._options[j])
                     else:
                         self.cdlsim_instantiation.option_int(j, i._options[j])
+                #print "MODULE %s %s" % (i._type, i._name)
                 self.cdlsim_instantiation.module(i._type, i._name)
                 i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), None)
             elif isinstance(i, th):
@@ -597,9 +598,12 @@ class _hwexfile(py_engine.exec_file):
                 self.cdlsim_instantiation.option_string("outputs", " ".join([" ".join(i._outputs[x]._name_list(x)) for x in i._outputs]))
                 #print "OUTPUTS %s" % " ".join([" ".join(i._outputs[x]._name_list(x)) for x in i._outputs])
                 self.cdlsim_instantiation.option_object("object", i._thfile)
+                #print "MODULE se_test_harness %s" % i._name
                 self.cdlsim_instantiation.module("se_test_harness", i._name)
                 i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), i._thfile)
             elif isinstance(i, clock):
+                pass # we'll hook up later
+            elif isinstance(i, timed_assign):
                 pass # we'll hook up later
             else:
                 raise NotImplementedError
@@ -610,8 +614,12 @@ class _hwexfile(py_engine.exec_file):
             if hasattr(i, "_inputs") and hasattr(i, "_ports"):
                 self._connect_wires(i._name+".", i._inputs, connectedwires, inputs=True, ports=i._ports[1])
             if hasattr(i, "_outputs") and hasattr(i, "_ports"):
-                self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False, ports=i._ports[2])
-                
+                if isinstance(i, timed_assign):
+                    self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False, ports=i._ports[2], assign=True,
+                                        firstval = i._firstval, wait=i._wait, afterval=i._afterval)
+                else:
+                    self._connect_wires(i._name+".", i._outputs, connectedwires, inputs=False, ports=i._ports[2])
+
         # Now make sure all the CDL signals are hooked up.
         #print "*** Starting CDL signal hookup"
         for i in connectedwires:

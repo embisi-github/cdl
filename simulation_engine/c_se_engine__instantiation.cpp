@@ -169,9 +169,10 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
     {
         int until_time=0;
         int after_value =0;
-        if (sl_exec_file_get_number_of_arguments(cmd_cb->file_data,cmd_cb->args)>=3)
+        /* FIXME! Revert this change after sl_exec_file_get_number_of_arguments works from Python. */
+        if (1/*sl_exec_file_get_number_of_arguments(cmd_cb->file_data,cmd_cb->args)>=3*/)
             until_time = cmd_cb->args[2].integer;
-        if (sl_exec_file_get_number_of_arguments(cmd_cb->file_data,cmd_cb->args)>=4)
+        if (1/*sl_exec_file_get_number_of_arguments(cmd_cb->file_data,cmd_cb->args)>=4*/)
             after_value = cmd_cb->args[3].integer;
         assign( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), cmd_cb->args[0].p.string, cmd_cb->args[1].integer, until_time, after_value );
         break;
