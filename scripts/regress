@@ -51,7 +51,7 @@ usage() unless ($#ARGV>=1);
 #a Handle arguments
 $|=1; #Turn on autoflush for stdout
 my($bin_directory) = "";
-my($debug_level) = "";
+my($debug_level) = 0;
 my($nthreads)=1;
 my($extra_args)="";
 my($max_lines)=100000;
@@ -66,8 +66,8 @@ $nthreads      = $options{n} if (defined $options{n});
 $extra_args    = $options{e} if (defined $options{e});
 $max_lines     = $options{m} if (defined $options{m});
 print "Running with $nthreads threads binary directory '$bin_directory' debug level '$debug_level' max lines $max_lines\n";
-$bin_directory = shift @ARGV unless (defined $options{b});
-$debug_level   = shift @ARGV unless (defined $options{d});
+#$bin_directory = shift @ARGV unless (defined $options{b});
+#$debug_level   = shift @ARGV unless (defined $options{d});
 my($i);
 for ($i=0; $i<$#ARGV; $i+=2) {
     $directories[++$#directories] = $ARGV[$i];

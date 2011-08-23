@@ -2178,7 +2178,7 @@ extern int sl_exec_file_evaluate_arguments( t_sl_exec_file_data *file_data, cons
      return 1;
 }
 
-/*f sl_exec_file_eval_fn_set_result( string )
+/*f sl_exec_file_eval_fn_set_result( file_data*, string )
  */
 extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, const char *string, int copy_string )
 {
@@ -2199,7 +2199,14 @@ extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, cons
     return 1;
 }
 
-/*f sl_exec_file_eval_fn_set_result( integer )
+/*f sl_exec_file_eval_fn_set_result( cmd_cb*, string )
+ */
+extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_cmd_cb *cmd_cb, const char *string, int copy_string )
+{
+    return sl_exec_file_eval_fn_set_result( cmd_cb->file_data, string, copy_string );
+}
+
+/*f sl_exec_file_eval_fn_set_result( file_data *,integer )
  */
 extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, t_sl_uint64 result )
 {
@@ -2213,7 +2220,14 @@ extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, t_sl
     return 1;
 }
 
-/*f sl_exec_file_eval_fn_set_result( double )
+/*f sl_exec_file_eval_fn_set_result( cmd_cb *, integer )
+ */
+extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_cmd_cb *cmd_cb, t_sl_uint64 result )
+{
+    return sl_exec_file_eval_fn_set_result( cmd_cb->file_data, result );
+}
+
+/*f sl_exec_file_eval_fn_set_result( file_data *, double )
  */ 
 extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, double result )
 {
@@ -2227,7 +2241,21 @@ extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_data *file_data, doub
     return 1;
 }
 
-/*f sl_exec_file_eval_fn_get_argument_integer
+/*f sl_exec_file_eval_fn_set_result( cmd_cb *, double )
+ */ 
+extern int sl_exec_file_eval_fn_set_result( t_sl_exec_file_cmd_cb *cmd_cb, double result )
+{
+    return sl_exec_file_eval_fn_set_result( cmd_cb->file_data, result );
+}
+
+/*f sl_exec_file_eval_fn_get_argument_type( cmd_cb *)
+ */
+extern t_sl_exec_file_value_type sl_exec_file_eval_fn_get_argument_type( struct t_sl_exec_file_cmd_cb *cmd_cb, int number )
+{
+    return cmd_cb->args[number].type;
+}
+
+/*f sl_exec_file_eval_fn_get_argument_integer( file_data *)
  */
 extern t_sl_uint64 sl_exec_file_eval_fn_get_argument_integer( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args, int number )
 {
@@ -2235,7 +2263,15 @@ extern t_sl_uint64 sl_exec_file_eval_fn_get_argument_integer( struct t_sl_exec_f
     return args[number].integer;
 }
 
-/*f sl_exec_file_eval_fn_get_argument_double
+/*f sl_exec_file_eval_fn_get_argument_integer( cmd_cb * )
+ */
+extern t_sl_uint64 sl_exec_file_eval_fn_get_argument_integer( struct t_sl_exec_file_cmd_cb *cmd_cb, int number )
+{
+    WHERE_I_AM;
+    return cmd_cb->args[number].integer;
+}
+
+/*f sl_exec_file_eval_fn_get_argument_double( file_data *)
  */
 extern double sl_exec_file_eval_fn_get_argument_double( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args, int number )
 {
@@ -2243,7 +2279,15 @@ extern double sl_exec_file_eval_fn_get_argument_double( struct t_sl_exec_file_da
     return args[number].real;
 }
 
-/*f sl_exec_file_eval_fn_get_argument_string
+/*f sl_exec_file_eval_fn_get_argument_double( cmd_cb *)
+ */
+extern double sl_exec_file_eval_fn_get_argument_double( struct t_sl_exec_file_cmd_cb *cmd_cb, int number )
+{
+    WHERE_I_AM;
+    return cmd_cb->args[number].real;
+}
+
+/*f sl_exec_file_eval_fn_get_argument_string( file_data *)
  */
 extern const char *sl_exec_file_eval_fn_get_argument_string( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args, int number )
 {
@@ -2251,7 +2295,23 @@ extern const char *sl_exec_file_eval_fn_get_argument_string( struct t_sl_exec_fi
     return args[number].p.string;
 }
 
-/*f sl_exec_file_get_number_of_arguments
+/*f sl_exec_file_eval_fn_get_argument_string( cmd_cb * )
+ */
+extern const char *sl_exec_file_eval_fn_get_argument_string( struct t_sl_exec_file_cmd_cb *cmd_cb, int number )
+{
+    WHERE_I_AM;
+    return cmd_cb->args[number].p.string;
+}
+
+/*f sl_exec_file_eval_fn_get_argument_pointer( cmd_cb * )
+ */
+extern void *sl_exec_file_eval_fn_get_argument_pointer( struct t_sl_exec_file_cmd_cb *cmd_cb, int number )
+{
+    WHERE_I_AM;
+    return cmd_cb->args[number].p.ptr;
+}
+
+/*f sl_exec_file_get_number_of_arguments( file_data *)
  */
 extern int sl_exec_file_get_number_of_arguments( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args )
 {
@@ -2263,6 +2323,14 @@ extern int sl_exec_file_get_number_of_arguments( struct t_sl_exec_file_data *fil
     }
 
     return -1;
+}
+
+/*f sl_exec_file_get_number_of_arguments( cmd_cb *)
+ */
+extern int sl_exec_file_get_number_of_arguments( struct t_sl_exec_file_cmd_cb *cmd_cb )
+{
+    WHERE_I_AM;
+    return cmd_cb->num_args;
 }
 
 /*f sl_exec_file_thread_wait_on_callback

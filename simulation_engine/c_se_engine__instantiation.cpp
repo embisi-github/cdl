@@ -111,30 +111,44 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
     {
     case cmd_module:
         //fprintf(stderr,"Instantiate %s %s\n",cmd_cb->args[0].p.string, cmd_cb->args[1].p.string);
-        instantiate( NULL, cmd_cb->args[0].p.string, cmd_cb->args[1].p.string, option_list );
+        instantiate( NULL,
+                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
+                     option_list );
         option_list = NULL;
         break;
     case cmd_module_force_option_int:
-        instance_add_forced_option( cmd_cb->args[0].p.string, sl_option_list( NULL, cmd_cb->args[1].p.string, cmd_cb->args[2].integer ));
-        break;
+        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+                                    sl_option_list( NULL,
+                                                    sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
+                                                    sl_exec_file_eval_fn_get_argument_integer( cmd_cb, 2) ));
     case cmd_module_force_option_string:
-        instance_add_forced_option( cmd_cb->args[0].p.string, sl_option_list( NULL, cmd_cb->args[1].p.string, cmd_cb->args[2].p.string ));
+        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+                                    sl_option_list( NULL,
+                                                    sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
+                                                    sl_exec_file_eval_fn_get_argument_string( cmd_cb, 2) ));
         break;
     case cmd_option_int:
-        option_list = sl_option_list( option_list, cmd_cb->args[0].p.string, cmd_cb->args[1].integer );
+        option_list = sl_option_list( option_list, 
+                                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
+                                      sl_exec_file_eval_fn_get_argument_integer( cmd_cb, 1) );
         break;
     case cmd_option_string:
-        option_list = sl_option_list( option_list, cmd_cb->args[0].p.string, cmd_cb->args[1].p.string );
+        option_list = sl_option_list( option_list, 
+                                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
+                                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1) );
         break;
     case cmd_option_object:
-        option_list = sl_option_list( option_list, cmd_cb->args[0].p.string, cmd_cb->args[1].p.ptr );
+        option_list = sl_option_list( option_list, 
+                                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
+                                      sl_exec_file_eval_fn_get_argument_pointer( cmd_cb, 1) );
         break;
     case cmd_wire:
         for (j=0; j<SL_EXEC_FILE_MAX_CMD_ARGS; j++)
         {
-            if (cmd_cb->args[j].type == sl_exec_file_value_type_string)
+            if (sl_exec_file_eval_fn_get_argument_type( cmd_cb, j ) == sl_exec_file_value_type_string)
             {
-                arg = sl_str_alloc_copy(cmd_cb->args[j].p.string);
+                arg = sl_str_alloc_copy( sl_exec_file_eval_fn_get_argument_string( cmd_cb, j ) );
                 width=1;
                 for (i=0; (arg[i]!=0) && (arg[i]!='['); i++);
                 if (arg[i]=='[')
@@ -163,18 +177,26 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
         }
         break;
     case cmd_cmp:
-        compare( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), cmd_cb->args[1].p.string, cmd_cb->args[0].p.string, cmd_cb->args[2].integer );
+        compare( sl_exec_file_filename(cmd_cb->file_data),
+                 sl_exec_file_line_number( cmd_cb->file_data ),
+                 sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
+                 sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), // Yes, 0 - order of args is 1, 0, 2
+                 sl_exec_file_eval_fn_get_argument_integer( cmd_cb, 2) );
         break;
     case cmd_assign:
     {
         int until_time=0;
         int after_value =0;
-        /* FIXME! Revert this change after sl_exec_file_get_number_of_arguments works from Python. */
-        if (1/*sl_exec_file_get_number_of_arguments(cmd_cb->file_data,cmd_cb->args)>=3*/)
+        if (sl_exec_file_get_number_of_arguments(cmd_cb)>=3)
             until_time = cmd_cb->args[2].integer;
-        if (1/*sl_exec_file_get_number_of_arguments(cmd_cb->file_data,cmd_cb->args)>=4*/)
+        if (sl_exec_file_get_number_of_arguments(cmd_cb)>=4)
             after_value = cmd_cb->args[3].integer;
-        assign( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), cmd_cb->args[0].p.string, cmd_cb->args[1].integer, until_time, after_value );
+        assign( sl_exec_file_filename(cmd_cb->file_data),
+                sl_exec_file_line_number( cmd_cb->file_data ),
+                 sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0),
+                 sl_exec_file_eval_fn_get_argument_integer( cmd_cb, 1),
+                until_time,
+                after_value );
         break;
     }
     case cmd_mux:

@@ -293,6 +293,8 @@ typedef struct t_sl_exec_file_cmd_cb
 /*a External functions
  */
 /*b Argument/result functions
+  file_data variants are deprecated
+  Use cmd_cb variants where possible
  */
 extern t_sl_uint64 sl_exec_file_eval_fn_get_argument_integer( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args, int number );
 extern double sl_exec_file_eval_fn_get_argument_double( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args, int number );
@@ -301,6 +303,16 @@ extern int sl_exec_file_eval_fn_set_result( struct t_sl_exec_file_data *file_dat
 extern int sl_exec_file_eval_fn_set_result( struct t_sl_exec_file_data *file_data, double result );
 extern int sl_exec_file_eval_fn_set_result( struct t_sl_exec_file_data *file_data, const char *string, int copy_string );
 extern int sl_exec_file_get_number_of_arguments( struct t_sl_exec_file_data *file_data, t_sl_exec_file_value *args );
+
+extern t_sl_exec_file_value_type sl_exec_file_eval_fn_get_argument_type( struct t_sl_exec_file_cmd_cb *cmd_cb, int number );
+extern t_sl_uint64 sl_exec_file_eval_fn_get_argument_integer( struct t_sl_exec_file_cmd_cb *cmd_cb, int number );
+extern double sl_exec_file_eval_fn_get_argument_double( struct t_sl_exec_file_cmd_cb *cmd_cb, int number );
+extern const char *sl_exec_file_eval_fn_get_argument_string( struct t_sl_exec_file_cmd_cb *cmd_cb, int number );
+extern void *sl_exec_file_eval_fn_get_argument_pointer( struct t_sl_exec_file_cmd_cb *cmd_cb, int number );
+extern int sl_exec_file_eval_fn_set_result( struct t_sl_exec_file_cmd_cb *cmd_cb, t_sl_uint64 result );
+extern int sl_exec_file_eval_fn_set_result( struct t_sl_exec_file_cmd_cb *cmd_cb, double result );
+extern int sl_exec_file_eval_fn_set_result( struct t_sl_exec_file_cmd_cb *cmd_cb, const char *string, int copy_string );
+extern int sl_exec_file_get_number_of_arguments( struct t_sl_exec_file_cmd_cb *cmd_cb );
 
 /*b Variable functions
  */

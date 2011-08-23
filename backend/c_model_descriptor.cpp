@@ -841,6 +841,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
                          if ( (type==md_reference_type_signal) &&
                               (signal_2->type==md_signal_type_input) )
                          {
+                             //fprintf(stderr,"Making signal %s used_combinatorially due to %s\n", signal_2->name, signal->name );
                              signal_2->data.input.used_combinatorially = 1;
                              signal->data.output.derived_combinatorially = 1;
                          }
