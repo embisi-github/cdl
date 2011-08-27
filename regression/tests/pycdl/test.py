@@ -45,9 +45,8 @@ class test_basic_hw(pycdl.hw):
 class TestPyCDL(unittest.TestCase):
     def test_basic(self):
         hw = test_basic_hw()
-        engine = pycdl.engine(hw)
-        engine.reset()
-        engine.step(50)
+        hw.reset()
+        hw.step(50)
         self.assertTrue(hw.passed())
 
 if __name__ == '__main__':

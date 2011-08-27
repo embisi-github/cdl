@@ -45,7 +45,7 @@ drive sram.sram_clock_0 system_clock
 drive sram.sram_clock_1 system_clock
 
 wire test_reset
-wire sram_rd_0[16] sram_rd_1[16]"
+wire sram_rd_0[16] sram_rd_1[16]
 wire address_0[10] address_1[10] read_not_write_0 read_not_write_1 write_data_0[16] write_data_1[16]
 
 drive test_reset test_harness_0.test_reset

@@ -724,7 +724,7 @@ class hw(_clockable):
         """
         self._engine.step(cycles)
 
-def load_mif(filename, length, width):
+def load_mif(filename, length=0, width=64):
     """
     Open a file and read in hex values into an array. Provided mostly for
     compatibility with legacy CDL.
@@ -750,7 +750,7 @@ def load_mif(filename, length, width):
     fd.close()
     return retarray
 
-def save_mif(array, filename, length, width):
+def save_mif(array, filename, length=0, width=64):
     """
     Write hex values from an array into a file. Provided mostly for
     compatibility with legacy CDL.
