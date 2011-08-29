@@ -1,5 +1,7 @@
 This document comprises a user's guide and reference for the {{pycdl}} library that allows code written in Python to interact with CDL code. We first describe how to write a CDL test in Python, and then give details of the methods and structures available. Finally it is to be noted that this document is currently aspirational, and the work required to actually deliver it is at the bottom.
 
+{toc}
+
 h1. CDL Python interface user's guide
 
 In CDL 1.4, we have substantially expanded the Python interface, so that anything that could previously be done in the exec language can now be done additionally in Python. The first release of the Python interface is not guaranteed to run with all the speed of the exec language, but the expectation is that all the functionality is present and some increases in speed will follow over time.
@@ -200,8 +202,6 @@ Here is an example:
         self.cmd_in_0 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
 {code}
 
-*IMPLEMENTATION NOTE*: it is hoped, eventually, that wire bundles will be able to learn their contents by hooking them up to CDL code. This does not work yet, so bundles must be explicitly declared as above.
-
 h3. {{wirebundle.value()}}
 
 {{wirebundle.value()}} takes a copy of the value of all the wires in the bundle. These are returned in a newly-created {{bvbundle}} object.
@@ -301,7 +301,7 @@ h1. Task list
 h2. Modifications to CDL's Python execution harness
 
 * Ensure that useful exceptions are thrown for all failures (3h)
-* Export the capability to create VCD files (1h)
+* -Export the capability to create VCD files (1h)-
 * -Provide an API for determining module properties (3h)-
 * -Allow Python objects to be created on the fly (1h)-
 
@@ -312,7 +312,7 @@ h2. The {{pycdl}} library
 * -Create {{pycdl.th}} class to encapsulate {{py_engine.exec_file}} with better semantics (3h)-
 * -Create {{pycdl.module}} class to create CDL modules (3h)-
 * -Create {{pycdl.engine}} class to encapsulate {{py_engine.py_engine}} with true class semantics (3h)-
-* Create {{pycdl.waves}} class to encapsulate VCD file manipulation (4h)
+* -Create {{pycdl.waves}} class to encapsulate VCD file manipulation (4h)-
 * -Create {{pycdl.bv}} class to encapsulate bit vectors (1h)-
 * -Create {{pycdl.bvbundle}} class to encapsulate bit vector bundles (2h)-
 * -Create {{pycdl.wire}} class to encapsulate wires (2h)-
@@ -331,7 +331,7 @@ h2. Tests
 * -Add {{regress.py}} Python regression framework to CDL's regressions, based on PyUnit. (2h)-
 * Create Python versions of all CDL regression tests (14h)
 ** simple (2h)
-** vector (2h)
+** -vector (2h)-
 ** instantiation (2h)
 ** memory (2h)
 ** event (2h)
@@ -341,7 +341,7 @@ h2. Tests
 ** -Create hardware specification (4h)-
 ** -Create Dcache/Tcache simulator (6h)-
 ** Create Pctl simulator (6h)
-* Create tests for PyCDL itself (16h)
+* -Create tests for PyCDL itself (16h)-
 
 h2. CDL bugs
 * -When the test harness file is not correctly specified, CDL crashes. (1h)-
