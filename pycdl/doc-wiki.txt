@@ -1,8 +1,12 @@
-This document comprises a user's guide and reference for the {{pycdl}} library that allows code written in Python to interact with CDL code. We first describe how to write a CDL test in Python, and then give details of the methods and structures available. Finally it is to be noted that this document is currently aspirational, and the work required to actually deliver it is at the bottom.
+This document comprises a user's guide and reference for PyCDL. 
 
-h1. CDL Python interface user's guide
+PyCDL is a library that allows code written in Python to interact with CDL code. We first describe how to write a CDL test in Python, and then give details of the methods and structures available. 
 
-In CDL 1.4, we have substantially expanded the Python interface, so that anything that could previously be done in the exec language can now be done additionally in Python. The first release of the Python interface is not guaranteed to run with all the speed of the exec language, but the expectation is that all the functionality is present and some increases in speed will follow over time.
+{toc}
+
+h1. PyCDL user's guide
+
+One of the additions to CDL in version 1.4 is a dramatic expansion of the Python interface, so that anything that could previously be done in the exec language can now be done additionally in Python. The first release of the Python interface is not guaranteed to run with all the speed of the exec language, but the expectation is that all the functionality is present and some increases in speed will follow over time.
 
 h2. Instantiating the interface
 
@@ -12,13 +16,13 @@ PyCDL consists of two parts: the PyCDL library, which is called {{pycdl}} and li
 
 h2. Describing the hardware
 
-The first thing you will do is describe the hardware you are testing. This will usually be one or more DUTs written in CDL with one or more test harnesses written in Python around it. (Sometimes the DUT is itself a test harness written in CDL, wrapping the real DUT). The CDL/Python boundary is usually obvious, but the key point is that anything in CDL is synthesizable and does not have initial blocks or other time-dependent constructs. Python code does not have this restriction.
+The first thing you will do is describe the hardware you are testing. This will usually be one or more DUTs written in CDL with one or more test harnesses written in Python around it. (Sometimes the DUT in question is itself a test harness written in CDL, wrapping the real DUT). The CDL/Python boundary is usually obvious, but the key point is that anything in CDL is synthesizable and does not have initial blocks or other time-dependent constructs. Python code does not have this restriction.
 
 Your overall hardware will be described in a class derived from {{pycdl.hw}}, and will include CDL modules (instantiated by {{pycdl.module}}) and Python test harnesses (described by classes derived from {{pycdl.th}})
 
 Here is an example:
 
-{code:python}
+{noformat}
 class partial_ports_hw(pycdl.hw):
     def __init__(self):
         self.rst = pycdl.wire()
@@ -40,7 +44,7 @@ class partial_ports_hw(pycdl.hw):
                                              )
         self.rst_seq = pycdl.timed_assign(self.rst, 1, 30, 0)
 	pycdl.hw.__init__(self, self.pp, self.th, self.clk, self.rst_seq)
-{code}
+{noformat}
 
 As you see, we define a number of wires (some more than one bit wide) and at least one clock. We then hook up the modules' inputs and outputs to the wires and clocks. The last assignment creates a reset signal that starts at 1 and drops to 0 after 30 system clocks. Finally, we call up into the superclass's initializer and tell it about all our clockable components.
 
@@ -50,11 +54,11 @@ Although it is perfectly possible to declare wires, modules and test harnesses a
 
 h2. Describing a test harness
 
-A test harness is a class derived from {{pycdl.th}}, which is run to implement tests written in Python. Its {{run}} method is the principal vehicle for testing. 
+A test harness is a class derived from the class {{pycdl.th}}, which is run to implement tests written in Python. Its {{run}} method is the principal vehicle for testing. 
 
 Here is an example:
 
-{code:python}
+{noformat}
 class partial_ports_test_harness(pycdl.th):
     def __init__(self, clocks, inputs, outputs):
         pycdl.th.__init__(self, clocks, inputs, outputs)
@@ -88,7 +92,7 @@ class partial_ports_test_harness(pycdl.th):
                 print "%d Expected count of 2: Input %d Toggle %d Count %d" % (self.global_cycle(), self.chain_out.value(), toggle, self.cnt.value())
                 self.failtest(self.global_cycle(), "Test failed")
         self.passtest(self.global_cycle(), "Test succeeded")
-{code}
+{noformat}
 
 We declare the inputs and outputs in the constructor, making sure that the underlying superclass constructor is aware of them. (Of course, the outputs of the test harness are inputs of the DUT, meaning that their names can sometimes be counterintuitive.)
 
@@ -100,7 +104,7 @@ The recommendation is that tests are written inside the PyUnit framework. This m
 
 Here is an example:
 
-{code:python}
+{noformat}
 class TestBugs(unittest.TestCase):
     def test_partial_ports(self):
         hw = partial_ports_hw()
@@ -112,7 +116,7 @@ class TestBugs(unittest.TestCase):
         hw.reset()
         hw.step(5000)
         self.assertTrue(hw.passed())
-{code}
+{noformat}
 
 We create a piece of hardware, instantiate a simulation engine based on that hardware, attach waves to parts of it, execute a reset and simulate for 5000 cycles. The test overall passes if the hardware reports that the test completed and did not fail.
 
@@ -181,7 +185,7 @@ The constructor creates a new bundle object according to the type specified in _
 
 Here is an example:
 
-{code:python}
+{noformat}
         cmd_in_bundletype = { "valid": 1,
                                "dcache_request": { "read_not_write": 1,
                                                    "cache_address": 17,
@@ -198,9 +202,7 @@ Here is an example:
         self.cmd_in_2 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
         self.cmd_in_1 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
         self.cmd_in_0 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
-{code}
-
-*IMPLEMENTATION NOTE*: it is hoped, eventually, that wire bundles will be able to learn their contents by hooking them up to CDL code. This does not work yet, so bundles must be explicitly declared as above.
+{noformat}
 
 h3. {{wirebundle.value()}}
 
@@ -301,7 +303,7 @@ h1. Task list
 h2. Modifications to CDL's Python execution harness
 
 * Ensure that useful exceptions are thrown for all failures (3h)
-* Export the capability to create VCD files (1h)
+* -Export the capability to create VCD files (1h)-
 * -Provide an API for determining module properties (3h)-
 * -Allow Python objects to be created on the fly (1h)-
 
@@ -312,7 +314,7 @@ h2. The {{pycdl}} library
 * -Create {{pycdl.th}} class to encapsulate {{py_engine.exec_file}} with better semantics (3h)-
 * -Create {{pycdl.module}} class to create CDL modules (3h)-
 * -Create {{pycdl.engine}} class to encapsulate {{py_engine.py_engine}} with true class semantics (3h)-
-* Create {{pycdl.waves}} class to encapsulate VCD file manipulation (4h)
+* -Create {{pycdl.waves}} class to encapsulate VCD file manipulation (4h)-
 * -Create {{pycdl.bv}} class to encapsulate bit vectors (1h)-
 * -Create {{pycdl.bvbundle}} class to encapsulate bit vector bundles (2h)-
 * -Create {{pycdl.wire}} class to encapsulate wires (2h)-
@@ -331,7 +333,7 @@ h2. Tests
 * -Add {{regress.py}} Python regression framework to CDL's regressions, based on PyUnit. (2h)-
 * Create Python versions of all CDL regression tests (14h)
 ** simple (2h)
-** vector (2h)
+** -vector (2h)-
 ** instantiation (2h)
 ** memory (2h)
 ** event (2h)
@@ -341,7 +343,7 @@ h2. Tests
 ** -Create hardware specification (4h)-
 ** -Create Dcache/Tcache simulator (6h)-
 ** Create Pctl simulator (6h)
-* Create tests for PyCDL itself (16h)
+* -Create tests for PyCDL itself (16h)-
 
 h2. CDL bugs
 * -When the test harness file is not correctly specified, CDL crashes. (1h)-
@@ -349,4 +351,3 @@ h2. CDL bugs
 * The files in the 'fsm' test directory are not used anywhere.
 * The 'log' tests in CDL are not part of its regression and do not actually check anything. (2h)
 * The files in the 'struct' test directory are not used anywhere.
-
