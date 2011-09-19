@@ -211,10 +211,10 @@ class wire(_nameable):
 
 
 class clock(wire):
-    def __init__(self, value=0, reset_period=1, period=1, name=None):
-        self._init_value = value
-        self._reset_period = period
-        self._period = period
+    def __init__(self, init_delay=0, cycles_high=1, cycles_low=1, name=None):
+        self._init_delay = init_delay
+        self._cycles_high = cycles_high
+        self._cycles_low = cycles_low
         wire.__init__(self, 1, name)
 
 class wirebundle(_nameable):

@@ -12,7 +12,7 @@ h2. Instantiating the interface
 
 PyCDL consists of two parts: the PyCDL library, which is called {{pycdl}} and lives in the {{$CYCLICITY_ROOT}} directory, and the built simulation engine, which lives wherever you build your hardware images (often {{.../build/osx}} or {{.../build/linux}}). You can set the {{$CDL_BUILD_DIR}} environment variable to point to your hardware image, or simply set the {{PYTHONPATH}} to it. Either way, you need to add {{$CYCLICITY_ROOT}} to your {{PYTHONPATH}} to pick up the library so that you can use {{import pycdl}}.
 
-*Note for Netronome users:* [see below|#rose_pycdl] to understand how Rose handles this for you.
+*Note for users in Rose environments (that's most of you reading this document):* [see below|#rose_pycdl] to understand how Rose handles this for you.
 
 h2. Describing the hardware
 
@@ -96,11 +96,11 @@ class partial_ports_test_harness(pycdl.th):
 
 We declare the inputs and outputs in the constructor, making sure that the underlying superclass constructor is aware of them. (Of course, the outputs of the test harness are inputs of the DUT, meaning that their names can sometimes be counterintuitive.)
 
-The {{run}} method implements the reset cycle and proceeds to perform the test. It can wait for a number of clock cycles by calling {{pycdl.th.bfm_wait()}}, examine the value of signals by calling their {{value()}} method, and drive the value of signals by calling their {{drive()}} method. At any point, if the test fails, the test harness should call {{pycdl.th.failtest}}. If the test completes (whether or not there have been failures beforehand), the test harness should call {{pycdl.th.passtest}}. This indicates that the test has run to completion.
+The {{run}} method implements the reset cycle and proceeds to perform the test. It can wait for a number of clock cycles by calling {{pycdl.th.bfm_wait()}}, examine the value of signals by calling their {{value()}} method, and drive the value of signals by calling their {{drive()}} method. At any point, if the test fails, the test harness should call {{pycdl.th.failtest()}}. If the test completes (whether or not there have been failures beforehand), the test harness should call {{pycdl.th.passtest()}}. This indicates that the test has run to completion. Don't worry, calls to {{failtest()}} followed by a call to {{passtest()}} will still indicate failure.
 
 h2. Writing a test
 
-The recommendation is that tests are written inside the PyUnit framework. This means that they are methods beginning {{test_}} inside a class derived from {{unittest.TestCase}}. If that is achieved, then any test runner that implements PyUnit will run them.
+The recommendation is that tests are written inside the PyUnit framework (a standard part of the Python library called {{unittest}} and described at [http://docs.python.org/library/unittest.html]). This means that they are methods beginning {{test_}} inside a class derived from {{unittest.TestCase}}. If that is achieved, then any test runner that implements PyUnit will run the test suite.
 
 Here is an example:
 
@@ -122,6 +122,13 @@ We create a piece of hardware, instantiate a simulation engine based on that har
 
 Of course, it is possible to define many tests in one {{TestCase}} class, and they can share as much or as little infrastructure as is appropriate.
 
+If you want the test file to be directly executable, simply add this at the end of the file:
+
+{noformat}
+if __name__ == '__main__':
+    unittest.main()
+{noformat}
+
 h2. Connecting to C++ BFMs
 
 Later versions of PyCDL will allow connectivity with C++ BFMs. For now this is TBD.
@@ -129,7 +136,7 @@ Later versions of PyCDL will allow connectivity with C++ BFMs. For now this is T
 {anchor:rose_pycdl}
 h2. Netronome-specific additions
 
-For use within Netronome, it is recommended that rather than using {{import pycdl}}, users should instead use {{from rose_pycdl import pycdl}}. {{rose_pycdl}} is a piece of code embedded in Rose (the Thornham repository/simulation environment) that directs Python to look for the simulation engine in the Rose repository in which it is running. By knowledge of where Rose has built the CDL images, it is able to set the PYTHONPATH to the correct library automatically.
+For use within Netronome, it is recommended that rather than using {{import pycdl}}, users should instead use {{from rose_pycdl import pycdl}}. {{rose_pycdl}} is a piece of code embedded in Rose (the Thornham repository/simulation environment) that directs Python to look for the simulation engine in the Rose repository in which it is running. By knowledge of where Rose has built the CDL images, it is able to set the {{PYTHONPATH}} to the correct library automatically, and therefore tests can execute correctly without any manipulation of {{PYTHONPATH}}.
 
 h1. {{pycdl}} reference
 
@@ -175,11 +182,23 @@ h3. {{wire.drive(_val_)}}
 
 Drives the value of _{{val}}_ onto the wire. If _{{val}}_ is an object of type {{bv}}, the size is checked and must either match the wire's size or be {{None}}. {{pycdl.WireError}} is raised if this check fails. 
 
+h3. {{wire.reset(_val_)}}
+
+Drives the value of _{{val}}_ onto the wire immediately and asynchronously as its reset value. If _{{val}}_ is an object of type {{bv}}, the size is checked and must either match the wire's size or be {{None}}. {{pycdl.WireError}} is raised if this check fails. 
+
+h3. {{wire.wait_for_value(_val_\[, _timeout_\])}}
+
+Suspend the function until _val_ appears as the value on the wire. If a timeout is specified (in simulated clock cycles) and _val_ does not appear before that time, the function will return then.
+
+h3. {{wire.wait_for_change(\[_timeout_\])}}
+
+Suspend the function until the value on the wire changes. If a timeout is specified (in simulated clock cycles) and the wire does not transition before that time, the function will return then.
+
 h2. *{{pycdl.wirebundle}}*
 
 The {{pycdl.wirebundle}} class specifies a set of wires between two modules, equivalent to a CDL structure.
 
-h3. Constructor {{pycdl.wirebundle(bundletype=_dict_)}}
+h3. Constructor {{pycdl.wirebundle(_dict_)}}
 
 The constructor creates a new bundle object according to the type specified in _{{dict}}_. The dictionary contains keys mapping to the signal names and values that are either numbers (representing the width of the signal) or further dictionaries if there are further bundles below.
 
@@ -187,21 +206,21 @@ Here is an example:
 
 {noformat}
         cmd_in_bundletype = { "valid": 1,
-                               "dcache_request": { "read_not_write": 1,
-                                                   "cache_address": 17,
-                                                   "write_mask": 2,
-                                                   "poison": 2,
-                                                   "data": { "high": 64, "low": 64 },
-                                                   "req_id": 8,
-                                                   "tag": 2
-                                                   }
-                               }
-        self.cmd_in_5 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
-        self.cmd_in_4 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
-        self.cmd_in_3 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
-        self.cmd_in_2 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
-        self.cmd_in_1 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
-        self.cmd_in_0 = pycdl.wirebundle(bundletype=cmd_in_bundletype)
+                              "dcache_request": { "read_not_write": 1,
+                                                  "cache_address": 17,
+                                                  "write_mask": 2,
+                                                  "poison": 2,
+                                                  "data": { "high": 64, "low": 64 },
+                                                  "req_id": 8,
+                                                  "tag": 2
+                                                }
+                            }
+        self.cmd_in_5 = pycdl.wirebundle(cmd_in_bundletype)
+        self.cmd_in_4 = pycdl.wirebundle(cmd_in_bundletype)
+        self.cmd_in_3 = pycdl.wirebundle(cmd_in_bundletype)
+        self.cmd_in_2 = pycdl.wirebundle(cmd_in_bundletype)
+        self.cmd_in_1 = pycdl.wirebundle(cmd_in_bundletype)
+        self.cmd_in_0 = pycdl.wirebundle(cmd_in_bundletype)
 {noformat}
 
 h3. {{wirebundle.value()}}
@@ -212,15 +231,35 @@ h3. {{wirebundle.drive(_val_)}}
 
 Drives the value of _{{val}}_ onto the wire. Checks are made to verify that _{{val}}_ contains the same set of members (recursively) as the wire bundle. {{pycdl.WireError}} is raised if these checks fail.
 
+h3. {{wirebundle.reset(_val_)}}
+
+Drives the value of _{{val}}_ onto the wire immediately and asynchronously as the reset value. Checks are made to verify that _{{val}}_ contains the same set of members (recursively) as the wire bundle. {{pycdl.WireError}} is raised if these checks fail.
+
 h2. *{{pycdl.WireError}}*
 
 An exception raised to indicate wiring mismatches.
+
+h2. *{{pycdl.clock}}*
+
+The {{pycdl.clock}} class provides clocking for blocks. 
+
+h3. Constructor {{pycdl.clock(_init_delay_, _cycles_high_, _cycles_low_)}}
+
+The constructor creates a new clock. The clock value starts at zero and goes to one after _init_delay_ cycles. Thereafter it stays at one for _cycles_high_ cycles, then zero for _cycles_low_ cycles, then one for _cycles_high_ cycles, then zero for _cycles_low_ cycles, and on indefinitely.
 
 h2. *{{pycdl.th}}*
 
 The {{pycdl.th}} class is the superclass of all test harnesses. When writing a test harness, it should always be a subclass of {{pycdl.th}}.
 
-h3. *{{th.spawn(_func_\[, _args_\])}}*
+h3. {{th.bfm_wait(_cycles_)}}
+
+Suspends the current function for _cycles_ cycles. 
+
+h3. {{th.global_cycle()}}
+
+Returns the current global cycle count, which is a monotonically increasing number. Note that most clocked objects run at half the speed of the global cycle count, because their clocks are high on one global cycle and low on the next. 
+
+h3. {{th.spawn(_func_\[, _args_\])}}
 
 To spawn a subtask (which logically runs in a separate thread), call {{th.spawn}}. The function is generally a bound method (i.e. {{self._function\_name_}}). Any arguments after the first are passed as arguments to the subtask.
 
@@ -234,17 +273,53 @@ h3. {{th.failtest(_num_, _str_)}}
 
 Registers a test failure after _num_ cycles with message _str_.
 
+h3. {{th.passed()}}
+
+Returns True or False depending on whether the test has registered as passed.
+
+h2. *{{pycdl.th.event}}*
+
+The {{pycdl.th.event}} class can be instantiated to cause a test harness to fire and respond to events. Note that events are one-shot rather than counting; they have either fired or they have not. An explicit call to {{event.reset()}} is required to unfire an event.
+
+h3. Constructor {{pycdl.th.event()}}
+
+An instance is constructed and bound to the test harness {{th}}.
+
+h3. {{event.reset()}}
+
+The event is reset.
+
+h3. {{event.fire()}}
+
+The event is fired and control is (potentially) transferred to the task waiting on the event.
+
+h3. {{event.wait()}}
+
+The task is suspended until the event fires.
+
+h2. *{{pycdl.timed_assign}}*
+
+A timed assign creates a driver for a wire that drives it to a particular value at initialization and then drives it to another value after a delay. It is typically used for reset sequences.
+
+h3. Constructor {{pycdl.timed_assign(_signal_, _init_value_, _wait_time_, _later_value_)}}
+
+The assigner is created and bound to _signal_. The initial value is _init_value_, but after _wait_time_ global cycles, the value is changed to _later_value_.
+
 h2. *{{pycdl.module}}*
 
 The {{pycdl.module}} class is used to instantiate a module written in CDL into a Python top-level.
 
-h3. Constructor {{pycdl.module(_moduletype_, clocks=_clocks_, inputs=_inputs_, outputs=_outputs_)}}
+h3. Constructor {{pycdl.module(_moduletype_, clocks=_clocks_, inputs=_inputs_, outputs=_outputs_\[, options=_options_\])}}
 
-Instantiates a module of type _{{moduletype}}_, connecting its clocks, inputs and outputs according to the dictionaries passed in. Each dictionary must be keyed by a string and valued as either a {{wire}} or a {{wirebundle}}.
+Instantiates a module of type _{{moduletype}}_, connecting its clocks, inputs and outputs according to the dictionaries passed in. Each dictionary must be keyed by a string and valued as either a {{wire}} or a {{wirebundle}}. The _options_ keyword provides a dictionary for options to be passed to the module: this is usually only meaningful for modules implemented as C++ BFMs.
 
 h2. *{{pycdl.hw}}*
 
-The {{pycdl.hw}} class is the base class for instantiating test harnesses written in Python.
+The {{pycdl.hw}} class is the base class for instantiating hardware descriptions written in Python.
+
+h3. Constructor {{pycdl.hw(_module_, _module_, _module_ ...)}}
+
+The constructor creates a piece of hardware binding all the various modules together. Generally speaking the subclass's constructor will call this and pass all the objects it has created. In particular, all clockable items such as modules, test harnesses, clocks and timed assigns must be arguments to the constructor.
 
 h3. {{hw.passed()}}
 
@@ -298,56 +373,13 @@ h3. {{waves.file_size()}}
 
 Returns the size of the VCD file so far in bytes.
 
-h1. Task list
+h2. Global functions
 
-h2. Modifications to CDL's Python execution harness
+h3. {{pycdl.load_mif(_filename_\[, _length_, _width_\])}}
 
-* Ensure that useful exceptions are thrown for all failures (3h)
-* -Export the capability to create VCD files (1h)-
-* -Provide an API for determining module properties (3h)-
-* -Allow Python objects to be created on the fly (1h)-
+Loads a MIF file (a file full of hex data) from the file _filename_ into a Python array and returns it. The length and width are optional arguments, but if specified, the array will be at least _length_ entries long.
 
-h2. The {{pycdl}} library
+h3. {{pycdl.save_mif(_array_, _filename_\[, _length_, _width_\])}}
 
-* -Create {{pycdl/\_\_init\_\_.py}} in {{$CYCLICITY_ROOT}}, which initially simply imports {{py_engine}} from the location specified by the environment variable {{$CYCLICITY_RUN_DIR}} (1h)-
-* -Create {{pycdl.hw}} class to encapsulate {{py_engine.exec_file}} with better semantics (3h)-
-* -Create {{pycdl.th}} class to encapsulate {{py_engine.exec_file}} with better semantics (3h)-
-* -Create {{pycdl.module}} class to create CDL modules (3h)-
-* -Create {{pycdl.engine}} class to encapsulate {{py_engine.py_engine}} with true class semantics (3h)-
-* -Create {{pycdl.waves}} class to encapsulate VCD file manipulation (4h)-
-* -Create {{pycdl.bv}} class to encapsulate bit vectors (1h)-
-* -Create {{pycdl.bvbundle}} class to encapsulate bit vector bundles (2h)-
-* -Create {{pycdl.wire}} class to encapsulate wires (2h)-
-* -Create {{pycdl.wirebundle}} class to encapsulate wire bundles (1h)-
-* -Create {{pycdl.WireError}} class to encapsulate wiring errors (1h)-
+Saves the array _array_ into the file _filename_ as hex data. If _length_ and _width_ are specified, the file is guaranteed to be at least _length_ entries long and each entry is guaranteed to be exactly _width_ bits wide.
 
-h2. Modifications to Rose
-
-* -Add {{rose_pycdl.py}}, a utility that knows where to import {{pycdl}} from. (1h)-
-
-h2. Infrastructure
-
-* -Add {{pycdl}} and {{rose_pycdl.py}} to the PYTHONPATH via modules, and create a {{cdl/1.4.0}} module both on Linux and on Mac. (1h)-
-
-h2. Tests
-* -Add {{regress.py}} Python regression framework to CDL's regressions, based on PyUnit. (2h)-
-* Create Python versions of all CDL regression tests (14h)
-** simple (2h)
-** -vector (2h)-
-** instantiation (2h)
-** memory (2h)
-** event (2h)
-** -bugs (2h)-
-** clock_gate (2h)
-* Create Python version of a moderately complex CDL test (the data mover) (16h)
-** -Create hardware specification (4h)-
-** -Create Dcache/Tcache simulator (6h)-
-** Create Pctl simulator (6h)
-* -Create tests for PyCDL itself (16h)-
-
-h2. CDL bugs
-* -When the test harness file is not correctly specified, CDL crashes. (1h)-
-* The 'enum' tests in CDL are not complete and not part of its regression. (2h)
-* The files in the 'fsm' test directory are not used anywhere.
-* The 'log' tests in CDL are not part of its regression and do not actually check anything. (2h)
-* The files in the 'struct' test directory are not used anywhere.
