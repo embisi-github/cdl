@@ -47,9 +47,18 @@ class _namegiver(object):
     """
     An object that gives nameable objects a name.
     """
-    def __setattr__(self, name, value):
+    def _give_name(self, name, value):
         if isinstance(value, _nameable) and (not hasattr(value, "_name") or value._name is None):
             value._name = name
+        elif isinstance(value, list):
+            for i in range(len(value)):
+                self._give_name("%s_%d" % (name, i), value[i])
+        elif isinstance(value, dict):
+            for i in value.keys():
+                self._give_name("%s_%s" % (name, str(i)), value[i])
+
+    def __setattr__(self, name, value):
+        self._give_name(name, value)
         object.__setattr__(self, name, value)
 
 class PyCDLError(Exception):
@@ -105,8 +114,12 @@ class bvbundle(object):
     """
     A bundle of bit vectors (or of more bvbundles)
     """
-    def __init__(self, **kw):
-        self._dict = kw
+    def __init__(self, indict=None, **kw):
+        if indict:
+            self.__dict__["_dict"] = indict
+            self._dict.update(kw)
+        else:
+            self.__dict__["_dict"] = kw
 
     def __getattr__(self, name):
         if name in self._dict:
@@ -403,10 +416,28 @@ class th(_instantiable):
     """
     The object that represents a test harness.
     """
+    def _flatten_names(self, inobj, inname=None):
+        outdict = {}
+        if isinstance(inobj, list):
+            for i in range(len(inobj)):
+                if inname is None:
+                    outdict.update(self._flatten_names(inobj[i], "%d" % i))
+                else:
+                    outdict.update(self._flatten_names(inobj[i], "%s_%d" % (inname, i)))
+        elif isinstance(inobj, dict):
+            for i in inobj.keys():
+                if inname is None:
+                    outdict.update(self._flatten_names(inobj[i], "%s" % str(i)))
+                else:
+                    outdict.update(self._flatten_names(inobj[i], "%s_%s" % (inname, str(i))))
+        else:
+            outdict = { inname: inobj }
+        return outdict
+
     def __init__(self, clocks, inputs, outputs):
-        self._clocks = clocks
-        self._inputs = inputs
-        self._outputs = outputs
+        self._clocks = self._flatten_names(clocks)
+        self._inputs = self._flatten_names(inputs)
+        self._outputs = self._flatten_names(outputs)
         self._eventanonid = 1
 
     def bfm_wait(self, cycles):
@@ -525,7 +556,7 @@ class _hwexfile(py_engine.exec_file):
                 self._instantiation_anonid += 1
             self._instantiated_wires.add(wireinst._instantiated_name)
             if isinstance(wireinst, clock):
-                self.cdlsim_instantiation.clock(wireinst._name, wireinst._init_value, wireinst._reset_period, wireinst._period)
+                self.cdlsim_instantiation.clock(wireinst._name, wireinst._init_delay, wireinst._cycles_high, wireinst._cycles_low)
                 #print "CLOCK %s" % wireinst._name
             else:
                 self.cdlsim_instantiation.wire("%s[%d]" % (wireinst._instantiated_name, wireinst._size))
@@ -699,13 +730,29 @@ class hw(_clockable):
         def file_size(self):
             return self._cdl_obj.file_size()
 
+        def _add(self, hierlist):
+            for x in hierlist:
+                if isinstance(x, list):
+                    self._add(x)
+                elif isinstance(x, dict):
+                    self._add([x[i] for i in x.keys()])
+                else:
+                    self._cdl_obj.add(x._name)
+
         def add(self, *hier):
-            for x in hier:
-                self._cdl_obj.add(x._name)
+            self._add(hier)
+
+        def _add_hierarchy(self, hierlist):
+            for x in hierlist:
+                if isinstance(x, list):
+                    self._add_hierarchy(x)
+                elif isinstance(x, dict):
+                    self._add_hierarchy([x[i] for i in x.keys()])
+                else:
+                    self._cdl_obj.add_hierarchy(x._name)
 
         def add_hierarchy(self, *hier):
-            for x in hier:
-                self._cdl_obj.add_hierarchy(x._name)
+            self._add_hierarchy(hier)
 
     def waves(self):
         if not self._wavesinst:
