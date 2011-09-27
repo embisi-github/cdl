@@ -45,6 +45,15 @@
 #define WHERE_I_AM {}
 #endif
 
+#if 0
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM_TH_STR(s, this_thread, other, barrier_sync_callback_handle) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",tp.tv_sec,tp.tv_usec,((long)this_thread)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,((int)((unsigned long)pthread_self())>>12) & 31,"                                ",s );}
+#else
+#define WHERE_I_AM_TH_STR(s, this_thread, other, barrier_sync_callback_handle) {}
+#endif
+
+
 /*a Types
  */
 /*t t_sl_exec_file_fn_instance *fn
@@ -3249,9 +3258,6 @@ typedef struct t_py_object
     int clocked;
     t_sl_pthread_barrier barrier;
     t_sl_pthread_barrier_thread_ptr barrier_thread; // Main thread descriptor equivalent to the mainline invoking thread
-    pthread_mutex_t thread_sync_mutex;  // These three are used to spawn and sync a subthread
-    pthread_cond_t  thread_sync_cond;   // These three are used to spawn and sync a subthread
-    int             thread_spawn_state; // These three are used to spawn and sync a subthread
 } t_py_object;
 
 /*t t_py_object_exec_file_library
@@ -3301,6 +3307,9 @@ typedef struct t_py_thread_start_data
     t_py_object *py_object;
     PyObject *callable;
     PyObject *args;
+    pthread_mutex_t thread_sync_mutex;  // These three are used to spawn and sync a subthread
+    pthread_cond_t  thread_sync_cond;   // These three are used to spawn and sync a subthread
+    int             thread_spawn_state; // These three are used to spawn and sync a subthread
 } t_py_thread_start_data;
 
 /*f sl_exec_file_py_thread
@@ -3393,27 +3402,32 @@ static int py_fn_handler_pypassed( void *handle, t_sl_exec_file_data *file_data,
 /*f start_new_py_thread_started
  * Important: must be called with GIL _not_ held (otherwise deadlock)
  */
-static void start_new_py_thread_started( t_py_object *py_object )
+static void start_new_py_thread_started( t_py_object *py_object, t_py_thread_start_data *py_start_data )
 {
     WHERE_I_AM;
 
-    pthread_mutex_lock( &py_object->thread_sync_mutex );
+    WHERE_I_AM_TH_STR("threadsync+", pthread_self(), py_start_data, "SNPyTS");
+    pthread_mutex_lock( &py_start_data->thread_sync_mutex );
+    WHERE_I_AM_TH_STR("threadsync=", pthread_self(), py_start_data, "SNPyTS");
     WHERE_I_AM;
-    if (py_object->thread_spawn_state==1) // Waiting on signal
+    if (py_start_data->thread_spawn_state==1) // Waiting on signal
     {
     WHERE_I_AM;
-        py_object->thread_spawn_state = 4;
-        pthread_cond_signal( &py_object->thread_sync_cond );
+        py_start_data->thread_spawn_state = 4;
+	WHERE_I_AM_TH_STR("signalsynccond+", pthread_self(), py_start_data, "SNPyTS");
+        pthread_cond_signal( &py_start_data->thread_sync_cond );
+	WHERE_I_AM_TH_STR("signalsynccond-", pthread_self(), py_start_data, "SNPyTS");
     WHERE_I_AM;
     }
     else
     {
     WHERE_I_AM;
-        py_object->thread_spawn_state = 3;
+        py_start_data->thread_spawn_state = 3;
     WHERE_I_AM;
     }
     WHERE_I_AM;
-    pthread_mutex_unlock( &py_object->thread_sync_mutex );
+    WHERE_I_AM_TH_STR("threadsync-", pthread_self(), py_start_data, "SNPyTS");
+    pthread_mutex_unlock( &py_start_data->thread_sync_mutex );
     WHERE_I_AM;
 }
 
@@ -3434,16 +3448,26 @@ static int start_new_py_thread( t_py_object *py_object, PyObject *callable, PyOb
     py_start_data->py_object = py_object;
     py_start_data->callable = callable;
     py_start_data->args = args;
+    WHERE_I_AM_TH_STR("obj+", pthread_self(), py_start_data, "PyStDI");
+    int        rc=pthread_mutex_init( &py_start_data->thread_sync_mutex, NULL );
+    if (rc==0) rc=pthread_cond_init(  &py_start_data->thread_sync_cond, NULL );
+    if (rc!=0)
+        return 0;
     Py_INCREF(py_object);
     Py_INCREF(callable);
     Py_XINCREF(args);
     // (corresponding DECREFs for these are at the end of the spawned thread)
+    WHERE_I_AM_TH_STR("gil-", pthread_self(), py_start_data, "SNPyTh");
     Py_BEGIN_ALLOW_THREADS;
     WHERE_I_AM;
-    pthread_mutex_lock( &py_object->thread_sync_mutex );
+    WHERE_I_AM_TH_STR("threadsync+", pthread_self(), py_start_data, "SNPyTh");
+    pthread_mutex_lock( &py_start_data->thread_sync_mutex );
+    WHERE_I_AM_TH_STR("threadsync=", pthread_self(), py_start_data, "SNPyTh");
     WHERE_I_AM;
-    py_object->thread_spawn_state = 0;
+    py_start_data->thread_spawn_state = 0;
+    WHERE_I_AM_TH_STR("gil+", pthread_self(), py_start_data, "SNPyTh");
     Py_END_ALLOW_THREADS;
+    WHERE_I_AM_TH_STR("gil=", pthread_self(), py_start_data, "SNPyTh");
     WHERE_I_AM;
     status = pthread_create(&th, (pthread_attr_t*)NULL, (void* (*)(void *))sl_exec_file_py_thread, (void *)py_start_data );
     WHERE_I_AM;
@@ -3451,28 +3475,34 @@ static int start_new_py_thread( t_py_object *py_object, PyObject *callable, PyOb
     {
         WHERE_I_AM;
         pthread_detach(th);
-        if (py_object->thread_spawn_state==0)
+        if (py_start_data->thread_spawn_state==0)
         {
             WHERE_I_AM;
-            py_object->thread_spawn_state=1;
+            py_start_data->thread_spawn_state=1;
+	    WHERE_I_AM_TH_STR("gil-", pthread_self(), py_start_data, "SNPyTh");
             Py_BEGIN_ALLOW_THREADS;
             WHERE_I_AM;
-            pthread_cond_wait( &py_object->thread_sync_cond, &py_object->thread_sync_mutex );
+	    WHERE_I_AM_TH_STR("threadsync-W", pthread_self(), py_start_data, "SNPyTh");
+            pthread_cond_wait( &py_start_data->thread_sync_cond, &py_start_data->thread_sync_mutex );
+	    WHERE_I_AM_TH_STR("threadsync=+W", pthread_self(), py_start_data, "SNPyTh");
             WHERE_I_AM;
-            py_object->thread_spawn_state=5;
+            py_start_data->thread_spawn_state=5;
             WHERE_I_AM;
+	    WHERE_I_AM_TH_STR("gil+", pthread_self(), py_start_data, "SNPyTh");
             Py_END_ALLOW_THREADS;
+	    WHERE_I_AM_TH_STR("gil=", pthread_self(), py_start_data, "SNPyTh");
             WHERE_I_AM;
         }
         else
         {
             WHERE_I_AM;
-            py_object->thread_spawn_state=2;
+            py_start_data->thread_spawn_state=2;
             WHERE_I_AM;
         }
     }
     WHERE_I_AM;
-    pthread_mutex_unlock(  &py_object->thread_sync_mutex );
+    WHERE_I_AM_TH_STR("threadsync-", pthread_self(), py_start_data, "SNPyTh");
+    pthread_mutex_unlock(  &py_start_data->thread_sync_mutex );
     WHERE_I_AM;
     return result;
 }
@@ -3486,10 +3516,6 @@ static int py_object_init( t_py_object *self, PyObject *args, PyObject *kwds )
     self->py_interp = NULL;
     self->clocked = 0;
     WHERE_I_AM;
-    int        rc=pthread_mutex_init( &self->thread_sync_mutex, NULL );
-    if (rc==0) rc=pthread_cond_init(  &self->thread_sync_cond, NULL );
-    if (rc!=0)
-        return -1;
     return 0;
 }
 
@@ -3498,8 +3524,6 @@ static int py_object_init( t_py_object *self, PyObject *args, PyObject *kwds )
 static void py_object_dealloc( t_py_object *self )
 {
     WHERE_I_AM;
-    pthread_mutex_destroy( &self->thread_sync_mutex );
-    pthread_cond_destroy(  &self->thread_sync_cond  );
 }
 
 /*f py_engine_cb_args
@@ -4069,23 +4093,33 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
 
     WHERE_I_AM;
     //fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
-    free(py_start_data);
     barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier, sizeof(t_py_thread_data) );
     barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
+    WHERE_I_AM_TH_STR("thread+", barrier_thread, pthread_self(), "PyThrd");
     WHERE_I_AM;
 
     sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_init );
 
+    WHERE_I_AM_TH_STR("initgil+", barrier_thread, &py_object->barrier, "PyThrd");
     PyEval_AcquireLock();
+    WHERE_I_AM_TH_STR("initgil=", barrier_thread, &py_object->barrier, "PyThrd");
     py_thread = PyThreadState_New(py_object->py_interp);
     PyThreadState_Clear(py_thread);
     barrier_thread_data->py_thread = py_thread;
     barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
     barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, NULL ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
+    WHERE_I_AM_TH_STR("initgil-", barrier_thread, &py_object->barrier, "PyThrd");
     PyEval_ReleaseLock();
 
     // Important: must be called with GIL _not_ held (otherwise deadlock)
-    start_new_py_thread_started( py_object );
+    start_new_py_thread_started( py_object, py_start_data );
+
+    // Free the start data
+    WHERE_I_AM_TH_STR("obj-", pthread_self(), py_start_data, "PyStDD");
+    pthread_mutex_destroy( &py_start_data->thread_sync_mutex );
+    pthread_cond_destroy(  &py_start_data->thread_sync_cond  );
+    free(py_start_data);
+
 
     // Invoke callable 
     // This is expected to call numerous waits
@@ -4096,9 +4130,13 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     // Basically, this means that sl_exec_file_py_reset should launch threads and then barrier wait - all subthreads should either have died or hit the barrier in state 'init_done'.
     // Then the world is synchronized
     PyObject *py_obj;
+    WHERE_I_AM_TH_STR("gilthrd+", barrier_thread, &py_object->barrier, "PyThrd");
     PyEval_AcquireThread(py_thread);
+    WHERE_I_AM_TH_STR("gilthrd=", barrier_thread, &py_object->barrier, "PyThrd");
     WHERE_I_AM;
+    WHERE_I_AM_TH_STR("pycall+", barrier_thread, py_callable, "PyThrd");
     py_obj = PyObject_CallObject( py_callable, py_args );
+    WHERE_I_AM_TH_STR("pycall-", barrier_thread, py_callable, "PyThrd");
     Py_DECREF(py_callable);
     Py_XDECREF(py_args);
     WHERE_I_AM;
@@ -4109,11 +4147,13 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
         Py_DECREF(py_obj);
     }
     WHERE_I_AM;
+    WHERE_I_AM_TH_STR("gilthrd-", barrier_thread, &py_object->barrier, "PyThrd");
     PyEval_ReleaseThread(py_thread);
 
     // Save the thread object because we're about to deallocate where it lives.
     barrier_thread_object = barrier_thread_data->barrier_thread_object;
     WHERE_I_AM;
+    WHERE_I_AM_TH_STR("thread-", barrier_thread, pthread_self(), "PyThrd");
     sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
     WHERE_I_AM;
 
