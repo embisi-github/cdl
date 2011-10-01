@@ -4095,20 +4095,20 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     //fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
     barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier, sizeof(t_py_thread_data) );
     barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
-    WHERE_I_AM_TH_STR("thread+", barrier_thread, pthread_self(), "PyThrd");
+    WHERE_I_AM_TH_STR("thread+", pthread_self(), barrier_thread, "PyThrd");
     WHERE_I_AM;
 
     sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_init );
 
-    WHERE_I_AM_TH_STR("initgil+", barrier_thread, &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR("initgil+", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_AcquireLock();
-    WHERE_I_AM_TH_STR("initgil=", barrier_thread, &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR("initgil=", pthread_self(), &py_object->barrier, "PyThrd");
     py_thread = PyThreadState_New(py_object->py_interp);
     PyThreadState_Clear(py_thread);
     barrier_thread_data->py_thread = py_thread;
     barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
     barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, NULL ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
-    WHERE_I_AM_TH_STR("initgil-", barrier_thread, &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR("initgil-", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_ReleaseLock();
 
     // Important: must be called with GIL _not_ held (otherwise deadlock)
@@ -4130,13 +4130,13 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     // Basically, this means that sl_exec_file_py_reset should launch threads and then barrier wait - all subthreads should either have died or hit the barrier in state 'init_done'.
     // Then the world is synchronized
     PyObject *py_obj;
-    WHERE_I_AM_TH_STR("gilthrd+", barrier_thread, &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR("gilthrd+", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_AcquireThread(py_thread);
-    WHERE_I_AM_TH_STR("gilthrd=", barrier_thread, &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR("gilthrd=", pthread_self(), &py_object->barrier, "PyThrd");
     WHERE_I_AM;
-    WHERE_I_AM_TH_STR("pycall+", barrier_thread, py_callable, "PyThrd");
+    WHERE_I_AM_TH_STR("pycall+", pthread_self(), py_callable, "PyThrd");
     py_obj = PyObject_CallObject( py_callable, py_args );
-    WHERE_I_AM_TH_STR("pycall-", barrier_thread, py_callable, "PyThrd");
+    WHERE_I_AM_TH_STR("pycall-", pthread_self(), py_callable, "PyThrd");
     Py_DECREF(py_callable);
     Py_XDECREF(py_args);
     WHERE_I_AM;
@@ -4147,13 +4147,13 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
         Py_DECREF(py_obj);
     }
     WHERE_I_AM;
-    WHERE_I_AM_TH_STR("gilthrd-", barrier_thread, &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR("gilthrd-", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_ReleaseThread(py_thread);
 
     // Save the thread object because we're about to deallocate where it lives.
     barrier_thread_object = barrier_thread_data->barrier_thread_object;
     WHERE_I_AM;
-    WHERE_I_AM_TH_STR("thread-", barrier_thread, pthread_self(), "PyThrd");
+    WHERE_I_AM_TH_STR("thread-", pthread_self(), barrier_thread, "PyThrd");
     sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
     WHERE_I_AM;
 
