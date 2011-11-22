@@ -21,7 +21,7 @@
 #define WHERE_I_AM {}
 #define WHERE_I_AM_TH {}
 #endif
-#if 1
+#if 0
 #include <sys/time.h>
 #include <pthread.h>
 #define WHERE_I_AM_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d:%s\n",tp.tv_sec,(int)tp.tv_usec,(void *)(pthread_self()),__func__,__LINE__,s );}
