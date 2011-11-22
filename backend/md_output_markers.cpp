@@ -543,7 +543,7 @@ extern t_md_type_instance *output_markers_find_iter_match( c_model_descriptor *m
 
     if (output_markers_verbose)
     {
-        fprintf(stderr, "omfim %p mask %d match %d\n",signal,mask,match);
+        fprintf(stderr, "omfim %p mask %d match %d\n",instance,mask,match);
     }
     while ((reference = model->reference_set_iterate(iter))!=NULL)
     {
