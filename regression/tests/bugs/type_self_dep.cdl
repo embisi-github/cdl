@@ -1,0 +1,29 @@
+typedef struct
+{
+    bit[4]  dependent ; // The order of these two should not matter
+    bit[4]  dependency ; // the above is dependent on this one; the backend should cope
+} t_deps;
+
+module type_self_dep( clock           clk,
+                      input   bit     rst,
+                      input   t_deps  in_deps,
+                      output  t_deps  out_deps
+        )
+{
+    default clock clk ;
+    default reset active_low rst ;
+
+    clocked t_deps out_deps={dependent=0, dependency=0};
+    comb    t_deps  comb_deps;
+
+    test_dependencies:
+      {
+          
+          comb_deps            = in_deps;
+          comb_deps.dependent[0]  = comb_deps.dependency[3] ;
+          comb_deps.dependent[1]  = !comb_deps.dependent[0] ;
+          comb_deps.dependent[2]  = !comb_deps.dependent[1] ;
+          comb_deps.dependent[3]  = !comb_deps.dependent[2] ;
+          out_deps <= comb_deps;
+      }
+   }

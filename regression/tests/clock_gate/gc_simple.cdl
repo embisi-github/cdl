@@ -1,3 +1,9 @@
+typedef struct 
+{
+    bit [8] byte;
+    // bit valid;
+} t_blob;
+
 module gc_simple( clock clk,
                   input bit reset_in,
                   input bit data_in,
@@ -18,6 +24,9 @@ default clock clk;// "Default clock signal - handy!";
     clocked bit    div8=0;
     clocked bit    div16=0;
 
+    clocked t_blob[128] large_struct={{byte=0}};
+    //clocked bit[128] banana=0;
+
     gated_clock active_high div2 clk_div2 "Gate the clock to run every other cycle";
     gated_clock active_high div4 clk_div4;
     gated_clock active_high div8 clk_div8;
@@ -35,6 +44,12 @@ default clock clk;// "Default clock signal - handy!";
 
     stuff "documentation for the stuff code block":
         {
+
+            //large_struct[0].valid <= 0;
+            large_struct[0].byte <= 0;
+            large_struct[64].byte <= 0;
+            //banana <= 0;
+
             clock_divider <= clock_divider+1 "We like incrementing the clock divider";
             div2  <= (clock_divider[0]==1);
             div4  <= (clock_divider[2;0]==2);

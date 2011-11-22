@@ -388,6 +388,7 @@ typedef struct t_md_signal
             int levels_used_for_reset[2];
             int used_combinatorially; // 1 if used combinatorially to generate an output
             struct t_md_reference_set *clocks_used_on; // set of clock edges the input is used on
+            int can_be_left_undriven; // 1 if the input can be left undriven - usually for testbenches
         } input;
         struct
         {

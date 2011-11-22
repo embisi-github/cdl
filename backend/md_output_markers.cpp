@@ -535,16 +535,36 @@ extern int output_markers_check_net_driven_in_parts_modules_all_match( t_md_modu
 
 /*f output_markers_find_iter_match
  */
-extern t_md_type_instance *output_markers_find_iter_match( c_model_descriptor *model, t_md_reference_iter *iter, void *signal, int mask, int match )
+static int output_markers_verbose=0;
+extern t_md_type_instance *output_markers_find_iter_match( c_model_descriptor *model, t_md_reference_iter *iter, void *instance, int mask, int match )
 {
     t_md_reference *reference;
     t_md_type_instance *dependency;
 
+    if (output_markers_verbose)
+    {
+        fprintf(stderr, "omfim %p mask %d match %d\n",signal,mask,match);
+    }
     while ((reference = model->reference_set_iterate(iter))!=NULL)
     {
         dependency = reference->data.instance;
+            if (output_markers_verbose)
+            {
+                fprintf(stderr, "%s %d\n",dependency->output_name,output_markers_value(dependency,mask));
+            }
         if ( (dependency->reference.type==md_reference_type_signal) &&
-             (dependency->reference.data.signal!=signal) && // Added so self-dependent signals do get output
+             (dependency!=instance) && // This should handle self-referntial instances
+             //(dependency->reference.data.signal!=signal) && // We had this originally; cyclic dependencies should probably be flagged, but that is not what this was about
+             // This was about the signal name in the source CDL having elements which are self-dependent
+             // So a structure with elements 'X' and 'Y', where comb a.Y=inp_a; a.X=a.Y would have a 'self dependency' - which we DO want to handle
+             // So that commented out bit, which apparently is there potentially for cyclic a.X=a.X, actually messes up a.Y=inp; a.X=a.Y
+             // However, we do self-referential is valid; code must be taken in programmatic order
+             // In this case
+             // comb_deps.dependent[0]  = comb_deps.dependency[3] ;
+             // comb_deps.dependent[1]  = !comb_deps.dependent[0] ;
+             // comb_deps.dependent[2]  = !comb_deps.dependent[1] ;
+             // comb_deps.dependent[3]  = !comb_deps.dependent[2] ;
+             // is expected to work
              ( (dependency->reference.data.signal->type==md_signal_type_combinatorial) || (dependency->reference.data.signal->type==md_signal_type_net) ) )
         {
             if (output_markers_value(dependency,mask)==match)
@@ -556,9 +576,9 @@ extern t_md_type_instance *output_markers_find_iter_match( c_model_descriptor *m
 
 /*f output_markers_check_iter_any_match
  */
-extern int output_markers_check_iter_any_match( c_model_descriptor *model, t_md_reference_iter *iter, void *signal, int mask, int match )
+extern int output_markers_check_iter_any_match( c_model_descriptor *model, t_md_reference_iter *iter, void *instance, int mask, int match )
 {
-    if (output_markers_find_iter_match( model, iter, signal, mask, match)!=NULL)
+    if (output_markers_find_iter_match( model, iter, instance, mask, match)!=NULL)
         return 1;
     return 0;
 }

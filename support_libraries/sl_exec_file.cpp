@@ -3556,7 +3556,14 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
         else if (arg_string[j]=='i')
         {
             PyErr_Clear();
-            cmd_cb->args[j].integer = PyInt_AsLong(obj);
+            if (PyLong_Check(obj))
+            {
+                cmd_cb->args[j].integer = PyLong_AsSsize_t(obj);
+            }
+            else
+            {
+                cmd_cb->args[j].integer = PyInt_AsSsize_t(obj);
+            }
             if (PyErr_Occurred())
             {
                 fprintf(stderr,"Error occurred parsing int\n");

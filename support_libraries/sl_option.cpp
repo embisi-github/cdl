@@ -312,7 +312,9 @@ extern void sl_option_free_list( t_sl_option *list )
      {
           next_item = list->next_in_list;
           if (list->type == option_type_object)
+          {
               Py_DECREF(list->object);
+          }
           free(list);
           list = next_item;
      }

@@ -739,7 +739,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
          {
              if (!signal->instance_iter->children[i]->code_block)
              {
-                 error->add_error( module, error_level_warning, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
+                 error->add_error( module, error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
                                    error_arg_type_malloc_string, signal->instance_iter->children[i]->output_name,
                                    error_arg_type_none );
              }
@@ -752,7 +752,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
          {
              if (signal->instance_iter->children[i]->number_statements==0)
              {
-                 error->add_error( module, error_level_warning, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
+                 error->add_error( module, error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
                                    error_arg_type_malloc_string, signal->instance_iter->children[i]->output_name,
                                    error_arg_type_none );
              }
@@ -765,7 +765,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
          {
              if (!state->instance_iter->children[i]->code_block)
              {
-                 error->add_error( module, error_level_warning, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
+                 error->add_error( module, error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
                                    error_arg_type_malloc_string, state->instance_iter->children[i]->output_name,
                                    error_arg_type_none );
              }
@@ -2593,6 +2593,10 @@ t_md_port_lvar *c_model_descriptor::port_lvar_reference( t_md_module *module, t_
 }
 
 /*f c_model_descriptor::port_lvar_resolve( t_md_port_lvar *port_lvar, t_md_signal *signals );
+  Find the structure element instance (possible not a leaf) of a chained t_md_port_lvar within a signal set
+  Usually called with signals = inputs or outputs or clocks of a module instance declaration
+  t_md_port_lvar is the leaf of a set of strings indicating the name of the port (such as sram_ctrl.read, which is a chain of 2 port_lvars)
+  if t_md_port_lvar refers to a structure, then return the instance of that structure
  */
 t_md_type_instance *c_model_descriptor::port_lvar_resolve( t_md_port_lvar *port_lvar, t_md_signal *signals )
 {
@@ -2888,6 +2892,7 @@ int c_model_descriptor::signal_add_input( t_md_module *module, const char *name,
      signal->data.input.levels_used_for_reset[1] = 0;
      signal->data.input.used_combinatorially = 0;
      signal->data.input.clocks_used_on = NULL;
+     signal->data.input.can_be_left_undriven = 0;
      return 1;
 }
 
@@ -2922,6 +2927,7 @@ int c_model_descriptor::signal_add_input( t_md_module *module, const char *name,
      signal->data.input.levels_used_for_reset[1] = 0;
      signal->data.input.used_combinatorially = 0;
      signal->data.input.clocks_used_on = NULL;
+     signal->data.input.can_be_left_undriven = 0;
 
      return 1;
 }
@@ -4048,7 +4054,7 @@ void c_model_descriptor::expression_check_liveness( t_md_module *module, t_md_co
              !(reference_set_includes( &parent_makes_live, instance) || reference_set_includes( &being_made_live, instance)) )
         {
             //error->add_error( NULL, error_level_serious, error_number_be_used_while_not_live, error_id_be_c_model_descriptor_statement_analyze,
-            error->add_error( NULL, error_level_warning, error_number_be_used_while_not_live, error_id_be_c_model_descriptor_statement_analyze,
+            error->add_error( NULL, error_level_serious, error_number_be_used_while_not_live, error_id_be_c_model_descriptor_statement_analyze,
                               error_arg_type_malloc_string, instance->output_name,
                               error_arg_type_malloc_string, code_block->name, 
                               error_arg_type_none );
@@ -5003,7 +5009,7 @@ int c_model_descriptor::code_block_analyze( t_md_code_block *code_block, t_md_us
                     if (!reference_set_includes( &makes_live, instance))
                     {
                         //error->add_error( NULL, error_level_serious, error_number_be_likely_transparent_latch, error_id_be_c_model_descriptor_statement_analyze,
-                        error->add_error( NULL, error_level_warning, error_number_be_likely_transparent_latch, error_id_be_c_model_descriptor_statement_analyze,
+                        error->add_error( NULL, error_level_serious, error_number_be_likely_transparent_latch, error_id_be_c_model_descriptor_statement_analyze,
                                           error_arg_type_malloc_string, instance->output_name,
                                           error_arg_type_none );
                         fprintf(stderr, "****************************************************************************\nSERIOUS ERROR:Expected '%s' to be live - likely transparent latch?\n", instance->output_name );
@@ -5596,7 +5602,7 @@ static void output_indented( void *handle, int indent, const char *format, ... )
      if (indent>=0)
      {
           for (i=0; i<indent; i++)
-               fprintf( f, indent_string );
+              fputs( indent_string, f );
      }
      vfprintf( f, format, ap );
      fflush(f);
@@ -5883,11 +5889,20 @@ extern void be_getopt_usage( void )
      printf( "\t--model \t\tRequired for C++ - model name that is used for naming the initialization functions\n");
      printf( "\t--cpp <file>\t\tGenerate C++ model output file\n");
      printf( "\t--verilog <file>\t\tGenerate verilog model output file\n");
+     printf( "\t--xml <file>\t\tGenerate XML tree of 'compiled' model into a file\n");
+     printf( "\t--multithread\t\tMake a C++ model capable of having its submodules use a worker thread pool\n");
      printf( "\t--include-assertions\tInclude assertions in C++ model\n");
      printf( "\t--include-coverage\tInclude code coverage statistics generation in C++ model\n");
+     printf( "\t--include-stmt-coverage\tInclude code coverage for statements statistics generation in C++ model\n");
      printf( "\t--coverage-desc-file <file>\tOutput coverage descriptor file\n");
      printf( "\t--remap-module-name <name=new_name>\tRemap module type 'name' to be another type 'new_name'\n");
      printf( "\t--remap-instance_type <module_name.instance_type=new_instance_type>\tRemap module instance types matching given type in given module to be another type 'new_name'\n");
+     printf( "\t--vmod-mode\t\tOption for verilog which hacks things that VMOD cannot cope with\n");
+     printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
+     printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
+     printf( "\t--v_assert_delay\t\tTextual string inserted to verilog prior to testing for an assertion - this might be '#1', for example\n");
+     printf( "\t--v_comb_suffix\t\tTextual suffix for verilog 'reg' signals for combinatorials\n");
+     printf( "\t--v_displays\t\tIf included, then add $displays to verilog; else do not\n");
 }
 
 /*f be_handle_getopt

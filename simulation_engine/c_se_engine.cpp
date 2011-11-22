@@ -81,6 +81,9 @@ c_engine::c_engine( c_sl_error *error, const char *name )
      checkpoint_list = NULL;
      checkpoint_tail = NULL;
 
+     thread_pool = NULL;
+     thread_pool_mapping = NULL;
+
      module_data = NULL;
 
      if (engine_from_name( name ))

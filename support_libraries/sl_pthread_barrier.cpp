@@ -15,19 +15,19 @@
 #if 0
 #include <sys/time.h>
 #include <pthread.h>
-#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__ );}
-#define WHERE_I_AM_TH {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,pthread_self(),this_thread,__func__,__LINE__ );}
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,tp.tv_usec,(void *)(pthread_self()),__func__,__LINE__ );}
+#define WHERE_I_AM_TH {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%d\n",tp.tv_sec,(int)tp.tv_usec,(void *)(pthread_self()),this_thread,__func__,__LINE__ );}
 #else
 #define WHERE_I_AM {}
 #define WHERE_I_AM_TH {}
 #endif
-#if 0
+#if 1
 #include <sys/time.h>
 #include <pthread.h>
-#define WHERE_I_AM_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d:%s\n",tp.tv_sec,tp.tv_usec,pthread_self(),__func__,__LINE__,s );}
-#define WHERE_I_AM_TH_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%d:%s\n",tp.tv_sec,tp.tv_usec,pthread_self(),this_thread,__func__,__LINE__,s );}
-#undef WHERE_I_AM_TH_STR(s)
-#define WHERE_I_AM_TH_STR(s, other) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%4.4d:%3ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",__LINE__,tp.tv_sec % 1000,tp.tv_usec,(((long)pthread_self())>>12)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,((int)((unsigned long)pthread_self())>>12) & 31,"                                ",s );}
+#define WHERE_I_AM_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d:%s\n",tp.tv_sec,(int)tp.tv_usec,(void *)(pthread_self()),__func__,__LINE__,s );}
+#define WHERE_I_AM_TH_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%d:%s\n",tp.tv_sec,(int)tp.tv_usec,(void *)(pthread_self()),this_thread,__func__,__LINE__,s );}
+#undef WHERE_I_AM_TH_STR
+#define WHERE_I_AM_TH_STR(s, other) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%4.4d:%3ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",__LINE__,tp.tv_sec % 1000,(int)tp.tv_usec,(((long)pthread_self())>>12)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,((int)((unsigned long)pthread_self())>>12) & 31,"                                ",s );}
 #else
 #define WHERE_I_AM_STR(s) {}
 #define WHERE_I_AM_TH_STR(s, other) {}

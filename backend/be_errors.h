@@ -50,7 +50,9 @@ enum
      error_number_be_mixing_of_assert_and_cover,
      error_number_be_likely_transparent_latch,
      error_number_be_used_while_not_live,
-     error_number_be_never_assigned
+     error_number_be_never_assigned,
+     error_number_be_signal_width,
+     error_number_be_expression_width,
 };
 
 /*t error_id_be_*
@@ -104,7 +106,9 @@ enum
 { error_number_be_mixing_of_assert_and_cover,         "Mixing of assert and cover in code block '%s0' - cover() is not permitted within assert() statements, and vice versa" }, \
 { error_number_be_likely_transparent_latch,           "Expected '%s0' to be live at all points, but it is not - probably transparent latch" }, \
 { error_number_be_used_while_not_live,                "Signal '%s0' is used while it is not live in block '%s1%' - code needs to be reordered" }, \
-{ error_number_be_never_assigned,                     "ERROR!!!! - THIS WILL ABORT MAKE IN OCTOBER !!! - Signal or state '%s0' is never assigned" }, \
+{ error_number_be_never_assigned,                     "Signal or state '%s0' is never assigned" }, \
+{ error_number_be_signal_width,                       "Signal or state element '%s0' wider than supported (64 bits in C backend)" }, \
+{ error_number_be_expression_width,                   "Expression in code block '%s0' is wider than supported (64 bits in C backend)" }, \
 { -1, NULL }
 
 /*a Wrapper
