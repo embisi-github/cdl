@@ -7,6 +7,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <pthread.h>
 #include "sl_pthread_barrier.h"
 
@@ -21,18 +22,35 @@
 #define WHERE_I_AM {}
 #define WHERE_I_AM_TH {}
 #endif
-#if 1
+#if 0
 #include <sys/time.h>
 #include <pthread.h>
 #define WHERE_I_AM_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d:%s\n",tp.tv_sec,(int)tp.tv_usec,(void *)(pthread_self()),__func__,__LINE__,s );}
 #define WHERE_I_AM_TH_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%d:%s\n",tp.tv_sec,(int)tp.tv_usec,(void *)(pthread_self()),this_thread,__func__,__LINE__,s );}
 #undef WHERE_I_AM_TH_STR
-#define WHERE_I_AM_TH_STR(s, other) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%4.4d:%3ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",__LINE__,tp.tv_sec % 1000,(int)tp.tv_usec,(((long)pthread_self())>>12)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,((int)((unsigned long)pthread_self())>>12) & 31,"                                ",s );}
+#define WHERE_I_AM_TH_STR(s, other) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%4.4d:%3ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",__LINE__,tp.tv_sec % 1000,(int)tp.tv_usec,(((long)pthread_self())>>12)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,(((int)((unsigned long)pthread_self())>>12)+((int)((unsigned long)pthread_self())>>17)) & 31,"                                ",s );}
 #else
 #define WHERE_I_AM_STR(s) {}
 #define WHERE_I_AM_TH_STR(s, other) {}
 #endif
 
+#if 0
+#define SL_PTHREAD_CHECK_OWNER_STRUCT struct {void *last_thread;} pthread_check_owner
+#define SL_PTHREAD_CHECK_OWNER_INIT(t) { (t)->pthread_check_owner.last_thread = (void *)pthread_self(); }
+#define SL_PTHREAD_CHECK_OWNER(t)  \
+    { if ((t)->pthread_check_owner.last_thread != (void *)pthread_self()) \
+      {                                                                 \
+          WHERE_I_AM_TH_STR("sl_pthread_check_owner invoking thread not same as last thread",((int)(unsigned long)((t)->pthread_check_owner.last_thread))>>12); \
+          (t)->pthread_check_owner.last_thread = (void *)pthread_self(); \
+          asm("int3");                                                  \
+      } \
+    }
+#else
+#define SL_PTHREAD_CHECK_OWNER_STRUCT 
+#define SL_PTHREAD_CHECK_OWNER_INIT(t) {}
+#define SL_PTHREAD_CHECK_OWNER(t) {}
+#endif
+    
 /*a pthread barriers
  */
 /*t t_sl_pthread_barrier_thread_state
@@ -54,6 +72,7 @@ typedef struct t_sl_pthread_barrier_thread
     t_sl_pthread_barrier_thread_state state;
     int  user_state;
     pthread_cond_t cond;
+    SL_PTHREAD_CHECK_OWNER_STRUCT;
     void *user_data_start; // This should be suitably aligned
 } t_sl_pthread_barrier_thread;
 
@@ -83,6 +102,7 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
 {
     t_sl_pthread_barrier_thread *thread;
     thread = (t_sl_pthread_barrier_thread *)malloc(sizeof(t_sl_pthread_barrier_thread)+user_data_size);
+    bzero( thread, sizeof(t_sl_pthread_barrier_thread)+user_data_size ); // Zero so that the user data is zero when the mutex is released
     const char* barrier_sync_callback_handle = "PtBAdd";
 
     WHERE_I_AM_TH_STR( "thread+", thread );
@@ -114,9 +134,11 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
         barrier->restart_loop = 1;
     }
     WHERE_I_AM;
+    WHERE_I_AM_TH_STR( "thread!", thread );
     //fprintf(stderr,"Added barrier thread %p\n",thread);
     WHERE_I_AM_TH_STR( "barrier_lock-A", &barrier->mutex );
     pthread_mutex_unlock( &barrier->mutex );
+    SL_PTHREAD_CHECK_OWNER_INIT( thread );
     WHERE_I_AM;
     WHERE_I_AM_STR("thread_add exit");
     return thread;
@@ -131,6 +153,9 @@ extern void sl_pthread_barrier_thread_delete( t_sl_pthread_barrier *barrier, t_s
 
     WHERE_I_AM;
     WHERE_I_AM_STR("thread_delete entry");
+
+    SL_PTHREAD_CHECK_OWNER( thread );
+
     // Note that danger lurks if the barrier is already waiting for this thread - we pull the thread off the barrier here first
     WHERE_I_AM_TH_STR( "barrier_lock+D", &barrier->mutex );
     pthread_mutex_lock( &barrier->mutex );
@@ -146,12 +171,15 @@ extern void sl_pthread_barrier_thread_delete( t_sl_pthread_barrier *barrier, t_s
 
     thread->next = barrier->gc_threads;
     barrier->gc_threads = thread;
+    WHERE_I_AM_TH_STR( "thread-GC", thread );
     // Only fuss with the barrier if it is waiting for this thread
     if (thread->state==barrier_thread_state_waiting)
     {
     WHERE_I_AM;
         barrier->restart_loop = 1; // ... and the danger is resolved by kicking the barrier-seeking thread to start again in its thread loop, which this thread is no longer on
+        WHERE_I_AM_TH_STR("signalrestart+", &thread->cond );
         pthread_cond_signal( &thread->cond );
+        WHERE_I_AM_TH_STR("signalrestart-", &thread->cond );
     }
     WHERE_I_AM;
     //fprintf(stderr,"Deleted barrier thread %p\n",thread);
@@ -244,6 +272,9 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
      */
     WHERE_I_AM_TH;
     WHERE_I_AM_TH_STR( "barrier_wait+", this_thread );
+
+    SL_PTHREAD_CHECK_OWNER( this_thread );
+
     WHERE_I_AM_TH_STR( "barrier_lock+", &barrier->mutex );
     pthread_mutex_lock( &barrier->mutex );
     WHERE_I_AM_TH_STR( "barrier_lock=", &barrier->mutex );
@@ -308,11 +339,13 @@ extern void sl_pthread_barrier_wait( t_sl_pthread_barrier *barrier, t_sl_pthread
                 // If thread disappeared or thread was added it will have set barrier->restart_loop
                 if (barrier->restart_loop)
                 {
+                    WHERE_I_AM_TH_STR( "restartloop", this_thread );
                     barrier->restart_loop = 0;
                     thread = barrier->threads;
                 }
                 else
                 {
+                    WHERE_I_AM_TH_STR( "threadnext", thread );
                     thread = thread->next;
                 }
             }

@@ -547,7 +547,7 @@ class _hwexfile(py_engine.exec_file):
             raise WireError("Connecting to undefined port %s" % wire_basename)
         port = ports[wire_basename]
         if wireinst._size != port._size:
-            raise WireError("Port size mismatch for port %s, expected %d got %d" % (wire_basename, wireinst._size, port._size))
+            raise WireError("Port size mismatch for port %s, wire is size %d got a port size of %d" % (wire_basename, wireinst._size, port._size))
                 # size mismatch!
         if wireinst not in connectedwires:
             wireinst._instantiated_name = wireinst._name

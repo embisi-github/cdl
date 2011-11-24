@@ -574,8 +574,10 @@ static PyObject *py_engine_method_step( t_py_engine_PyObject *py_eng, PyObject *
      if (PyArg_ParseTupleAndKeywords( args, kwds, "i|i", kwdlist, &n, &show_msg ))
      {
           py_eng->engine->step_cycles( n );
-	  if (show_msg)
-	    py_eng->engine->message->check_errors_and_reset( stdout, error_level_info, error_level_info );
+          if (show_msg)
+          {
+              py_eng->engine->message->check_errors_and_reset( stdout, error_level_info, error_level_info );
+          }
           return py_engine_method_return( py_eng, NULL );
      }
      return NULL;

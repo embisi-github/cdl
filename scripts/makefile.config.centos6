@@ -1,0 +1,14 @@
+# We need to soft link /usr/lib64/libpython.so
+PYTHON := python2.6
+DEBUG_BUILD := yes
+BUILD_ARCH := linux
+OS_CFLAGS := -fPIC
+OS_CXXFLAGS := -fPIC
+OS_LINKFLAGS := -fPIC
+
+# Edit the following for your system configuration
+# Build the Python stuff if you want the Python GUI for simulations
+# Buld the VPI stuff if you want to incorporate simulation models in Verilog simulations through the VPI
+BUILD_PYTHON := yes
+BUILD_VPI := no
+DEBUG_BUILD := yes

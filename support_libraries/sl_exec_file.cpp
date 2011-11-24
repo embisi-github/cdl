@@ -48,9 +48,11 @@
 #if 0
 #include <sys/time.h>
 #include <pthread.h>
-#define WHERE_I_AM_TH_STR(s, this_thread, other, barrier_sync_callback_handle) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",tp.tv_sec,tp.tv_usec,((long)this_thread)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,((int)((unsigned long)pthread_self())>>12) & 31,"                                ",s );}
+#define WHERE_I_AM_TH_STR(s, this_thread, other, barrier_sync_callback_handle) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%4.4d:%3ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",__LINE__,tp.tv_sec % 1000,(int)tp.tv_usec,(((long)pthread_self())>>12)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,(((int)((unsigned long)pthread_self())>>12)+((int)((unsigned long)pthread_self())>>17)) & 31,"                                ",s );}
+#define WHERE_I_AM_TH_STR2(s, this_thread, other, barrier_sync_callback_handle) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%4.4d:%3ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",__LINE__,tp.tv_sec % 1000,(int)tp.tv_usec,(((long)pthread_self())>>12)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,(((int)((unsigned long)pthread_self())>>12)+((int)((unsigned long)pthread_self())>>17)) & 31,"                                ",s );}
 #else
 #define WHERE_I_AM_TH_STR(s, this_thread, other, barrier_sync_callback_handle) {}
+#define WHERE_I_AM_TH_STR2(s, this_thread, other, barrier_sync_callback_handle) {}
 #endif
 
 
@@ -3599,6 +3601,7 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
 
     // First, if we are not waiting, then just keep going - our clock tick work or reset has not completed yet
     WHERE_I_AM;
+    WHERE_I_AM_TH_STR2("entry", pthread_self(), barrier_thread, "PyBoWt");
     if (barrier_thread_data->execution.type == sl_exec_file_thread_execution_type_waiting)
     {
          if (barrier_thread_data->execution.wait_callback(&(barrier_thread_data->execution.wait_cb)))
@@ -3615,12 +3618,15 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
     // Note that we hold the Python GIL on entry...
     if (sl_pthread_barrier_thread_get_user_state(barrier_thread)==py_barrier_thread_user_state_init)
     {
+        WHERE_I_AM_TH_STR2("init", pthread_self(), barrier_thread, "PyBoWt");
         sl_pthread_barrier_thread_set_user_state(barrier_thread,py_barrier_thread_user_state_running);
+        WHERE_I_AM_TH_STR2("running", pthread_self(), barrier_thread, "PyBoWt");
     }
     // Here we are either just after reset, in which case sl_exec_file_py_reset is waiting on post-reset barrier, or after doing a clock tick of work, so clock function is waiting on the tick-done barrier
     WHERE_I_AM;
     while (1)
     {
+        WHERE_I_AM_TH_STR2("cb_block_cycle", pthread_self(), barrier_thread, "PyBoWt");
         WHERE_I_AM;
         // Wait for post-reset barrier or tick-done barrier; then wait for tick-start barrier (or pre-finalize barrier if we are being killed off)
         Py_BEGIN_ALLOW_THREADS;
@@ -3634,19 +3640,16 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
         // Now we are after pre-finalize or tick-start; check for pre-finalize
         if (sl_pthread_barrier_thread_get_user_state(barrier_thread)==py_barrier_thread_user_state_die)
         {
+            WHERE_I_AM_TH_STR2("exit", pthread_self(), barrier_thread, "PyBoWt");
             PyEval_ReleaseThread(barrier_thread_data->py_thread);
             PyEval_AcquireLock();
-            WHERE_I_AM;
-            sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
-            WHERE_I_AM;
             Py_DECREF(barrier_thread_data->barrier_thread_object);
-            WHERE_I_AM;
             PyThreadState_Clear(barrier_thread_data->py_thread);
-            WHERE_I_AM;
             PyThreadState_Delete(barrier_thread_data->py_thread);
-            WHERE_I_AM;
+            // sl_pthread_barrier_thread_delete can cause barrier_thread to be freed; barrier_thread_data is potentially part of barrier_thread
+            // It seems best to finish using barrier_thread_data before deleting the pthread_barrier_thread, therefore :-)
+            sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
             PyEval_ReleaseLock();
-            WHERE_I_AM;
             pthread_exit(NULL);
         }
         // Not told to die - just after tick-start, so check if we should return and do stuff
@@ -3654,6 +3657,7 @@ static void py_engine_cb_block_on_wait( t_py_object *py_object, t_sl_pthread_bar
          if (barrier_thread_data->execution.wait_callback(&(barrier_thread_data->execution.wait_cb)))
          {
              barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
+            WHERE_I_AM_TH_STR2("run", pthread_self(), barrier_thread, "PyBoWt");
     WHERE_I_AM;
              return;
          }
@@ -3675,6 +3679,8 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
     t_py_thread_data *barrier_thread_data;
     t_sl_exec_file_cmd_cb cmd_cb;
     t_sl_exec_file_value cmd_cb_args[SL_EXEC_FILE_MAX_CMD_ARGS];
+
+    WHERE_I_AM_TH_STR2("entry", pthread_self(), self, "PyEnCb");
 
     barrier_thread_obj = PyTuple_GetItem(self, 0);
     py_ef_lib_or_obj_obj = PyTuple_GetItem(self, 1);
@@ -3701,9 +3707,11 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
     if (py_object->clocked && (barrier_thread_obj!=Py_None))
     {
         // If called from the main thread during init then barrier_thread_obj is Py_None
+        WHERE_I_AM_TH_STR2("thread_obj", pthread_self(), barrier_thread_obj, "PyEnCb");
         barrier_thread = (t_sl_pthread_barrier_thread_ptr) PyCObject_AsVoidPtr(barrier_thread_obj); // Can replace with PyCapsule_GetPointer(barrier_thread_data->py_thread_object, NULL);
         if (barrier_thread)
             barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
+        WHERE_I_AM_TH_STR2("thread?", pthread_self(), barrier_thread, "PyEnCb");
         WHERE_I_AM;
     }
     
@@ -3849,6 +3857,7 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
     int fn_or_cmd;
 
     WHERE_I_AM;
+    WHERE_I_AM_TH_STR2(name, pthread_self(), NULL, "PyLbGa");
 
     lib_desc = &(py_ef_lib->lib_chain->lib_desc);
     call_type = -1;
@@ -3908,6 +3917,8 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
     PyTuple_SetItem(tuple, 1, py_ef_lib_obj);
     PyTuple_SetItem(tuple, 2, PyInt_FromLong(call_type));
     PyTuple_SetItem(tuple, 3, PyInt_FromLong(fn_or_cmd));
+    WHERE_I_AM_TH_STR2("tuple", pthread_self(), tuple, "PyLbGa");
+    WHERE_I_AM_TH_STR2("thread_obj", pthread_self(), barrier_thread_object, "PyLbGa");
     return PyCFunction_New( &method_def, tuple );
 }
 
@@ -3922,6 +3933,7 @@ static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject
     int fn_or_cmd;
 
     WHERE_I_AM;
+    WHERE_I_AM_TH_STR2(name, pthread_self(), NULL, "PyObGa");
 
     obj_desc = &(py_ef_obj->object_chain->object_desc);
     call_type = -1;
@@ -3967,6 +3979,8 @@ static PyObject *py_exec_file_object_getattro( PyObject *py_ef_obj_obj, PyObject
     PyTuple_SetItem(tuple, 1, py_ef_obj_obj);
     PyTuple_SetItem(tuple, 2, PyInt_FromLong(call_type));
     PyTuple_SetItem(tuple, 3, PyInt_FromLong(fn_or_cmd));
+    WHERE_I_AM_TH_STR2("tuple", pthread_self(), tuple, "PyObGa");
+    WHERE_I_AM_TH_STR2("thread_obj", pthread_self(), barrier_thread_object, "PyObGa");
     return PyCFunction_New( &method_def, tuple );
 }
 
@@ -4088,6 +4102,10 @@ static PyTypeObject py_object_exec_file_object =
 
 /*f sl_exec_file_py_thread
  */
+static void barrier_thread_object_destroy_callback( void *p )
+{
+    WHERE_I_AM_TH_STR2("thread#", pthread_self(), p, "PyThDst");
+}
 static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
 {
     PyThreadState* py_thread;
@@ -4102,31 +4120,25 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     //fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
     barrier_thread = sl_pthread_barrier_thread_add( &py_object->barrier, sizeof(t_py_thread_data) );
     barrier_thread_data = (t_py_thread_data *)sl_pthread_barrier_thread_get_user_ptr(barrier_thread);
-    WHERE_I_AM_TH_STR("thread+", pthread_self(), barrier_thread, "PyThrd");
+    WHERE_I_AM_TH_STR2("thread+", pthread_self(), barrier_thread, "PyThrd");
     WHERE_I_AM;
 
     sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_init );
 
-    WHERE_I_AM_TH_STR("initgil+", pthread_self(), &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR2("initgil+", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_AcquireLock();
-    WHERE_I_AM_TH_STR("initgil=", pthread_self(), &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR2("initgil=", pthread_self(), &py_object->barrier, "PyThrd");
     py_thread = PyThreadState_New(py_object->py_interp);
     PyThreadState_Clear(py_thread);
     barrier_thread_data->py_thread = py_thread;
     barrier_thread_data->execution.type = sl_exec_file_thread_execution_type_running;
-    barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, NULL ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
-    WHERE_I_AM_TH_STR("initgil-", pthread_self(), &py_object->barrier, "PyThrd");
+    barrier_thread_data->barrier_thread_object = PyCObject_FromVoidPtr( (void *)barrier_thread, barrier_thread_object_destroy_callback ); // Can replace with PyCapsule_New( (void *)py_thread, NULL, NULL );
+    WHERE_I_AM_TH_STR2("ref+", pthread_self(), barrier_thread_data->barrier_thread_object, "PyThrd");
+    WHERE_I_AM_TH_STR2("initgil-", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_ReleaseLock();
 
     // Important: must be called with GIL _not_ held (otherwise deadlock)
     start_new_py_thread_started( py_object, py_start_data );
-
-    // Free the start data
-    WHERE_I_AM_TH_STR("obj-", pthread_self(), py_start_data, "PyStDD");
-    pthread_mutex_destroy( &py_start_data->thread_sync_mutex );
-    pthread_cond_destroy(  &py_start_data->thread_sync_cond  );
-    free(py_start_data);
-
 
     // Invoke callable 
     // This is expected to call numerous waits
@@ -4141,9 +4153,9 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     PyEval_AcquireThread(py_thread);
     WHERE_I_AM_TH_STR("gilthrd=", pthread_self(), &py_object->barrier, "PyThrd");
     WHERE_I_AM;
-    WHERE_I_AM_TH_STR("pycall+", pthread_self(), py_callable, "PyThrd");
+    WHERE_I_AM_TH_STR2("pycall+", pthread_self(), py_callable, "PyThrd");
     py_obj = PyObject_CallObject( py_callable, py_args );
-    WHERE_I_AM_TH_STR("pycall-", pthread_self(), py_callable, "PyThrd");
+    WHERE_I_AM_TH_STR2("pycall-", pthread_self(), py_callable, "PyThrd");
     Py_DECREF(py_callable);
     Py_XDECREF(py_args);
     WHERE_I_AM;
@@ -4154,24 +4166,31 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
         Py_DECREF(py_obj);
     }
     WHERE_I_AM;
-    WHERE_I_AM_TH_STR("gilthrd-", pthread_self(), &py_object->barrier, "PyThrd");
+    WHERE_I_AM_TH_STR2("gilthrd-", pthread_self(), &py_object->barrier, "PyThrd");
     PyEval_ReleaseThread(py_thread);
 
     // Save the thread object because we're about to deallocate where it lives.
     barrier_thread_object = barrier_thread_data->barrier_thread_object;
     WHERE_I_AM;
-    WHERE_I_AM_TH_STR("thread-", pthread_self(), barrier_thread, "PyThrd");
+    WHERE_I_AM_TH_STR2("thread-", pthread_self(), barrier_thread, "PyThrd");
     sl_pthread_barrier_thread_delete( &py_object->barrier, barrier_thread );
     WHERE_I_AM;
 
     WHERE_I_AM;
     PyEval_AcquireLock();
+    WHERE_I_AM_TH_STR2("ref-", pthread_self(), barrier_thread_object, "PyThrd");
     Py_DECREF(barrier_thread_object);
     Py_DECREF(py_object);
     PyThreadState_Clear(py_thread);
     PyThreadState_Delete(py_thread);
     PyEval_ReleaseLock();
     WHERE_I_AM;
+
+    // Free the start data
+    WHERE_I_AM_TH_STR2("obj-", pthread_self(), py_start_data, "PyStDD");
+    pthread_mutex_destroy( &py_start_data->thread_sync_mutex );
+    pthread_cond_destroy(  &py_start_data->thread_sync_cond  );
+    free(py_start_data);
 
     WHERE_I_AM;
     pthread_exit(NULL);
