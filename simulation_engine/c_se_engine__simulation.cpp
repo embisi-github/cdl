@@ -410,7 +410,7 @@ static t_sl_error_level ef_method_eval_input_value( t_sl_exec_file_cmd_cb *cmd_c
     WHERE_I_AM;
     input = (t_sim_ef_lib_input *)(object_desc->handle);
 
-    fprintf(stderr,"%5d%20s:%lld\n",0,input->name, input->value);
+    //fprintf(stderr,"%5d%20s:%lld\n",0,input->name, input->value);
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, input->value))
         return error_level_fatal;
     return error_level_okay;
@@ -473,7 +473,7 @@ static t_sl_error_level ef_bfm_support_object_message_handler( t_sl_exec_file_ob
         for (i=0; i<lib_data->num_inputs; i++)
         {
             lib_data->inputs[i].value = lib_data->inputs[i].data[0];
-            fprintf(stderr,"%5d:%20s:%lld\n",lib_data->cycle,lib_data->inputs[i].name, lib_data->inputs[i].value);
+            //fprintf(stderr,"%5d:%20s:%lld\n",lib_data->cycle,lib_data->inputs[i].name, lib_data->inputs[i].value);
         }
         for (i=0; i<lib_data->num_outputs; i++)
         {

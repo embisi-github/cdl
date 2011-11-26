@@ -23,6 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <signal.h>
+#include <unistd.h>
 #include "c_sl_error.h"
 #include "sl_debug.h"
 #include "sl_general.h" 
@@ -4101,10 +4103,19 @@ static PyTypeObject py_object_exec_file_object =
 };
 
 /*f sl_exec_file_py_thread
+  This is the function invoked for every new pthread.
+  The py_start_data contains the mutex and condition for the thread start synchronization
+  and the py_callable that should be invoked for the thread
  */
 static void barrier_thread_object_destroy_callback( void *p )
 {
     WHERE_I_AM_TH_STR2("thread#", pthread_self(), p, "PyThDst");
+}
+int pending_signals = 0;
+static void py_thread_signal( int sig )
+{
+    //fprintf(stderr,"Thread %p received signal %d pending %x\n", pthread_self(), sig, pending_signals );
+    pending_signals |= (1<<sig);
 }
 static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
 {
@@ -4115,6 +4126,8 @@ static void sl_exec_file_py_thread( t_py_thread_start_data *py_start_data )
     t_py_thread_data *barrier_thread_data;
     t_py_object *py_object = py_start_data->py_object;
     PyObject *barrier_thread_object;
+
+    signal( 2, py_thread_signal ); // Catch ctrl-C in this thread; it will cause the signal to go to the parent 
 
     WHERE_I_AM;
     //fprintf(stderr,"sl_exec_file_py_thread:%p:%p\n",py_object, py_callable);
@@ -4450,6 +4463,21 @@ static int sl_exec_file_py_despatch( t_sl_exec_file_data *file_data )
         sl_pthread_barrier_wait( &py_object->barrier, py_object->barrier_thread, NULL, (void*)"PyDes2" );
         WHERE_I_AM;
         Py_END_ALLOW_THREADS;
+        if (pending_signals)
+        {
+            sl_exec_file_py_kill_subthreads( file_data );
+            //fprintf(stderr,"Python thread has pending signals %x\n", pending_signals );
+            signal( 2, NULL );
+            int i;
+            for (i=0; i<10; i++)
+            {
+                if (pending_signals&(1<<i))
+                {
+                    pending_signals = pending_signals &~ (1<<i);
+                    kill(getpid(),i);
+                }
+            }
+        }
         return 0;
     }
     else

@@ -689,6 +689,7 @@ class hw(_clockable):
         self._engine = py_engine.py_engine()
         self._hwex = _hwexfile(self)
         self._engine.describe_hw(self._hwex)
+        self.display_all_errors()
 
     def passed(self):
         for i in self._children:
@@ -696,6 +697,14 @@ class hw(_clockable):
                 if not i.passed():
                     return False
         return True
+
+    def display_all_errors( self, max=100 ):
+        for i in range(max):
+            x = self._engine.get_error(i)
+            if x==None:
+                break
+            print "CDL SIM ERROR %2d %s"%(i+1,x)
+        self._engine.reset_errors()
 
     class _waves(object):
         """
@@ -769,7 +778,8 @@ class hw(_clockable):
         """
         Step for n cycles.
         """
-        self._engine.step(cycles)
+        self._engine.step(cycles,1)
+        self.display_all_errors()
 
 def load_mif(filename, length=0, width=64):
     """
