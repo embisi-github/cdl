@@ -93,6 +93,12 @@ c_model_descriptor::c_model_descriptor( t_sl_option_list env_options, c_sl_error
      this->client_handle = client_handle;
      this->statement_enumerator = 0;
 
+     reduce_errors = 0;
+     if (sl_option_get_string( env_options, "be_reduce_errors" ))
+     {
+         reduce_errors = 1;
+     }
+
      /* We can set our global signal values here. It will do.
       */
      for (i=0; i<MD_MAX_SIGNAL_BITS/MD_BITS_PER_UINT64; i++)
@@ -5789,11 +5795,6 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      if (sl_option_get_string( env_options, "be_assertions" ))
      {
          include_assertions = 1;
-     }
-
-     if (sl_option_get_string( env_options, "be_reduce_errors" ))
-     {
-         reduce_errors = 1;
      }
 
      if (sl_option_get_string( env_options, "be_stmt_coverage" ))
