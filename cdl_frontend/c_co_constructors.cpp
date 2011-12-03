@@ -16,6 +16,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "c_type_value_pool.h"
 #include "c_lexical_analyzer.h"
 #include "c_cyclicity.h"
@@ -1344,9 +1345,12 @@ c_co_type_definition::~c_co_type_definition()
 /*a c_co_type_specifier
  */
 /*f c_co_type_specifier::c_co_type_specifier ( symbol )
+  If remapping types, then we have to find 'symbol' and replace it with another
  */
-c_co_type_specifier::c_co_type_specifier( t_symbol *symbol)
+c_co_type_specifier::c_co_type_specifier( c_cyclicity *cyc, t_symbol *symbol)
 {
+    cyc->remap_type_specifier_symbol( symbol );
+
     this->symbol = symbol;
     this->type_specifier = NULL;
     this->first = NULL;
@@ -1386,6 +1390,7 @@ c_co_type_specifier::~c_co_type_specifier()
 /*a c_co_type_struct
  */
 /*f c_co_type_struct::c_co_type_struct ( symbol )
+  If remapping types, then the type_specifier is remapped automatically
  */
 c_co_type_struct::c_co_type_struct( t_symbol *symbol, c_co_type_specifier *type_specifier, t_string *documentation )
 {

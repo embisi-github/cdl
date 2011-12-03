@@ -208,7 +208,7 @@ t_lex_symbol *c_lexical_analyzer::putsym( const char *symname, int length, int s
 
 /*f c_lexical_analyzer::getsym
  */
-t_lex_symbol *c_lexical_analyzer::getsym( char *sym_name, int length )
+t_lex_symbol *c_lexical_analyzer::getsym( const char *sym_name, int length )
 {
      t_lex_symbol *ptr;
      for (ptr = sym_table; ptr; ptr = ptr->next )
@@ -220,6 +220,19 @@ t_lex_symbol *c_lexical_analyzer::getsym( char *sym_name, int length )
           }
      }
      return 0;
+}
+
+/*f c_lexical_analyzer::replacesym
+ */
+void c_lexical_analyzer::replacesym( t_symbol *symbol, const char *new_text, int new_text_length )
+{
+    t_lex_symbol *lex_symbol;
+    lex_symbol = getsym( new_text, new_text_length );
+    if (!lex_symbol)
+    {
+        lex_symbol = putsym( new_text, new_text_length, symbol->lex_symbol->type );
+    }
+    symbol->lex_symbol = lex_symbol;
 }
 
 /*f get_symbol_type
@@ -868,22 +881,44 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
            */
           if (c=='"')
           {
-               file_ofs++;
-               while (file_ofs<file->file_size)
-               {
-                    if (file->file_data[file_ofs]=='\\')
-                    {
-                         file_ofs+=2;
-                    }
-                    else if (file->file_data[file_ofs]=='"')
-                    {
-                         file_ofs++;
-                         break;
-                    }
-                    else
-                    {
-                         file_ofs++;
-                    }
+              int triple_quoted;
+              triple_quoted = 0;
+              if (file_ofs+3<file->file_size)
+              {
+                  if ( (file->file_data[file_ofs+1]=='"') && (file->file_data[file_ofs+2]=='"') )
+                  {
+                      file_ofs+=2;
+                      triple_quoted = 1;
+                  }
+              }
+              file_ofs++;
+              while (file_ofs<file->file_size)
+              {
+                  if (file->file_data[file_ofs]=='\\')
+                  {
+                      file_ofs+=2;
+                  }
+                  else if (file->file_data[file_ofs]=='"')
+                  {
+                      if (triple_quoted)
+                      {
+                          if ( (file->file_data[file_ofs+1]=='"') && (file->file_data[file_ofs+2]=='"') )
+                          {
+                              file_ofs+=3;
+                              break;
+                          }
+                          file_ofs++;
+                      }
+                      else
+                      {
+                          file_ofs++;
+                          break;
+                      }
+                  }
+                  else
+                  {
+                      file_ofs++;
+                  }
                }
 
                string = NULL;
@@ -892,10 +927,16 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
                     string = (t_string *)malloc( sizeof(t_string)+file_ofs-last_file_ofs+1 );
                     string->file_posn = &(file->terminal_entries[ file->number_terminal_entries ]);
                     string->user = NULL;
-//                    strncpy( string->string, file->file_data+last_file_ofs, file_ofs-last_file_ofs );
-//                    string->string[file_ofs-last_file_ofs] = 0;
-                    strncpy( string->string, file->file_data+last_file_ofs+1, file_ofs-last_file_ofs ); // Skip the double quotes - who needs them!
-                    string->string[file_ofs-last_file_ofs-2] = 0;
+                    if (triple_quoted)
+                    {
+                        strncpy( string->string, file->file_data+last_file_ofs+3, file_ofs-last_file_ofs ); // Skip the double quotes - who needs them!
+                        string->string[file_ofs-last_file_ofs-6] = 0;
+                    }
+                    else
+                    {
+                        strncpy( string->string, file->file_data+last_file_ofs+1, file_ofs-last_file_ofs ); // Skip the double quotes - who needs them!
+                        string->string[file_ofs-last_file_ofs-2] = 0;
+                    }
                }
                file_add_terminal_entry( file, store, terminal_entry_type_string, last_file_ofs, file_ofs, (void *)string );
                continue;

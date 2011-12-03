@@ -211,6 +211,7 @@ def parse_cdl( model_object, cdl_options ):
         args = model_object["args"]
 
     base_options = []
+    if (cdl_options["extra_cdlflags"]!=None): base_options.append(cdl_options["extra_cdlflags"])
     if (cdl_options["assertions"]=="on"):  base_options.append("--include-assertions")
     if (cdl_options["coverage"]=="on"):    base_options.append("--include-coverage")
     if (cdl_options["statements"]=="on"):  base_options.append("--include-stmt-coverage")
@@ -231,6 +232,9 @@ def parse_cdl( model_object, cdl_options ):
         if o=="rit":
             options.append("--remap-instance-type")
             options.append(v)
+        if o=="rmt":
+            options.append("--type-remap")
+            options.append(v)
         if o=="inc":
             options.append("--include-dir")
             options.append("${SRC_ROOT}/"+v)
@@ -246,7 +250,7 @@ def parse_cdl( model_object, cdl_options ):
     models["hash"][model_name] = object
 
 #f parse_models
-def parse_models( object_list ):
+def parse_models( object_list, extra_cdlflags ):
     for selection in objs_of_type(object_list,["c_model", "c_src"]):
         parse_c_model( selection )
 
@@ -259,7 +263,8 @@ def parse_models( object_list ):
     cdl_options = { "coverage":"off",
                     "assertions":"off",
                     "multithread":"off",
-                    "statements":"off" }
+                    "statements":"off",
+                    "extra_cdlflags":extra_cdlflags }
     for selection in objs_of_type(object_list,["cdl", "cdl_options"]):
         if selection["type"]=="cdl_options":
             parse_cdl_option( selection, cdl_options )
@@ -1053,8 +1058,9 @@ The program creates makefiles for building simulations and emulations
 args={"model_list":"please specify which file to use as the model_list",
       "sim_makefile":None,
       "xilinx_makefile":None,
+      "extra_cdlflags":None,
     }
-arg_options = ["model_list", "sim_makefile", "xilinx_makefile"] # List of all options
+arg_options = ["model_list", "sim_makefile", "xilinx_makefile", "extra_cdlflags"] # List of all options
 arg_shoptions = {"f":"model_list", "m":"sim_makefile", "x":"xilinx_makefile" }
 
 getopt_options = []
@@ -1085,6 +1091,7 @@ for opt,value in optlist:
 model_list_filename = args["model_list"]
 simulation_make_filename =  args["sim_makefile"]
 xilinx_make_filename =  args["xilinx_makefile"]
+extra_cdlflags = args["extra_cdlflags"]
 
 #a Main
 model_list = open( model_list_filename )
@@ -1095,7 +1102,7 @@ if not model_list:
 object_list = read_objs( model_list )
 model_list.close()
 
-parse_models( object_list )
+parse_models( object_list, extra_cdlflags )
 #parse_xilinx_descs( $objs )
 #
 #build_xilinx_hierarchy();

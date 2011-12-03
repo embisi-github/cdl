@@ -31,6 +31,15 @@ typedef struct
     bit[3] b;
 } t_color;
 
+/*t t_color_lg
+ */
+typedef struct
+{
+    bit[8] r;
+    bit[8] g;
+    bit[8] b;
+} t_color_lg;
+
 /*t t_cline
  */
 typedef struct
@@ -39,6 +48,15 @@ typedef struct
     t_point p_b;
     t_color c;
 } t_cline;
+
+/*t t_cline
+ */
+typedef struct
+{
+    t_point p_a;
+    t_point p_b;
+    t_color_lg c;
+} t_cline_lg;
 
 /*a Modules
  */

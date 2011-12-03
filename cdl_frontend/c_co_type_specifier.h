@@ -41,7 +41,7 @@ typedef enum
 class c_co_type_specifier: public c_cyc_object
 {
 public:
-    c_co_type_specifier( t_symbol *symbol);
+    c_co_type_specifier( c_cyclicity *cyc, t_symbol *symbol);
     c_co_type_specifier( c_co_type_specifier *type_specifier, class c_co_expression *first, class c_co_expression *last );
     ~c_co_type_specifier();
 

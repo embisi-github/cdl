@@ -49,6 +49,7 @@ typedef struct string_list
 enum 
 {
      option_constant  = option_cdl_start,
+     option_type_remap,
      option_debug,
      option_include,
      option_help,
@@ -61,6 +62,7 @@ static option options[] = {
      SL_OPTIONS
      BE_OPTIONS
      { "constant", required_argument, NULL, option_constant },
+     { "type-remap", required_argument, NULL, option_type_remap },
      { "debug", required_argument, NULL, option_debug },
      { "include-dir", required_argument, NULL, option_include },
      { "help", no_argument, NULL, option_help },
@@ -134,13 +136,14 @@ extern int main( int argc, char **argv )
 {
      c_cyclicity *cyc;
      int c, so_far;
-     string_list *constant_overrides, *new_str, *include_dirs, *last_include_dir;
+     string_list *constant_overrides, *type_remappings, *new_str, *include_dirs, *last_include_dir;
      t_sl_option_list env_options;
 
      sl_debug_set_level( sl_debug_level_verbose_info );
      sl_debug_enable( 0 );
      env_options = NULL;
      constant_overrides = NULL;
+     type_remappings = NULL;
      include_dirs = NULL;
      last_include_dir = NULL;
 
@@ -175,6 +178,12 @@ extern int main( int argc, char **argv )
                     new_str->string = optarg;
                     constant_overrides = new_str;
                     break;
+               case option_type_remap:
+                    new_str = (string_list *)malloc(sizeof(string_list));
+                    new_str->next = type_remappings;
+                    new_str->string = optarg;
+                    type_remappings = new_str;
+                    break;
                case option_include:
                     new_str = (string_list *)malloc(sizeof(string_list));
                     if (!include_dirs)
@@ -201,6 +210,11 @@ extern int main( int argc, char **argv )
      for (new_str = include_dirs; new_str; new_str=new_str->next)
      {
           cyc->add_include_directory( new_str->string );
+     }
+
+     for (new_str = type_remappings; new_str; new_str=new_str->next)
+     {
+          cyc->override_type_mapping( new_str->string );
      }
 
      cyc->parse_input_file( argv[optind] );

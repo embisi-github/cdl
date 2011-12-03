@@ -27,7 +27,8 @@ cdl tests/simple alu
 cdl tests/simple mux_array
 
 cdl tests/struct copy_bits
-cdl tests/struct nested_structures
+#cdl tests/struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color=t_color_lg
+cdl tests/struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color_lg=t_color
 #cdl tests/struct nested_structures_2 This does not work as arrays of structures are not correctly indexed yet
 cdl tests/struct nested_structures_3
 cdl tests/struct nested_structures_4

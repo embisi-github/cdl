@@ -46,7 +46,8 @@ public:
     int repeat_eof( void ); // Repeat TOKEN_EOF only if at end of file currently - return 1 for success
     t_lex_file_posn get_current_location( void );
     void dump_symbols( int symbol_class );
-    struct t_lex_symbol *getsym( char *sym_name, int length );
+    struct t_lex_symbol *getsym( const char *sym_name, int length );
+    void replacesym( t_symbol *symbol, const char *new_text, int new_text_length );
     int parse_file_text_around( char *buffer, int buffer_size, t_lex_file_posn *lex_file_posn, int include_annotation );
 
 private:

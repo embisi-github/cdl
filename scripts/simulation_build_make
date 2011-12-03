@@ -70,7 +70,7 @@ $(TARGET_DIR)/derived_model_list.o: Makefile models.make
 
 models.make: ${CREATE_MAKE} ${MODEL_LIST}
 	@echo "Creating models.make"
-	$(Q)${CREATE_MAKE} -f ${MODEL_LIST} -m ${MODELS_MAKE}
+	$(Q)${CREATE_MAKE} ${EXTRA_CDLFLAGS} -f ${MODEL_LIST} -m ${MODELS_MAKE}
 
 clean:
 	rm -f ${TARGET_DIR}/*cpp ${TARGET_DIR}/*o ${TARGET_DIR}/*v ${TARGET_DIR}/*map ${TARGET_DIR}/coverage.map ${CMDLINE_PROG} models.make

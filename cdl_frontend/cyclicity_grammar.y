@@ -724,9 +724,9 @@ TOKEN_TEXT_CONSTANT error TOKEN_EOF
 type_specifier:
 TOKEN_USER_ID
     {
-         $$ = new c_co_type_specifier( $1 );
-         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
-         $$->co_set_file_bound( $1->file_posn, $1->file_posn );
+        $$ = new c_co_type_specifier( cyc, $1 );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
+        $$->co_set_file_bound( $1->file_posn, $1->file_posn );
     }
 |
 base_type
@@ -744,21 +744,21 @@ type_specifier '[' expression ']'
 base_type:
 TOKEN_TEXT_BIT
     {
-         $$ = new c_co_type_specifier( $1 );
-         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
-         $$->co_set_file_bound( $1->file_posn, $1->file_posn );
+        $$ = new c_co_type_specifier( cyc, $1 );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
+        $$->co_set_file_bound( $1->file_posn, $1->file_posn );
     }
 |
 TOKEN_TEXT_INTEGER
     {
-         $$ = new c_co_type_specifier( $1 );
+        $$ = new c_co_type_specifier( cyc, $1 );
          $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
          $$->co_set_file_bound( $1->file_posn, $1->file_posn );
     }
 |
 TOKEN_TEXT_STRING
     {
-         $$ = new c_co_type_specifier( $1 );
+        $$ = new c_co_type_specifier( cyc, $1 );
          $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
          $$->co_set_file_bound( $1->file_posn, $1->file_posn );
     }

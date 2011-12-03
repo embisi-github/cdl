@@ -41,7 +41,9 @@ module fsm_cycle( clock io_clock,
                     output implicit_fsm impfsm,
                     output one_hot_fsm ohfsm,
                     output one_cold_fsm ocfsm )
-    "This module runs its outputs through FSM states"
+    """
+    This module runs its outputs through FSM states
+    """
 {
     default clock io_clock;
     default reset io_reset;

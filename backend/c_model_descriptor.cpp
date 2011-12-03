@@ -69,6 +69,10 @@ static const char *indent_string = "    ";
  */
 static const char *output_separator="__";
 
+/*v Hacked options - reduce_errors
+ */
+static int reduce_errors=0;
+
 /*a Constructors and destructors
  */
 /*f c_model_descriptor::c_model_descriptor
@@ -739,7 +743,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
          {
              if (!signal->instance_iter->children[i]->code_block)
              {
-                 error->add_error( module, error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
+                 error->add_error( module, reduce_errors?error_level_warning:error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
                                    error_arg_type_malloc_string, signal->instance_iter->children[i]->output_name,
                                    error_arg_type_none );
              }
@@ -752,7 +756,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
          {
              if (signal->instance_iter->children[i]->number_statements==0)
              {
-                 error->add_error( module, error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
+                 error->add_error( module, reduce_errors?error_level_warning:error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
                                    error_arg_type_malloc_string, signal->instance_iter->children[i]->output_name,
                                    error_arg_type_none );
              }
@@ -765,7 +769,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
          {
              if (!state->instance_iter->children[i]->code_block)
              {
-                 error->add_error( module, error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
+                 error->add_error( module, reduce_errors?error_level_warning:error_level_serious, error_number_be_never_assigned, error_id_be_c_model_descriptor_module_instance_analyze,
                                    error_arg_type_malloc_string, state->instance_iter->children[i]->output_name,
                                    error_arg_type_none );
              }
@@ -5787,6 +5791,11 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
          include_assertions = 1;
      }
 
+     if (sl_option_get_string( env_options, "be_reduce_errors" ))
+     {
+         reduce_errors = 1;
+     }
+
      if (sl_option_get_string( env_options, "be_stmt_coverage" ))
      {
          include_stmt_coverage = 1;
@@ -5953,6 +5962,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_include_assertions:
           *env_options = sl_option_list( *env_options, "be_assertions", "yes" );
+          return 1;
+     case option_be_reduce_errors:
+          *env_options = sl_option_list( *env_options, "be_reduce_errors", "yes" );
           return 1;
      case option_be_multithread:
           *env_options = sl_option_list( *env_options, "be_multithread", "yes" );

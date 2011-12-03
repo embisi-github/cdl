@@ -153,6 +153,15 @@ typedef struct t_co_scope
      t_co_union co[1];
 } t_co_scope;
 
+/*t t_co_string_pair
+ */
+typedef struct t_co_string_pair
+{
+    struct t_co_string_pair *next_string_pair;
+    char *first;
+    char *second;
+} t_co_string_pair;
+
 /*t c_cyc_object
  */
 class c_cyc_object

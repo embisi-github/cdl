@@ -76,7 +76,7 @@ static void debug_output( void *handle, int indent, const char *format, ... )
     if (indent>=0)
     {
         for (i=0; i<indent; i++)
-            fprintf( f, indent_string );
+            fputs( indent_string, f );
     }
     vfprintf( f, format, ap );
     fflush(f);
@@ -102,6 +102,7 @@ c_cyclicity::c_cyclicity( void )
     modules = NULL;
     global_constants = NULL;
     type_definitions = NULL;
+    type_remappings = NULL;
 
     type_value_pool = new c_type_value_pool( this );
 }
@@ -167,6 +168,13 @@ int c_cyclicity::get_file_data( int file_number, int *file_size, int *number_lin
 int c_cyclicity::get_line_data( int file_number, int line_number, char **line_start, int *line_length )
 {
     return lexical_analyzer->get_line_data( file_number, line_number, line_start, line_length );
+}
+
+/*f c_cyclicity::replace_lex_symbol
+ */
+void c_cyclicity::replace_lex_symbol( t_symbol *symbol, const char *text, int text_length )
+{
+    lexical_analyzer->replacesym( symbol, text, text_length );
 }
 
 /*f c_cyclicity::translate_lex_file_posn
@@ -366,6 +374,33 @@ void c_cyclicity::set_token_table( int yyntokens, const char *const *yytname, co
 int c_cyclicity::next_token( void *arg )
 {
     return lexical_analyzer->next_token( arg );
+}
+
+/*f c_cyclicity::override_type_mapping
+  Override a type specifier symbol from one to another
+ */
+void c_cyclicity::override_type_mapping( char *string )
+{
+    SL_DEBUG( sl_debug_level_info, "Overriding type with string '%s'", string );
+    char *eq = strchr(string,'=');
+    if (!eq)
+    {
+        set_parse_error( co_compile_stage_tokenize, "Bad type remap override '%s' (should be generic_type=specific_type)", string );
+    }
+    add_string_pair_to_list( &type_remappings, string, eq-string, eq+1, strlen(eq+1) );
+}
+
+/*f c_cyclicity::remap_type_specifier_symbol
+ */
+void c_cyclicity::remap_type_specifier_symbol( t_symbol *symbol )
+{
+    const char *type_name = lex_string_from_terminal(symbol);
+    int type_name_len = strlen(type_name);
+    const char *specific_type_name = find_string_from_string_pair_list( type_remappings, type_name, type_name_len );
+    if (specific_type_name)
+    {
+        replace_lex_symbol( symbol, specific_type_name, strlen(specific_type_name) );
+    }
 }
 
 /*a Cross-referencing and checking functions
@@ -590,7 +625,7 @@ void c_cyclicity::override_constant_declaration( char *string )
     struct t_lex_symbol *lex_symbol;
     t_type_value type_value;
 
-    SL_DEBUG( sl_debug_level_info, "Overriding with string '%s'", string );
+    SL_DEBUG( sl_debug_level_info, "Overriding constant with string '%s'", string );
     for (i=0; (string[i]!=0) && (string[i]!='='); i++);
     if (string[i])
     {
@@ -1016,6 +1051,41 @@ void c_cyclicity::print_debug_info( void )
 
 /*a Cross referencing support methods
  */
+/*f add_string_pair_to_list
+ */
+void add_string_pair_to_list( t_co_string_pair **list_ptr, const char *first, int first_length, const char *second, int second_length )
+{
+    t_co_string_pair *ptr;
+    ptr = (t_co_string_pair *)malloc(sizeof(t_co_string_pair) + first_length + second_length + 4 );
+    ptr->first  = ((char *)(ptr))+sizeof(t_co_string_pair);
+    ptr->second = ptr->first+first_length+1;
+    strncpy( ptr->first, first, first_length );
+    ptr->first[first_length] = 0;
+    strncpy( ptr->second, second, second_length );
+    ptr->second[second_length] = 0;
+
+    ptr->next_string_pair = *list_ptr;
+    *list_ptr = ptr;
+}
+
+/*f find_string_from_string_pair_list
+ */
+char *find_string_from_string_pair_list( t_co_string_pair *list, const char *first, int first_length )
+{
+    t_co_string_pair *ptr;
+    for (ptr=list; ptr; ptr=ptr->next_string_pair )
+    {
+        if (strncmp(first,ptr->first,first_length)==0)
+        {
+            if (first_length==(int)strlen(ptr->first))
+            {
+                return ptr->second;
+            }
+        }
+    }
+    return NULL;
+}
+
 /*f create_scope
  */
 t_co_scope *create_scope( int number_of_unions )

@@ -48,11 +48,13 @@ public:
     int get_number_of_parse_errors( void );
     int read_parse_error( int error_number, t_lex_file_posn *lex_file_posn, char **buffer );
     int parse_file_text_around( char *buffer, int buffer_size, t_lex_file_posn *lex_file_posn, int include_annotation ); // Generate string with file text around the file posn, possibly annotated with a pointer
+    void remap_type_specifier_symbol( t_symbol *symbol );
 
     int get_number_of_files( void );
     char *get_filename( int file_number );
     int get_file_data( int file_number, int *file_size, int *number_lines, char **file_data );
     int get_line_data( int file_number, int line_number, char **line_start, int *line_length );
+    void replace_lex_symbol( t_symbol *symbol, const char *text, int text_length );
     int translate_lex_file_posn( t_lex_file_posn *lex_file_posn, int *file_number, int *first_line, int *last_line, int *char_offset );
     int translate_lex_file_posn( t_lex_file_posn *lex_file_posn, int *file_number, int *file_position, int end_not_start );
 
@@ -64,6 +66,7 @@ public:
 
 	void index_global_symbols( void );
     void override_constant_declaration( char *string );
+    void override_type_mapping( char *string );
 	void cross_reference_and_evaluate_global_symbols( void );
 	void cross_reference_module_prototypes( void );
 	void cross_reference_modules( void );
@@ -100,6 +103,7 @@ private:
     int number_of_modules;
     int number_of_global_constants;
     t_co_scope *global_constants;
+    t_co_string_pair *type_remappings;
     int number_of_type_definitions;
 
 };
@@ -110,6 +114,8 @@ private:
  */
 extern int find_symbol_in_scope( t_co_union *scope, t_symbol *symbol );
 extern t_co_scope *create_scope( int number_of_unions );
+extern void add_string_pair_to_list( t_co_string_pair **list_ptr, const char *first, int first_length, const char *second, int second_length );
+extern char *find_string_from_string_pair_list( t_co_string_pair *list, const char *first, int first_length );
 
 /*a Wrapper
  */
