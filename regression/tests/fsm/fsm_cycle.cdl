@@ -53,7 +53,6 @@ module fsm_cycle( clock io_clock,
     clocked one_hot_fsm  ohfsm  = one_hot_fsm_idle;
     clocked one_cold_fsm ocfsm  = one_cold_fsm_idle;
 
-    clocked bit fred=0;
     /*b expfsm
      */
     expfsm_code "Run through machine":

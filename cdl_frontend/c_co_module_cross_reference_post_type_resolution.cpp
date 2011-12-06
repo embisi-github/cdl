@@ -389,9 +389,13 @@ void c_co_nested_assignment::cross_reference_within_type_context( class c_cyclic
             printf("c_co_nested_assignment::cross_reference_within_type_context:PROBABLY SHOUD NOT BE HERE\n");
         }
     }
-    if (expression) // If there is an expression then it is just that, and within the type given in the call
+    if (expression && !wildcard) // If there is a non-wildcard expression then it is just that, and within the type given in the call
     {
         expression->cross_reference_within_type_context( cyclicity, types, variables, parent_type, type_context );
+    }
+    if (expression && wildcard) // If a wildcarded expression then cross reference within the type 'integer'
+    {
+        expression->cross_reference_within_type_context( cyclicity, types, variables, type_value_undefined, type_value_integer );
     }
     if (next_in_list)
         ((c_co_nested_assignment *)next_in_list)->cross_reference_within_type_context( cyclicity, types, variables, parent_type, type_context );

@@ -1207,6 +1207,82 @@ struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class
     return statement;
 }
 
+/*f c_co_nested_assignment::build_model_reset_wildcarded
+  The model_lvar_context is the toplevel lvar for the signal
+  model_lvar is the parent for which this entry (and any following ones) are part of
+ */
+void c_co_nested_assignment::build_model_reset_wildcarded( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, struct t_md_lvar *model_lvar_context, t_type_value nested_type_context )
+{
+    int i, size;
+    t_md_lvar *model_lvar_copy;
+    t_md_expression *model_expression;
+
+    CO_DEBUG( sl_debug_level_info, "Build reset wildcarded with lvar %p expression (ought to be non-NULL) %p symbol (ought to be NULL) %p element (ought to be NULL) %d na %p nested_type_context %d", model_lvar, expression, symbol, element, nested_assignment, nested_type_context );
+    if (!expression)
+        return;
+
+    if (cyclicity->type_value_pool->derefs_to_bit_vector( nested_type_context ))
+    {
+        model_expression = expression->build_model( cyclicity, model, module, model_lvar_context );
+        model_expression = model->expression_cast( module, cyclicity->type_value_pool->get_size_of(nested_type_context), 0 /* not signed */, model_expression );
+        model_lvar_copy = model->lvar_duplicate( module, model_lvar );
+        if (model_lvar_copy && model_expression)
+        {
+            model->state_reset( module, model_lvar_copy, model_expression );
+        }
+        CO_DEBUG( sl_debug_level_info, "Built reset with model_lvar %p model_expression %p", model_lvar_copy, model_expression );
+    }
+    else if ( cyclicity->type_value_pool->derefs_to_structure( nested_type_context ) )
+    {
+        int num_elements;
+        t_symbol *element_symbol;
+
+        num_elements = cyclicity->type_value_pool->get_structure_element_number( nested_type_context );
+        for (i=0; i<num_elements; i++)
+        {
+            element_symbol = cyclicity->type_value_pool->get_structure_element_name( nested_type_context, i );
+            model_lvar_copy = model->lvar_duplicate( module, model_lvar );
+            if (model_lvar_copy)
+            {
+                model_lvar_copy = model->lvar_reference( module, model_lvar_copy, lex_string_from_terminal(element_symbol) );
+            }
+            if (model_lvar_copy)
+            {
+                build_model_reset_wildcarded( cyclicity, model, module, model_lvar_copy, model_lvar_context, cyclicity->type_value_pool->get_structure_element_type(nested_type_context, i));
+            }
+            CO_DEBUG( sl_debug_level_info, "Built full type structure reset", 0 );
+        }
+    }
+    else if (cyclicity->type_value_pool->derefs_to_array( nested_type_context ))
+    {
+        CO_DEBUG( sl_debug_level_info, "Building reset array model_lvar %p", model_lvar_copy );
+        // We have an array. The model_lvar, of course, is never an array of structures - the arrayness is pushed to the bottom
+        size = cyclicity->type_value_pool->array_size( nested_type_context );
+        for (i=0; i<size; i++)
+        {
+            model_lvar_copy = model->lvar_duplicate( module, model_lvar );
+            if (model_lvar_copy)
+            {
+                model_lvar_copy = model->lvar_index( module, model_lvar_copy, i );
+            }
+            if (model_lvar_copy)
+            {
+                build_model_reset_wildcarded( cyclicity, model, module, model_lvar_copy, model_lvar_context, cyclicity->type_value_pool->array_type(nested_type_context) );
+            }
+            if (model_lvar_copy)
+            {
+                model->lvar_free( module, model_lvar_copy );
+            }
+            CO_DEBUG( sl_debug_level_info, "Built reset array index %d model_lvar %p", i, model_lvar_copy );
+        }
+    }
+    else // What else could it be?
+    {
+        fprintf(stderr,"c_co_statement::build_model_reset_wildcarded:Should not get this far - unknown type ****************************************\n");
+        exit(4);
+    }
+}
+
 /*f c_co_nested_assignment::build_model_reset
   The model_lvar_context is the toplevel lvar for the signal; if the signal is an array, that will be obvious there.
  */
@@ -1220,7 +1296,12 @@ void c_co_nested_assignment::build_model_reset( class c_cyclicity *cyclicity, cl
     CO_DEBUG( sl_debug_level_info, "Build reset with lvar %p expression %p symbol %p element %d na %p type_context %d", model_lvar, expression, symbol, element, nested_assignment, type_context );
     if (expression)
     {
-        if (cyclicity->type_value_pool->derefs_to_bit_vector( type_context ))
+        if (wildcard)
+        {
+            build_model_reset_wildcarded( cyclicity, model, module, model_lvar, model_lvar_context, type_context );
+            CO_DEBUG( sl_debug_level_info, "Built reset with model_lvar %p model_expression %p", model_lvar_copy, model_expression );
+        }
+        else if (cyclicity->type_value_pool->derefs_to_bit_vector( type_context ))
         {
             model_expression = expression->build_model( cyclicity, model, module, model_lvar_context );
             model_lvar_copy = model->lvar_duplicate( module, model_lvar );
@@ -1229,37 +1310,11 @@ void c_co_nested_assignment::build_model_reset( class c_cyclicity *cyclicity, cl
                 model->state_reset( module, model_lvar_copy, model_expression );
              }
             CO_DEBUG( sl_debug_level_info, "Built reset with model_lvar %p model_expression %p", model_lvar_copy, model_expression );
-            return;
         }
-        else if ( cyclicity->type_value_pool->derefs_to_structure( type_context ) )
+        else
         {
-            int num_elements;
-            t_symbol *element_symbol;
-
-            num_elements = cyclicity->type_value_pool->get_structure_element_number( type_context );
-            for (i=0; i<num_elements; i++)
-            {
-                element_symbol = cyclicity->type_value_pool->get_structure_element_name( type_context, i );
-//                model_expression = expression->build_model_given_element( cyclicity, model, module, model_lvar_context, element_symbol );
-                model_expression = NULL;
-                model_lvar_copy = model->lvar_duplicate( module, model_lvar );
-                if (model_lvar_copy)
-                {
-                    model_lvar_copy = model->lvar_reference( module, model_lvar_copy, lex_string_from_terminal(element_symbol) );
-                }
-                if (model_lvar_copy && model_expression)
-                {
-                    model->state_reset( module, model_lvar_copy, model_expression );
-                }
-            }
-            CO_DEBUG( sl_debug_level_info, "Built full type structure reset", 0 );
-            fprintf(stderr, "Should never get here - reset values MUST be constant\n");
+            fprintf(stderr,"c_co_statement::build_model:Should not get this far - reset expression expected a leaf lvar but got a structure or array - error at cross referencing ****************************************\n");
             exit(4);
-            return;
-        }
-        else if ( cyclicity->type_value_pool->derefs_to_array( type_context ) )
-        {
-            fprintf(stderr,"c_co_statement::build_model:Should not get this far - error at cross referencing ****************************************\n");
         }
     }
     else if (cyclicity->type_value_pool->derefs_to_array( type_context ))
@@ -1285,27 +1340,28 @@ void c_co_nested_assignment::build_model_reset( class c_cyclicity *cyclicity, cl
             CO_DEBUG( sl_debug_level_info, "Built reset array index %d model_lvar %p", i, model_lvar_copy );
         }
     }
-    else // The following assumes we have a structure
+    else if ( cyclicity->type_value_pool->derefs_to_structure( type_context ) )
     {
-        for (cona=this; cona; cona=(c_co_nested_assignment *)cona->next_in_list)
+        if (element>=0)
         {
-            if (cona->element>=0)
+            model_lvar_copy = model->lvar_duplicate( module, model_lvar );
+            if (model_lvar_copy)
             {
-                model_lvar_copy = model->lvar_duplicate( module, model_lvar );
-                if (model_lvar_copy)
-                {
-                    model_lvar_copy = model->lvar_reference( module, model_lvar_copy, lex_string_from_terminal( cona->symbol ) );
-                }
-                if (model_lvar_copy)
-                {
-                    cona->nested_assignment->build_model_reset( cyclicity, model, module, model_lvar_copy, model_lvar_context );
-                }
-                if (model_lvar_copy)
-                {
-                    model->lvar_free( module, model_lvar_copy );
-                }
+                model_lvar_copy = model->lvar_reference( module, model_lvar_copy, lex_string_from_terminal( symbol ) );
+            }
+            if (model_lvar_copy)
+            {
+                nested_assignment->build_model_reset( cyclicity, model, module, model_lvar_copy, model_lvar_context );
+            }
+            if (model_lvar_copy)
+            {
+                model->lvar_free( module, model_lvar_copy );
             }
         }
+    }
+    if (next_in_list)
+    {
+        ((c_co_nested_assignment *)next_in_list)->build_model_reset( cyclicity, model, module, model_lvar, model_lvar_context );
     }
 }
 

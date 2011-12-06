@@ -28,7 +28,7 @@ module hierarchy_struct_test_harness( clock io_clock,
                                       input bit[width] vector_input_1,
                                       output bit[width] vector_output_0,
                                       output bit[width] vector_output_1 )
-"
+"""
 This module is a wrapper around the hierarchy test modules
 
 Here is a table of input vectors to result (x=current value)
@@ -41,7 +41,7 @@ Here is a table of input vectors to result (x=current value)
 5 101 -> 0
 6 110 -> 1
 7 111 -> 0
-"
+"""
 {
     net t_h_struct out;
     comb t_h_struct in;

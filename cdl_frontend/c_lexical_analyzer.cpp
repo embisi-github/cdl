@@ -845,43 +845,18 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
                continue;
           }
 
-          /*b Identifier?
-           */
-          if (isalpha (c))
-          {
-               file_ofs++;
-               while ( (file_ofs<file->file_size) &&
-                       ( (isalnum(file->file_data[file_ofs])) ||
-                         (file->file_data[file_ofs]=='_') ) )
-               {
-                    file_ofs++;
-               }
-               lex_symbol = getsym( file->file_data+last_file_ofs, file_ofs-last_file_ofs );
-               if (!lex_symbol)
-               {
-                    lex_symbol = putsym( file->file_data+last_file_ofs, file_ofs-last_file_ofs, TOKEN_USER_ID );
-               }
-
-               symbol = NULL;
-               if (store)
-               {
-                    symbol = (t_symbol *)malloc(sizeof(t_symbol));
-                    if (symbol)
-                    {
-                         symbol->lex_symbol = lex_symbol;
-                         symbol->file_posn = &(file->terminal_entries[ file->number_terminal_entries ]);
-                         symbol->user = NULL;
-                    }
-               }
-               file_add_terminal_entry( file, store, terminal_entry_type_symbol, last_file_ofs, file_ofs, (void *)symbol );
-               continue;
-          }
-
           /*b Is it a string ?
            */
-          if (c=='"')
+          if ((c=='"') || ((c=='r') && (file->file_data[file_ofs+1]=='"')))
           {
               int triple_quoted;
+              int raw;
+              raw = 0;
+              if (c=='r')
+              {
+                  raw=1;
+                  file_ofs++;
+              }
               triple_quoted = 0;
               if (file_ofs+3<file->file_size)
               {
@@ -894,7 +869,7 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
               file_ofs++;
               while (file_ofs<file->file_size)
               {
-                  if (file->file_data[file_ofs]=='\\')
+                  if ( (!raw) && (file->file_data[file_ofs]=='\\'))
                   {
                       file_ofs+=2;
                   }
@@ -929,16 +904,72 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
                     string->user = NULL;
                     if (triple_quoted)
                     {
-                        strncpy( string->string, file->file_data+last_file_ofs+3, file_ofs-last_file_ofs ); // Skip the double quotes - who needs them!
-                        string->string[file_ofs-last_file_ofs-6] = 0;
+                        strncpy( string->string, file->file_data+last_file_ofs+3+raw, file_ofs-last_file_ofs ); // Skip the double quotes - who needs them!
+                        string->string[file_ofs-last_file_ofs-6-raw] = 0;
                     }
                     else
                     {
-                        strncpy( string->string, file->file_data+last_file_ofs+1, file_ofs-last_file_ofs ); // Skip the double quotes - who needs them!
-                        string->string[file_ofs-last_file_ofs-2] = 0;
+                        strncpy( string->string, file->file_data+last_file_ofs+1+raw, file_ofs-last_file_ofs ); // Skip the double quotes - who needs them!
+                        string->string[file_ofs-last_file_ofs-2-raw] = 0;
+                    }
+                    if (!raw)
+                    {
+                        int esc_i;
+                        esc_i = 0;
+                        while (string->string[esc_i])
+                        {
+                            if (string->string[esc_i]=='\\')
+                            {
+                                memmove( string->string+esc_i, string->string+esc_i+1, strlen(string->string+esc_i) );
+                            }
+                            else
+                            {
+                                esc_i = esc_i+1;
+                            }
+                        }
+                    }
+                    if (!triple_quoted)
+                    {
+                        if (strchr(string->string,'\n'))
+                        {
+                            fprintf(stderr,"Newline within commment - use triple-quotes for multiline comments -- this will error soon (Dec 2011)\n" );
+                            //cyclicity->set_parse_error( file->terminal_entries+file->number_terminal_entries, co_compile_stage_tokenize, "Newline within commment - use triple-quotes for multiline comments" );
+                        }
                     }
                }
                file_add_terminal_entry( file, store, terminal_entry_type_string, last_file_ofs, file_ofs, (void *)string );
+               continue;
+          }
+
+          /*b Identifier?
+           */
+          if (isalpha (c))
+          {
+               file_ofs++;
+               while ( (file_ofs<file->file_size) &&
+                       ( (isalnum(file->file_data[file_ofs])) ||
+                         (file->file_data[file_ofs]=='_') ) )
+               {
+                    file_ofs++;
+               }
+               lex_symbol = getsym( file->file_data+last_file_ofs, file_ofs-last_file_ofs );
+               if (!lex_symbol)
+               {
+                    lex_symbol = putsym( file->file_data+last_file_ofs, file_ofs-last_file_ofs, TOKEN_USER_ID );
+               }
+
+               symbol = NULL;
+               if (store)
+               {
+                    symbol = (t_symbol *)malloc(sizeof(t_symbol));
+                    if (symbol)
+                    {
+                         symbol->lex_symbol = lex_symbol;
+                         symbol->file_posn = &(file->terminal_entries[ file->number_terminal_entries ]);
+                         symbol->user = NULL;
+                    }
+               }
+               file_add_terminal_entry( file, store, terminal_entry_type_symbol, last_file_ofs, file_ofs, (void *)symbol );
                continue;
           }
 

@@ -275,7 +275,15 @@ void c_co_nested_assignment::check_types( class c_cyclicity *cyclicity, t_co_sco
     }
     if (expression)
     {
-        expression->type_check_within_type_context( cyclicity, types, variables, type_context );
+        if (wildcard)
+        {
+            // If a wildcard (i.e. all leaves) then the context is type_value_integer
+            expression->type_check_within_type_context( cyclicity, types, variables, type_value_integer );
+        }
+        else
+        {
+            expression->type_check_within_type_context( cyclicity, types, variables, type_context );
+        }
     }
     if (next_in_list)
         ((c_co_nested_assignment *)next_in_list)->check_types( cyclicity, types, variables );

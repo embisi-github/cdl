@@ -599,20 +599,22 @@ c_co_nested_assignment::c_co_nested_assignment( class c_co_nested_assignment *ne
     this->symbol = NULL;
     this->expression = NULL;
     this->element = -1;
+    this->wildcard = wildcard;
 
     co_init(co_type_nested_assignment,"nested_assignment( nested )");
     co_link(co_compile_stage_parse, (c_cyc_object *)nested_assignment, "nested_assignment" );
 
 }
 
-/*f c_co_nested_assignment::c_co_nested_assignment( expression ) ... value
+/*f c_co_nested_assignment::c_co_nested_assignment( int, expression ) ... value (or * = value)
  */
-c_co_nested_assignment::c_co_nested_assignment( class c_co_expression *expression )
+c_co_nested_assignment::c_co_nested_assignment( int wildcard, class c_co_expression *expression )
 {
     this->nested_assignment = NULL;
     this->symbol = NULL;
     this->expression = expression;
     this->element = -1;
+    this->wildcard = wildcard;
 
     co_init(co_type_nested_assignment,"nested_assignment( value )");
     co_link(co_compile_stage_parse, (c_cyc_object *)expression, "expression" );
@@ -627,6 +629,7 @@ c_co_nested_assignment::c_co_nested_assignment( t_symbol *symbol, class c_co_nes
     this->symbol = symbol;
     this->expression = NULL;
     this->element = -1;
+    this->wildcard = wildcard;
 
     co_init(co_type_nested_assignment,"nested_assignment( assignment )");
     co_link(co_compile_stage_parse, symbol, "symbol" );

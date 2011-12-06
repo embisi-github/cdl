@@ -204,7 +204,7 @@ static t_lex_file_posn *last_ok_file_posn;
 %type <constant_declaration> constant_declaration
 %type <toplevel> toplevel toplevel_list
 
-%type <terminal> ';' '{' '}' ']' '[' '(' ')' ':' '.' '!' '~' '-'
+%type <terminal> ';' '{' '}' ']' '[' '(' ')' ':' '.' '!' '~' '-' '*'
 
 %token_table
 
@@ -1541,8 +1541,8 @@ nested_assignment_bracketed_list
 |
 expression
     {
-         $$ = new c_co_nested_assignment( $1 );
-         $$->co_set_file_bound( $1, $1 );
+        $$ = new c_co_nested_assignment( 0, $1 );
+        $$->co_set_file_bound( $1, $1 );
     }
 ;
 
@@ -1594,6 +1594,46 @@ TOKEN_USER_ID '=' nested_assignment_list
             $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
             if ($3)
                 $$->co_set_file_bound( $1->file_posn, $3 );
+        }
+    }
+|
+'*' '=' expression
+    {
+        $$ = new c_co_nested_assignment( 1, $3 );
+        if ($$)
+        {
+            if ($3)
+                $$->co_set_file_bound( $1, $3 );
+        }
+    }
+|
+'[' ']' '=' nested_assignment_list
+    {
+        $$ = new c_co_nested_assignment( $4 );
+        if ($$)
+        {
+            if ($4)
+                $$->co_set_file_bound( $1, $4 );
+        }
+    }
+|
+'[' TOKEN_USER_ID ']' '=' nested_assignment_list
+    {
+        $$ = new c_co_nested_assignment( $5 );
+        if ($$)
+        {
+            if ($5)
+                $$->co_set_file_bound( $1, $5 );
+        }
+    }
+|
+'[' TOKEN_USER_ID ';' expression ';' expression ';' expression ']' '=' nested_assignment_list
+    {
+        $$ = new c_co_nested_assignment( $11 );
+        if ($$)
+        {
+            if ($11)
+                $$->co_set_file_bound( $1, $11 );
         }
     }
 ;

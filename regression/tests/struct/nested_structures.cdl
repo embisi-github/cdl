@@ -73,10 +73,17 @@ module nested_structures( clock io_clock,
     default clock io_clock;
     default reset io_reset;
 
-    clocked t_cline cline = { c = { r=0, g=0, b=0 }, p_a = {x=0, y=0}, p_b = {x=0, y=0} };
+    clocked t_cline cline = { c = { r=-1, g=0, b=0 }, p_a = {x=0, y=0}, p_b = {x=0, y=0} };
+    clocked t_cline cline_2 = { * = -1, c={r=0} };
+//    clocked t_cline[4] cline_array = { []={ c = { r=0, g=0, b=0 }, p_a = {x=0, y=0}, p_b = {x=0, y=0} } };
+//    clocked t_cline[4] cline_array = { [i]={ c = { r=0, g=0, b=0 }, p_a = {x=0, y=0}, p_b = {x=0, y=0} } };
+//    clocked t_cline[4] cline_array = { [i;1;4;i+1]={ c = { r=0, g=0, b=0 }, p_a = {x=0, y=0}, p_b = {x=0, y=0} } };
+//    clocked t_cline[4] cline_array = { [i;1;4;i+1]={ c = { *=0 }, p_a = {x=i, y=i}, p_b = {x=0, y=0} } };
+//    clocked t_cline[4] cline_array = { [i;1;4;i+1]={ c = { *=0 }, p_a = {x=0, y=1}, p_b = {x=0, y=0} } };
 
     write_cline "Write to the cline":
         {
+            cline_2 <= cline;
             if (vector_input_0[0])
             {
                 cline.c.r <= vector_input_1[3;0];

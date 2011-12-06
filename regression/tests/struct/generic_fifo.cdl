@@ -1,0 +1,89 @@
+/*a Copyright
+  
+  This file 'generic_fifo.cdl' copyright Gavin J Stark 2011
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+
+/*a Types
+ */
+/*t t_fifo_content_struct
+ */
+typedef struct
+{
+    bit[4] x;
+    bit[4] y;
+} t_fifo_content_struct;
+
+/*t t_fifo_content_word
+ */
+typedef bit[32] t_fifo_content_word;
+
+/*t t_fifo_content_hierarchy
+ */
+typedef struct
+{
+    t_fifo_content_word word;
+    t_fifo_content_struct  data;
+    bit valid;
+} t_fifo_content_hierarchy;
+
+/*a Modules
+ */
+/*m generic_fifo
+ */
+module generic_fifo( clock io_clock,
+                     input bit io_reset,
+                     input gt_fifo_content fifo_data_in,
+                     input bit fifo_push,
+                     input bit fifo_pop,
+                     output bit fifo_empty,
+                     output gt_fifo_content fifo_data_out )
+r"""
+Generic FIFO
+
+Build with a remapped gt_fifo_content type
+
+A model_list to build this would be:
+
+cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy  rmt:gt_fifo_content=t_fifo_content_hierarchy  model:generic_fifo_hierarchy
+
+/---\
+|o o|
+| * |
+\___/
+"""
+{
+    default clock io_clock;
+    default reset io_reset;
+
+    clocked gt_fifo_content[8] fifo_data = {* = 0};
+    clocked bit[4] read_ptr=0;
+    clocked bit[4] write_ptr=0;
+
+    fifo_ptrs r"""\/\/ Fifo pointer handling""":
+        {
+            if (fifo_push)
+            {
+                fifo_data[ write_ptr[3;0] ] <= fifo_data_in;
+                write_ptr <= write_ptr + 1;
+            }
+            if (fifo_push)
+            {
+                read_ptr <= read_ptr + 1;
+            }
+            fifo_empty = 0;
+            if (read_ptr==write_ptr)
+            {
+                fifo_empty = 1;
+            }
+            fifo_data_out = fifo_data[ read_ptr[3;0] ];
+        }
+}
