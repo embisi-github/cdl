@@ -33,9 +33,10 @@ cdl tests/struct nested_structures  rmt:t_cline=t_cline_lg rmt:t_color_lg=t_colo
 cdl tests/struct nested_structures_3
 cdl tests/struct nested_structures_4
 
-cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_word       rmt:gt_fifo_content=t_fifo_content_word       model:generic_fifo_word
-cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_struct     rmt:gt_fifo_content=t_fifo_content_struct     model:generic_fifo_struct
-cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy  rmt:gt_fifo_content=t_fifo_content_hierarchy  model:generic_fifo_hierarchy
+cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_word         rmt:gt_fifo_content=t_fifo_content_word         model:generic_fifo_word
+cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_struct       rmt:gt_fifo_content=t_fifo_content_struct       model:generic_fifo_struct
+#cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_deep_struct  rmt:gt_fifo_content=t_fifo_content_deep_struct  model:generic_fifo_deep_struct
+cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy    rmt:gt_fifo_content=t_fifo_content_hierarchy    model:generic_fifo_hierarchy
 
 cdl tests/enum enum_cycle
 

@@ -967,21 +967,24 @@ c_co_sized_int_pair::~c_co_sized_int_pair()
 
 /*a c_co_statement
  */
-/*f c_co_statement::c_co_statement( lvar, nested_assignment, clocked )
+/*f c_co_statement::c_co_statement( lvar, nested_assignment, clocked_or_wired_or )
  */
-c_co_statement::c_co_statement( class c_co_lvar *lvar, class c_co_nested_assignment *nested_assignment, int clocked, t_string *documentation )
+c_co_statement::c_co_statement( class c_co_lvar *lvar, class c_co_nested_assignment *nested_assignment, int clocked_or_wired_or, t_string *documentation )
 {
     this->parent = NULL;
     this->toplevel = NULL;
     this->code_label = NULL;
     this->statement_type = statement_type_assignment;
     this->type_data.assign_stmt.lvar = lvar;
-    this->type_data.assign_stmt.clocked = clocked;
+    this->type_data.assign_stmt.clocked  = (clocked_or_wired_or==1);
+    this->type_data.assign_stmt.wired_or = (clocked_or_wired_or==2);
     this->type_data.assign_stmt.nested_assignment = nested_assignment;
     this->type_data.assign_stmt.documentation = documentation;
 
-    if (clocked)
+    if (clocked_or_wired_or==1)
         co_init(co_type_statement, "statement( clocked assignment )");
+    else if (clocked_or_wired_or==2)
+        co_init(co_type_statement, "statement( comb wired-or assignment )");
     else
         co_init(co_type_statement, "statement( comb assignment )");
     co_link(co_compile_stage_parse, (c_cyc_object*)lvar, "lvar" );

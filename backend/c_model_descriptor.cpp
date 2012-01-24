@@ -2599,6 +2599,7 @@ t_md_port_lvar *c_model_descriptor::port_lvar_reference( t_md_module *module, t_
 
      /*b Return result
       */
+//     fprintf(stderr,"port_lvar_reference %s %p\n",name,port_lvar);
      return port_lvar;
 }
 
@@ -2617,12 +2618,14 @@ t_md_type_instance *c_model_descriptor::port_lvar_resolve( t_md_port_lvar *port_
     if (port_lvar->top_ref) // Go to the top of the chain if not there already
         port_lvar=port_lvar->top_ref;
 
+    //fprintf(stderr,"Find port %s\n",port_lvar->name);
     signal = signal_find( port_lvar->name, signals );
     if (!signal)
     {
         fprintf(stderr, "Failed to resolve port_lvar %s\n", port_lvar->name );
         return NULL;
     }
+    //fprintf(stderr,"Found port %s\n",port_lvar->name);
     // signal->type should be md_signal_type_input or md_signal_type_output, md_signal_type_clock
 
     instance = signal->instance;
@@ -3856,6 +3859,8 @@ t_md_expression *c_model_descriptor::expression( t_md_module *module, t_md_expr_
      case md_expr_fn_or:
      case md_expr_fn_bic:
      case md_expr_fn_xor:
+     case md_expr_fn_lsl:
+     case md_expr_fn_lsr:
           width = args_0->width;
           argc = 2;
           break;
@@ -3999,6 +4004,8 @@ void c_model_descriptor::push_possible_indices_to_subscripts( t_md_expression *e
           case md_expr_fn_or:
           case md_expr_fn_bic:
           case md_expr_fn_xor:
+          case md_expr_fn_lsl:
+          case md_expr_fn_lsr:
               expr->width = expr->data.fn.args[0]->width;
               break;
           case md_expr_fn_logical_not:
@@ -4291,7 +4298,7 @@ t_md_statement *c_model_descriptor::statement_create_state_assignment( t_md_modu
 
 /*f c_model_descriptor::statement_create_combinatorial_assignment
  */
-t_md_statement *c_model_descriptor::statement_create_combinatorial_assignment( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_lvar *lvar, t_md_expression *expr, const char *documentation )
+t_md_statement *c_model_descriptor::statement_create_combinatorial_assignment( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, int wired_or, t_md_lvar *lvar, t_md_expression *expr, const char *documentation )
 {
      t_md_statement *statement;
      t_md_client_reference client_ref;
@@ -4313,6 +4320,7 @@ t_md_statement *c_model_descriptor::statement_create_combinatorial_assignment( t
 
      statement = statement_create( module, &client_ref, md_statement_type_comb_assign );
 
+     statement->data.comb_assign.wired_or = wired_or;
      statement->data.comb_assign.lvar = lvar;
      statement->data.comb_assign.expr = expr;
      statement->data.comb_assign.documentation = documentation ? sl_str_alloc_copy(documentation) : NULL;
@@ -4549,7 +4557,7 @@ int c_model_descriptor::statement_analyze( t_md_code_block *code_block, t_md_usa
         // If in RTL scope, then expression must not contain assert or cover types
         lvar = statement->data.comb_assign.lvar;
         expr = statement->data.comb_assign.expr;
-        SL_DEBUG( sl_debug_level_info, "Comb assignment statement lvar %p (%p) expr %p code block %p", lvar, lvar->instance, expr, code_block );
+        SL_DEBUG( sl_debug_level_info, "Comb assignment statement wired_or %d lvar %p (%p) expr %p code block %p", statement->data.comb_assign.wired_or, lvar, lvar->instance, expr, code_block );
         if (lvar->instance->code_block && (lvar->instance->code_block!=code_block))
         {
             error->add_error( NULL, error_level_serious, error_number_be_assignment_in_many_code_blocks, error_id_be_c_model_descriptor_statement_analyze,
@@ -4725,6 +4733,16 @@ void c_model_descriptor::statement_analyze_liveness( t_md_code_block *code_block
     {
         t_md_lvar *lvar;
         lvar = statement->data.comb_assign.lvar;
+        if (statement->data.comb_assign.wired_or)
+        {
+            if ( !(reference_set_includes( &parent_makes_live, lvar->instance) || reference_set_includes( makes_live, lvar->instance)) )
+            {
+                error->add_error( NULL, error_level_serious, error_number_be_used_while_not_live, error_id_be_c_model_descriptor_statement_analyze,
+                                  error_arg_type_malloc_string, lvar->instance->output_name,
+                                  error_arg_type_malloc_string, code_block->name, 
+                                  error_arg_type_none );
+            }
+        }
         // Check expression (or index) for liveness - it may only use items that are live (already assigned in the code block, or assigned in a different code block)
         expression_check_liveness( code_block->module, code_block, statement->data.comb_assign.expr, parent_makes_live, *makes_live );
         if (lvar->subscript_start.type==md_lvar_data_type_expression)
@@ -4999,6 +5017,10 @@ int c_model_descriptor::code_block_analyze( t_md_code_block *code_block, t_md_us
      */
     statement_analyze( code_block, usage_type, code_block->first_statement, NULL );
 
+    /*b Add in compile-time constant checks for array sizing
+     */
+    //fprintf(stderr,"%s:%d:******************** Add in compile-time constant checks\n",__func__,__LINE__ );
+
     /*b Analyze the liveness of every comb assigned within the block, to ensure there are no transparent latches, and nothing is used before it is defined
      */
     {
@@ -5163,6 +5185,8 @@ int c_model_descriptor::module_instance_add_clock( t_md_module *module, const ch
      t_md_module_instance *module_instance;
      t_md_module_instance_clock_port *clock_port;
 
+//     fprintf(stderr,"module_instance_add_clock %s %s\n",port_name, clock_name);
+
      module_instance = module_instance_find( instance_name, module->module_instances );
      if (!module_instance)
      {
@@ -5193,6 +5217,8 @@ int c_model_descriptor::module_instance_add_input( t_md_module *module, const ch
      t_md_module_instance *module_instance;
      t_md_module_instance_input_port *input_port;
 
+//     fprintf(stderr,"module_instance_add_input %p\n",port_lvar);
+
      module_instance = module_instance_find( instance_name, module->module_instances );
      if (!module_instance)
      {
@@ -5221,6 +5247,8 @@ int c_model_descriptor::module_instance_add_output( t_md_module *module, const c
 {
      t_md_module_instance *module_instance;
      t_md_module_instance_output_port *output_port;
+
+//     fprintf(stderr,"module_instance_add_output %p\n",port_lvar);
 
      module_instance = module_instance_find( instance_name, module->module_instances );
      if (!module_instance)
@@ -5253,65 +5281,70 @@ int c_model_descriptor::module_instance_cross_reference( t_md_module *module, t_
     t_md_module_instance_clock_port *clock_port;
     t_md_module_instance_input_port *input_port;
     t_md_module_instance_output_port *output_port;
-    int result;
 
-    result = 1;
     module_definition=module_find(module_instance->type);
     if (!module_definition)
     {
         fprintf(stderr, "Unknown module type '%s' in instantiation inside module '%s'\n", module_instance->type, module->name );
-        result = 0;
+        return 0;
     }
-    else
+    module_instance->module_definition=module_definition;
+    for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
     {
-        module_instance->module_definition=module_definition;
-        for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
+        clock_port->module_port_signal = signal_find( clock_port->port_name, module_definition->clocks );
+        clock_port->local_clock_signal = signal_find( clock_port->clock_name, module->clocks );
+        if (!clock_port->module_port_signal)
         {
-            clock_port->module_port_signal = signal_find( clock_port->port_name, module_definition->clocks );
-            clock_port->local_clock_signal = signal_find( clock_port->clock_name, module->clocks );
-            if (!clock_port->module_port_signal)
-            {
-                error->add_error( module, error_level_fatal, error_number_be_unresolved_clock_port_reference, error_id_be_c_model_descriptor_module_instance_analyze,
-                                  error_arg_type_malloc_string, clock_port->port_name,
-                                  error_arg_type_malloc_string, module_instance->name,
-                                  error_arg_type_malloc_string, module_instance->type,
-                                  error_arg_type_none );
-            }
-            if (!clock_port->local_clock_signal)
-            {
-                error->add_error( module, error_level_fatal, error_number_be_unresolved_clock_portref_reference, error_id_be_c_model_descriptor_module_instance_analyze,
-                                  error_arg_type_malloc_string, clock_port->clock_name,
-                                  error_arg_type_malloc_string, module_instance->name,
-                                  error_arg_type_malloc_string, module_instance->type,
-                                  error_arg_type_none );
-            }
+            error->add_error( module, error_level_fatal, error_number_be_unresolved_clock_port_reference, error_id_be_c_model_descriptor_module_instance_analyze,
+                              error_arg_type_malloc_string, clock_port->port_name,
+                              error_arg_type_malloc_string, module_instance->name,
+                              error_arg_type_malloc_string, module_instance->type,
+                              error_arg_type_none );
         }
-        for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
+        if (!clock_port->local_clock_signal)
         {
-            input_port->module_port_instance = port_lvar_resolve( input_port->port_lvar, module_definition->inputs );
-            if (!input_port->module_port_instance)
-            {
-                error->add_error( module, error_level_fatal, error_number_be_unresolved_input_port_reference, error_id_be_c_model_descriptor_module_instance_analyze,
-                                  error_arg_type_malloc_string, input_port->port_lvar->name,
-                                  error_arg_type_malloc_string, module_instance->name,
-                                  error_arg_type_malloc_string, module_instance->type,
-                                  error_arg_type_none );
-            }
-        }
-        for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
-        {
-            output_port->module_port_instance = port_lvar_resolve( output_port->port_lvar, module_definition->outputs );
-            if (!output_port->module_port_instance)
-            {
-                error->add_error( module, error_level_fatal, error_number_be_unresolved_output_port_reference, error_id_be_c_model_descriptor_module_instance_analyze,
-                                  error_arg_type_malloc_string, output_port->port_lvar->name,
-                                  error_arg_type_malloc_string, module_instance->name,
-                                  error_arg_type_malloc_string, module_instance->type,
-                                  error_arg_type_none );
-            }
+            error->add_error( module, error_level_fatal, error_number_be_unresolved_clock_portref_reference, error_id_be_c_model_descriptor_module_instance_analyze,
+                              error_arg_type_malloc_string, clock_port->clock_name,
+                              error_arg_type_malloc_string, module_instance->name,
+                              error_arg_type_malloc_string, module_instance->type,
+                              error_arg_type_none );
         }
     }
-    return result;
+    for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
+    {
+        //fprintf(stderr,"Input port %s\n", input_port->port_lvar->name);
+        input_port->module_port_instance = port_lvar_resolve( input_port->port_lvar, module_definition->inputs );
+        if (!input_port->module_port_instance)
+        {
+            error->add_error( module, error_level_fatal, error_number_be_unresolved_input_port_reference, error_id_be_c_model_descriptor_module_instance_analyze,
+                              error_arg_type_malloc_string, input_port->port_lvar->name,
+                              error_arg_type_malloc_string, module_instance->name,
+                              error_arg_type_malloc_string, module_instance->type,
+                              error_arg_type_none );
+        }
+    }
+    for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
+    {
+        output_port->module_port_instance = port_lvar_resolve( output_port->port_lvar, module_definition->outputs );
+        if (!output_port->module_port_instance)
+        {
+            error->add_error( module, error_level_fatal, error_number_be_unresolved_output_port_reference, error_id_be_c_model_descriptor_module_instance_analyze,
+                              error_arg_type_malloc_string, output_port->port_lvar->name,
+                              error_arg_type_malloc_string, module_instance->name,
+                              error_arg_type_malloc_string, module_instance->type,
+                              error_arg_type_none );
+        }
+    }
+
+    if (0)
+    {
+        t_md_signal *s;
+        for (s=module_definition->clocks; s; s=s->next_in_list)
+        {
+            // All clocks have to be wired - so find 's->name' in the clock_port->
+        }
+    }
+    return 1;
 }
 
 /*f c_model_descriptor::module_instance_analyze

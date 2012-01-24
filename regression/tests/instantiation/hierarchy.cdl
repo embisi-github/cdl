@@ -43,6 +43,7 @@ module hierarchy( clock int_clock,
             hierarchy_and and3( in_a<=!clear, in_b<=next_value_if_not_cleared, out=>next_value );
             hierarchy_reg reg1( int_clock<-int_clock, int_reset<=int_reset, in<=next_value, out=>value );
             hierarchy_reg reg2( int_clock<-int_clock, int_reset<=int_reset, in<=value, out=>last_value );
+//            hierarchy_reg reg3( int_clock<=int_clock, int_reset<=int_reset, in<=value, out=>last_value );
         }
     main_code "Main code":
         {

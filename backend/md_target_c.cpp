@@ -162,6 +162,8 @@ static void output_defines( c_model_descriptor *model, t_md_output_fn output, vo
     output( handle, 0, "#define DEBUG_PROBE {}\n");
     output( handle, 0, "#define ASSIGN_TO_BIT(vector,size,bit,value) se_cmodel_assist_assign_to_bit(vector,size,bit,value)\n" ) ;
     output( handle, 0, "#define ASSIGN_TO_BIT_RANGE(vector,size,bit,length,value) se_cmodel_assist_assign_to_bit_range(vector,size,bit,length,value)\n" ) ;
+    output( handle, 0, "#define WIRE_OR_TO_BIT(vector,size,bit,value) se_cmodel_assist_or_to_bit(vector,size,bit,value)\n" ) ;
+    output( handle, 0, "#define WIRE_OR_TO_BIT_RANGE(vector,size,bit,length,value) se_cmodel_assist_or_to_bit_range(vector,size,bit,length,value)\n" ) ;
     output( handle, 0, "#define DISPLAY_STRING(error_number,string) { \\\n" );
     output( handle, 1, "engine->message->add_error( NULL, error_level_info, error_number, error_id_sl_exec_file_allocate_and_read_exec_file, \\\n");
     output( handle, 2, "error_arg_type_integer, engine->cycle(),\\\n" );
@@ -1189,7 +1191,14 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 int is_comb = input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially;
                 output( handle, 1, "{ int comb, size;\n");
                 output( handle, 2, "engine->submodule_input_type( instance_%s.handle, \"%s\", &comb, &size );\n", module_instance->name, input_port->module_port_instance->output_name );
-                output( handle, 2, "if (comb !=%d){ fprintf(stderr,\"Comb of input %s.%s.%s is %%d expected %d\\n\", comb); }\n", is_comb, module->output_name, module_instance->name, input_port->module_port_instance->output_name, is_comb );
+                if (is_comb)
+                {
+                    output( handle, 2, "if (!comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule input %s.%s.%s is used for flops (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the input was used combaintorially (with 'timing comb input').\\n\"); }\n", module->output_name, module_instance->name, input_port->module_port_instance->output_name );
+                }
+                else
+                {
+                    output( handle, 2, "if (comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule input %s.%s.%s is used combinatorially in that submodule to produce an output, but timing file used by the calling module indicated that it was not. If the input is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\"); }\n", module->output_name, module_instance->name, input_port->module_port_instance->output_name );
+                }
                 output( handle, 1, "}\n");
                 output( handle, 1, "engine->submodule_drive_input( instance_%s.handle, \"%s\", &instance_%s.inputs.%s, %d );\n",
                         module_instance->name, input_port->module_port_instance->output_name,
@@ -1201,7 +1210,14 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 int used_comb = output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially;
                 output( handle, 1, "{ int comb, size;\n");
                 output( handle, 2, "engine->submodule_output_type( instance_%s.handle, \"%s\", &comb, &size );\n", module_instance->name, output_port->module_port_instance->output_name );
-                output( handle, 2, "if (comb !=%d){ fprintf(stderr,\"Comb of output %s.%s.%s is %%d expected %d\\n\", comb); }\n", used_comb, module->output_name, module_instance->name, output_port->module_port_instance->output_name, used_comb );
+                if (used_comb)
+                {
+                    output( handle, 2, "if (!comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule output %s.%s.%s is generated only off a clock (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the output was generated combaintorially from an input (with 'timing comb output').\\n\"); }\n", module->output_name, module_instance->name, output_port->module_port_instance->output_name );
+                }
+                else
+                {
+                    output( handle, 2, "if (comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule output %s.%s.%s is generated combinatorially in that submodule from an input, but timing file used by the calling module indicated that it was not. If the output is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\"); }\n", module->output_name, module_instance->name, output_port->module_port_instance->output_name );
+                }
                 output( handle, 1, "}\n");
                 if (output_port->lvar->instance->reference.data.signal->data.net.output_ref) // If the submodule directly drives an output wholly
                 {
@@ -1501,11 +1517,20 @@ static void output_simulation_methods_expression( c_model_descriptor *model, t_m
         case md_expr_fn_add:
         case md_expr_fn_sub:
         case md_expr_fn_mult:
+        case md_expr_fn_lsl:
+        case md_expr_fn_lsr:
             output( handle, -1, "((" );
             output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[0], main_indent, sub_indent+1 );
-            if (expr->data.fn.fn==md_expr_fn_sub)       output( handle, -1, ")-(" );
-            else if (expr->data.fn.fn==md_expr_fn_mult) output( handle, -1, ")*(" );
-            else                                        output( handle, -1, ")+(" );
+            if (expr->data.fn.fn==md_expr_fn_sub)
+                output( handle, -1, ")-(" );
+            else if (expr->data.fn.fn==md_expr_fn_mult)
+                output( handle, -1, ")*(" );
+            else if (expr->data.fn.fn==md_expr_fn_lsl)
+                output( handle, -1, ")<<(" );
+            else if (expr->data.fn.fn==md_expr_fn_lsr)
+                output( handle, -1, ")>>(" );
+            else
+                output( handle, -1, ")+(" );
             output_simulation_methods_expression( model, output, handle, code_block, expr->data.fn.args[1], main_indent, sub_indent+1 );
             output( handle, -1, "))&%s", bit_mask[expr->width] );
             break;
@@ -1747,7 +1772,7 @@ static void output_simulation_methods_port_net_assignment( c_model_descriptor *m
 
 /*f output_simulation_methods_assignment
  */
-static void output_simulation_methods_assignment( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, t_md_expression *expr )
+static void output_simulation_methods_assignment( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, int indent, t_md_lvar *lvar, int clocked, int wired_or, t_md_expression *expr )
 {
     switch (lvar->instance->type)
     {
@@ -1760,20 +1785,29 @@ static void output_simulation_methods_assignment( c_model_descriptor *model, t_m
             case md_lvar_data_type_none:
                 output( handle, indent+1, "" );
                 output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                output( handle, -1, " = " );
+                if (wired_or) // Only legal way back up for combinatorials
+                    output( handle, -1, " |= " );
+                else
+                    output( handle, -1, " = " );
                 output_simulation_methods_expression( model, output, handle, code_block, expr, indent+1, 0 );
                 output( handle, -1, ";\n" );
                 break;
             case md_lvar_data_type_integer:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT( &( " );
+                    if (wired_or)
+                        output( handle, indent+1, "WIRE_OR_TO_BIT( &( " );
+                    else
+                        output( handle, indent+1, "ASSIGN_TO_BIT( &( " );
                     output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
                     output( handle, -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
                 }
                 else
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
+                    if (wired_or)
+                        output( handle, indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
+                    else
+                        output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
                     output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
                     output( handle, -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
                 }
@@ -1783,7 +1817,10 @@ static void output_simulation_methods_assignment( c_model_descriptor *model, t_m
             case md_lvar_data_type_expression:
                 if (lvar->subscript_length.type == md_lvar_data_type_none)
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT( &(");
+                    if (wired_or)
+                        output( handle, indent+1, "WIRE_OR_TO_BIT( &( " );
+                    else
+                        output( handle, indent+1, "ASSIGN_TO_BIT( &(");
                     output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
                     output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
                     output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1, 0 );
@@ -1791,7 +1828,10 @@ static void output_simulation_methods_assignment( c_model_descriptor *model, t_m
                 }
                 else
                 {
-                    output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
+                    if (wired_or)
+                        output( handle, indent+1, "WIRE_OR_TO_BIT_RANGE( &( " );
+                    else
+                        output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
                     output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
                     output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
                     output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1, 0 );
@@ -1991,7 +2031,7 @@ static void output_simulation_methods_statement_clocked( c_model_descriptor *mod
     {
     case md_statement_type_state_assign:
     {
-        output_simulation_methods_assignment( model, output, handle, code_block, indent, statement->data.state_assign.lvar, 1, statement->data.state_assign.expr );
+        output_simulation_methods_assignment( model, output, handle, code_block, indent, statement->data.state_assign.lvar, 1, 0, statement->data.state_assign.expr );
         break;
     }
     case md_statement_type_comb_assign:
@@ -2042,7 +2082,7 @@ static void output_simulation_methods_statement_combinatorial( c_model_descripto
      case md_statement_type_state_assign:
           break;
      case md_statement_type_comb_assign:
-        output_simulation_methods_assignment( model, output, handle, code_block, indent, statement->data.comb_assign.lvar, 0, statement->data.comb_assign.expr );
+         output_simulation_methods_assignment( model, output, handle, code_block, indent, statement->data.comb_assign.lvar, 0, statement->data.comb_assign.wired_or, statement->data.comb_assign.expr );
         break;
      case md_statement_type_if_else:
           output_simulation_methods_statement_if_else( model, output, handle, code_block, statement, indent, NULL, -1, instance );

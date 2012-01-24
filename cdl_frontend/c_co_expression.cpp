@@ -65,7 +65,7 @@ typedef enum
  */
 typedef int (*t_expression_fn)( c_cyclicity *cyclicity, c_co_expression *expression, t_expr_subtype expr_subtype, t_type_value first, t_type_value second, t_type_value third );
 
-/*t t_expression_fn_list_entry
+/*t t_expression_fn_list_subentry
  */
 typedef struct t_expression_fn_list_subentry
 {
@@ -300,15 +300,15 @@ static t_expression_fn_list_entry expression_fn_list[] =
                                                { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 },
                                                { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 },
                                                { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 } } },
-    /*b Shift operations - integers only
+    /*b Shift operations - integers only originally, now also bit_vector SHIFT integer
      */
-    { expr_subtype_logical_shift_left,  -1, { { {expression_arg_type_integer,    expression_arg_type_match0,   expression_arg_type_none}, integer_op, expression_arg_type_match0 },
-                                              { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 },
-                                              { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 },
+    { expr_subtype_logical_shift_left,  0, { { {expression_arg_type_bit_vector, expression_arg_type_integer,  expression_arg_type_none}, vector_op,      expression_arg_type_match0 },
+                                              { {expression_arg_type_bit_vector, expression_arg_type_bit_vector,  expression_arg_type_none}, vector_op,      expression_arg_type_match0 },
+                                              { {expression_arg_type_integer,    expression_arg_type_integer,   expression_arg_type_none}, integer_op, expression_arg_type_match0 },
                                               { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 } } },
-    { expr_subtype_logical_shift_right, -1, { { {expression_arg_type_integer,    expression_arg_type_match0, expression_arg_type_none}, integer_op, expression_arg_type_match0 },
-                                              { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 },
-                                              { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 },
+    { expr_subtype_logical_shift_right, 0, { { {expression_arg_type_bit_vector, expression_arg_type_bit_vector,  expression_arg_type_none}, vector_op,      expression_arg_type_match0 },
+                                              { {expression_arg_type_bit_vector, expression_arg_type_integer,  expression_arg_type_none}, vector_op,      expression_arg_type_match0 },
+                                              { {expression_arg_type_integer,    expression_arg_type_match0, expression_arg_type_none}, integer_op, expression_arg_type_match0 },
                                               { {expression_arg_type_none,       expression_arg_type_none,   expression_arg_type_none}, NULL,      expression_arg_type_match0 } } },
 
     /*b special operations on stuff
@@ -440,6 +440,13 @@ static int vector_op( c_cyclicity *cyclicity, c_co_expression *expression, t_exp
     case expr_subtype_compare_ne:
         expression->type_value = cyclicity->type_value_pool->new_type_value_bool( a_data[0]!=b_data[0] );
         size_mismatch = (a_size!=b_size);
+        break;
+    case expr_subtype_logical_shift_left:
+        expression->type_value = cyclicity->type_value_pool->new_type_value_bit_array( a_size, (a_data[0]<<b_data[0])&bit_mask[a_size+1], 0ULL );
+        // NOTE that the shift returns the size of the first, independent of the size of the second - hence not size_mismatch = (a_size!=b_size);
+        break;
+    case expr_subtype_logical_shift_right:
+        expression->type_value = cyclicity->type_value_pool->new_type_value_bit_array( a_size, (a_data[0]>>b_data[0])&bit_mask[a_size+1], 0ULL );
         break;
     default:
         fprintf(stderr,"Unexpectedly here in c_co_expression vector_op (%s)\n",expr_subtype_strings[expr_subtype]);

@@ -310,6 +310,13 @@ void c_co_port_map::check_types( class c_cyclicity *cyclicity, t_co_scope *types
             expression->type_check_within_type_context( cyclicity, types, variables, port_lvar?port_lvar->type:type_value_undefined );
             SL_DEBUG( sl_debug_level_info, "Input port expression in type context %p/%d", port_lvar,port_lvar?port_lvar->type:type_value_undefined );
         }
+        if ( !expression || (port_lvar->type==type_value_undefined) || (port_lvar->type==type_value_error))
+        {
+            char buffer[256], buffer2[256];
+            cyclicity->set_parse_error( this, co_compile_stage_check_types, "Type mismatch in module instantiation input (port has type %s, expression driving it is %s)",
+                                        cyclicity->type_value_pool->display(buffer,sizeof(buffer),port_lvar->type),
+                                        cyclicity->type_value_pool->display(buffer2,sizeof(buffer2),expression?expression->type:type_value_undefined) );
+        }
         break;
     case port_map_type_output:
         if (lvar)
@@ -320,7 +327,7 @@ void c_co_port_map::check_types( class c_cyclicity *cyclicity, t_co_scope *types
                 if (cyclicity->type_value_pool->derefs_to(lvar->type) != cyclicity->type_value_pool->derefs_to(port_lvar->type))
                 {
                     char buffer[256], buffer2[256];
-                    cyclicity->set_parse_error( this, co_compile_stage_check_types, "Type mismatch in module instantiation output (required %s got %s)",
+                    cyclicity->set_parse_error( this, co_compile_stage_check_types, "Type mismatch in module instantiation output (port has %s, net assigned to it is %s)",
                                     cyclicity->type_value_pool->display(buffer,sizeof(buffer),port_lvar->type),
                                     cyclicity->type_value_pool->display(buffer2,sizeof(buffer2),lvar->type) );
 

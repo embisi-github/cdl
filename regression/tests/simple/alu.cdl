@@ -4,7 +4,8 @@ typedef enum [2]
 {
 	alu_op_add,
 	alu_op_sub,
-	alu_op_or
+	alu_op_or,
+	alu_op_shf
 } t_alu_op; 
 
 module alu( input t_word a, input t_word b, input t_alu_op op, output t_word r )
@@ -17,6 +18,7 @@ module alu( input t_word a, input t_word b, input t_alu_op op, output t_word r )
         case alu_op_add: {r=a+b;}
         case alu_op_sub: {r=a-b;}
         case alu_op_or:  {r=a|b;}
+        case alu_op_shf:  {r|=a>>b;}
 		}
         /*
         full_switch (a)

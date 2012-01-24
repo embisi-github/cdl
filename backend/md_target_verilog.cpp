@@ -656,11 +656,20 @@ static void output_module_rtl_architecture_expression( c_model_descriptor *model
         case md_expr_fn_add:
         case md_expr_fn_sub:
         case md_expr_fn_mult:
+        case md_expr_fn_lsl:
+        case md_expr_fn_lsr:
             output( handle, -1, "(" );
             output_module_rtl_architecture_expression( model, output, handle, code_block, expr->data.fn.args[0], main_indent, sub_indent+1, id );
-            if (expr->data.fn.fn==md_expr_fn_sub)       output( handle, -1, "-" );
-            else if (expr->data.fn.fn==md_expr_fn_mult) output( handle, -1, "*" );
-            else                                        output( handle, -1, "+" );
+            if (expr->data.fn.fn==md_expr_fn_sub)
+                output( handle, -1, "-" );
+            else if (expr->data.fn.fn==md_expr_fn_mult)
+                output( handle, -1, "*" );
+            else if (expr->data.fn.fn==md_expr_fn_lsl)
+                output( handle, -1, "<<" );
+            else if (expr->data.fn.fn==md_expr_fn_lsr)
+                output( handle, -1, ">>" );
+            else
+                output( handle, -1, "+" );
             output_module_rtl_architecture_expression( model, output, handle, code_block, expr->data.fn.args[1], main_indent, sub_indent+1, id );
             output( handle, -1, ")" );
             break;
@@ -797,6 +806,8 @@ static void output_module_rtl_architecture_unique_expressions( c_model_descripto
             break;
         case md_expr_fn_add:
         case md_expr_fn_sub:
+        case md_expr_fn_lsl:
+        case md_expr_fn_lsr:
         case md_expr_fn_mult:
             output_module_rtl_architecture_unique_expressions( model, output, handle, code_block, expr->data.fn.args[0], main_indent, sub_indent, id );
             output_module_rtl_architecture_unique_expressions( model, output, handle, code_block, expr->data.fn.args[1], main_indent, sub_indent, id );
@@ -1036,8 +1047,20 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
             {
                 output( handle, indent+1, "" );
                 output_module_rtl_architecture_lvar( model, output, handle, code_block, statement->data.comb_assign.lvar, -1, indent+2, rtl_lvar_out_ignore_none, statement->output.unique_id );
-                output( handle, -1, " = " );
-                output_module_rtl_architecture_expression( model, output, handle, code_block, statement->data.comb_assign.expr, indent+1, 0, statement->output.unique_id );
+                if (statement->data.comb_assign.wired_or)
+                {
+                    output( handle, -1, " = " );
+                    output_module_rtl_architecture_lvar( model, output, handle, code_block, statement->data.comb_assign.lvar, -1, indent+2, rtl_lvar_out_ignore_none, statement->output.unique_id );
+                    output( handle, -1, " | " );
+                    // Note that expressions are bracketed if required already
+                    output_module_rtl_architecture_expression( model, output, handle, code_block, statement->data.comb_assign.expr, indent+1, 0, statement->output.unique_id );
+                    output( handle, -1, "" );
+                }
+                else
+                {
+                    output( handle, -1, " = " );
+                    output_module_rtl_architecture_expression( model, output, handle, code_block, statement->data.comb_assign.expr, indent+1, 0, statement->output.unique_id );
+                }
             }
         }
         else

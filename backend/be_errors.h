@@ -68,6 +68,7 @@ enum
      error_id_be_c_model_descriptor_expression,
      error_id_be_c_model_descriptor_expression_create,
      error_id_be_c_model_descriptor_module_create,
+     error_id_be_c_model_descriptor_port_lvar_resolve,
      error_id_be_c_model_descriptor_signal_add_clock,
      error_id_be_c_model_descriptor_signal_add_combinatorial,
      error_id_be_c_model_descriptor_signal_add_net,

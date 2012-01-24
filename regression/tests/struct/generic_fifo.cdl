@@ -22,6 +22,13 @@ typedef struct
     bit[4] y;
 } t_fifo_content_struct;
 
+/*t t_fifo_content_deep_struct
+ */
+typedef struct
+{
+    t_fifo_content_struct[4] blah;
+} t_fifo_content_deep_struct;
+
 /*t t_fifo_content_word
  */
 typedef bit[32] t_fifo_content_word;

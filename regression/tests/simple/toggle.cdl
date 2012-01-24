@@ -19,10 +19,15 @@ module toggle( clock io_clock,
     default clock io_clock;
     default reset io_reset;
     clocked bit toggle = 1b0;
+    clocked bit fred = 1b0;
 
     toggle_code:
     {
         toggle <= ~toggle;
+        if (toggle) { fred<=fred;}
+        else{
+            if (io_reset) {fred<=~fred;}
+        }
         if (!io_reset) {log("t1", "toggle_a", toggle, "togb", toggle );}
         if (!io_reset) {log("toggle", "toggle", toggle );}
         if (!io_reset) {log("t2", "toggle_a", toggle, "togb", toggle );}

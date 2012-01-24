@@ -110,6 +110,8 @@ static t_expr_op expr_ops[] =
     { expr_subtype_compare_le, md_expr_fn_le, 2 },
     { expr_subtype_compare_lt, md_expr_fn_lt, 2 },
     { expr_subtype_query, md_expr_fn_query, 3 },
+    { expr_subtype_logical_shift_left, md_expr_fn_lsl, 2 },
+    { expr_subtype_logical_shift_right, md_expr_fn_lsr, 2 },
     { expr_subtype_none, md_expr_fn_none, -1 }
 };
 
@@ -221,6 +223,11 @@ static void traverse_structure( class c_cyclicity *cyclicity,
     else if ( cyclicity->type_value_pool->derefs_to_array( type_context ) )
     {
         fprintf(stderr,"traverse_structure::c_co_build_model:Should not get this far - error at cross referencing ****************************************\n");
+    }
+    else
+    {
+        fprintf(stderr,"traverse_structure::c_co_build_model:Should not get this far - error at cross referencing ****************************************\n");
+        //cyclicity->set_parse_error( this, co_compile_stage_cross_reference, "Error traversing structure - could be  '%s'", lex_string_from_terminal( lvar->symbol ) );
     }
 }
 
@@ -609,6 +616,7 @@ struct t_md_port_lvar *c_co_lvar::build_model_port( class c_cyclicity *cyclicity
         }
     }
     //CO_DEBUG( sl_debug_level_info, "Lvar from %s is %p", lex_string_from_terminal( symbol ), model_lvar);
+    //fprintf(stderr,"Lvar from %s is %p\n", lex_string_from_terminal( symbol ), model_port_lvar);
     return model_port_lvar;
 }
 
@@ -999,6 +1007,7 @@ typedef struct
 {
     struct t_md_statement *statement;
     int clocked;
+    int wired_or;
     class c_co_nested_assignment *cona;
     const char *documentation;
 } t_build_model_structure_assignment_callback_handle;
@@ -1043,7 +1052,7 @@ static void build_model_structure_assignment_callback( class c_cyclicity *cyclic
         }
         else
         {
-            statement = model->statement_create_combinatorial_assignment( module, (void *)module, bmsach->cona, 0, model_lvar_copy, model_expression, bmsach->documentation );
+            statement = model->statement_create_combinatorial_assignment( module, (void *)module, bmsach->cona, 0, bmsach->wired_or, model_lvar_copy, model_expression, bmsach->documentation );
         }
     }
     SL_DEBUG( sl_debug_level_info, "Built assignment statement %p with lvar %p expression %p", statement, model_lvar_copy, model_expression );
@@ -1093,7 +1102,7 @@ static struct t_md_statement *build_model_structure_assignment( class c_cyclicit
             }
             else
             {
-                statement = model->statement_create_combinatorial_assignment( module, (void *)module, handle, 0, model_lvar_copy, model_expression, NULL );
+                statement = model->statement_create_combinatorial_assignment( module, (void *)module, handle, 0, wired_or, model_lvar_copy, model_expression, NULL );
             }
         }
         CO_DEBUG( sl_debug_level_info, "Built assignment statement %p with lvar %p expression %p", statement, model_lvar_copy, model_expression );
@@ -1158,7 +1167,7 @@ static struct t_md_statement *build_model_structure_assignment( class c_cyclicit
 
 /*f c_co_nested_assignment::build_model_from_statement
  */
-struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, int clocked, struct t_md_lvar *model_lvar_context, const char *documentation )
+struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, int clocked, int wired_or, struct t_md_lvar *model_lvar_context, const char *documentation )
 {
     t_md_statement *statement;
     t_md_lvar *model_lvar_copy;
@@ -1170,6 +1179,7 @@ struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class
         t_build_model_structure_assignment_callback_handle handle;
         handle.statement = NULL;
         handle.clocked = clocked;
+        handle.wired_or = wired_or;
         handle.cona = this;
         handle.documentation = documentation;
         traverse_structure( cyclicity, model, module, (void *) &handle, build_model_structure_assignment_callback, 0, (void *)model_lvar, this->type_context, this->expression, NULL, model_lvar_context );
@@ -1190,7 +1200,7 @@ struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class
                 }
                 if (model_lvar_copy)
                 {
-                    statement = cona->nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar_copy, clocked, model_lvar_context, documentation );
+                    statement = cona->nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar_copy, clocked, wired_or, model_lvar_context, documentation );
                 }
                 if (model_lvar_copy)
                 {
@@ -1486,6 +1496,7 @@ static void build_model_port_map_input_callback( class c_cyclicity *cyclicity,
     bmpmich = (t_build_model_port_map_input_callback_handle *)handle;
     model_port_lvar = (t_md_port_lvar *)model_port_lvar_in;
 
+    //fprintf(stderr,"build_model_port_map_input_callback %p\n", model_port_lvar_in);
     if (expression) // If at top level of an assignment, we have not got a (sub-elemented) model lvar from the expression
     {
         model_expression = expression->build_model( cyclicity, model, module, model_lvar_context ); // model_lvar_context is the context on the 'lhs' of the assignment
@@ -1551,6 +1562,7 @@ void c_co_port_map::build_model( class c_cyclicity *cyclicity, class c_model_des
 
     // Build port mapping using port_lvar, expressions and lvars
     CO_DEBUG( sl_debug_level_info, "Building port map %p for module %s", this, module_name );
+    //fprintf(stderr, "port_map::build_model %p %p %d\n",expression,port_lvar,port_lvar?port_lvar->type:type_value_undefined);
     switch (type)
     {
     case port_map_type_clock:
@@ -1615,7 +1627,7 @@ struct t_md_statement *c_co_statement::build_model( class c_cyclicity *cyclicity
         {
             fprintf(stderr,"Failed to build model_lvar for assignment %p\n",this);
         }
-        statement = type_data.assign_stmt.nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar, type_data.assign_stmt.clocked, model_lvar, DOC_STRING(type_data.assign_stmt.documentation) );
+        statement = type_data.assign_stmt.nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar, type_data.assign_stmt.clocked, type_data.assign_stmt.wired_or, model_lvar, DOC_STRING(type_data.assign_stmt.documentation) );
         model->lvar_free( module, model_lvar );
         break;
     }
@@ -1642,7 +1654,7 @@ struct t_md_statement *c_co_statement::build_model( class c_cyclicity *cyclicity
             if_false = type_data.if_stmt.elsif->build_model( cyclicity, model, module );
         }
         CO_DEBUG( sl_debug_level_info, "Output if statement expr %p if_true %p if_false %p", expression, if_true, if_false );
-        if (expression && if_true)
+        if (expression && (if_true || if_false))
         {
             statement = model->statement_create_if_else( module, (void *)module, (void *)this, 0, expression, if_true, if_false, DOC_STRING(type_data.if_stmt.expr_documentation) );
         }

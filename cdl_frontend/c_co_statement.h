@@ -48,7 +48,7 @@ typedef enum
 class c_co_statement: public c_cyc_object
 {
 public:
-    c_co_statement( class c_co_lvar *lvar, class c_co_nested_assignment *nested_assignment, int clocked, t_string *documentation ); // assignment statment
+    c_co_statement( class c_co_lvar *lvar, class c_co_nested_assignment *nested_assignment, int clocked_or_wired_or, t_string *documentation ); // assignment statment
     c_co_statement( class c_co_clock_reset_defn *clock_spec, class c_co_clock_reset_defn *reset_spec, t_statement_type type, c_co_expression *assertion, c_co_expression *value_list, t_string *text, c_co_expression *text_args, c_co_statement *code ); // print, assertion or cover statement
     c_co_statement( class c_co_clock_reset_defn *clock_spec, class c_co_clock_reset_defn *reset_spec, t_string *log_message, class c_co_named_expression *log_values); // log message and arguments
     c_co_statement( c_co_statement *stmt_list ); // statement list
@@ -73,6 +73,7 @@ public:
         struct
         {
             int clocked;                 // 1 if it is a '<=' stmt, 0 for '='
+            int wired_or;                // 1 if it is a '|=' stmt, 0 for '='
             class c_co_lvar *lvar;            // What is being assigned, ownership link
             class c_co_nested_assignment *nested_assignment;            // Value to assign, ownership link
             t_string *documentation;

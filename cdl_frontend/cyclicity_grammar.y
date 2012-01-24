@@ -1834,6 +1834,12 @@ assignment_statement:
         if ($$)
             $$->co_set_file_bound( $1, $5 );
     }
+|  lvar "|=" nested_assignment_list optional_documentation ';'
+    {
+        $$ = new c_co_statement( $1, $3, 2, $4 );
+        if ($$)
+            $$->co_set_file_bound( $1, $5 );
+    }
 | lvar "<=" nested_assignment_list optional_documentation ';'
     { 
         $$ = new c_co_statement( $1, $3, 1, $4 );

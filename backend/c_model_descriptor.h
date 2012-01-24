@@ -563,6 +563,8 @@ typedef enum
     md_expr_fn_logical_and,
     md_expr_fn_logical_or,
     md_expr_fn_query,
+    md_expr_fn_lsl,
+    md_expr_fn_lsr,
     md_expr_fn_none
 } t_md_expr_fn;
 
@@ -679,6 +681,7 @@ typedef struct t_md_statement
             char *documentation;
         } state_assign;
         struct {
+            int wired_or;
             t_md_lvar *lvar;
             t_md_expression *expr;
             char *documentation;
@@ -1049,7 +1052,7 @@ public:
      */
     t_md_statement *statement_create( t_md_module *module, t_md_client_reference *client_ref, t_md_statement_type type );
     t_md_statement *statement_create_state_assignment( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_lvar *lvar, t_md_expression *expr, const char *documentation );
-    t_md_statement *statement_create_combinatorial_assignment( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_lvar *lvar, t_md_expression *expr, const char *documentation );
+    t_md_statement *statement_create_combinatorial_assignment( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, int wired_or, t_md_lvar *lvar, t_md_expression *expr, const char *documentation );
     t_md_statement *statement_create_if_else( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_expression *expr, t_md_statement *if_true, t_md_statement *if_false, const char *expr_documentation );
     t_md_statement *statement_create_static_switch( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, int parallel, int full, t_md_expression *expr, t_md_switch_item *items, const char *expr_documentation );
     t_md_statement *statement_create_assert_cover( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, const char *clock_name, int edge, t_md_usage_type usage_type, t_md_expression *expr, t_md_expression *value_list, t_md_message *message, t_md_statement *stmt );
