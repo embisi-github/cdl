@@ -2505,6 +2505,19 @@ void c_model_descriptor::push_possible_indices_to_subscripts( t_md_lvar *lvar )
         lvar->subscript_start = lvar->index;
         lvar->index.type = md_lvar_data_type_none;
     }
+    if (0) // This stuff is for verification that the frontend checks on array and bit vector indexing do work
+    {
+        if (lvar->subscript_start.type==md_lvar_data_type_integer)
+        {
+            int w = 1;
+            if (lvar->subscript_length.type==md_lvar_data_type_integer) {w = lvar->subscript_length.data.integer;}
+            fprintf(stderr, "%s[%d] %lld %d\n",lvar->instance->output_name,lvar->instance->size,lvar->subscript_start.data.integer,w);
+        }
+        if (lvar->index.type==md_lvar_data_type_integer)
+        {
+            fprintf(stderr, "%s[%d][] %lld\n",lvar->instance->output_name,lvar->instance->size,lvar->index.data.integer);
+        }
+    }
 }
 
 /*f c_model_descriptor::lvars_free

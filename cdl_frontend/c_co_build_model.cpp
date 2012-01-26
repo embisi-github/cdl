@@ -141,6 +141,18 @@ static int get_sized_value_from_type_value( class c_cyclicity *cyclicity, int tm
   Traverse a structure, seeking terminals; perform a callback on each terminal
   Copy model_expression_lvar to use it
   Copy model_lvar to use it
+
+  This is used for assignments (comb/clocked), port mapping inputs and port mapping outputs
+  For assignments 'model_lvar_context' is valid; expression is valid at the toplevel call, model_expression_lvar is valid for recursed calls
+  For port mapping inputs the 'expression' is valid
+  For port mapping outputs 'expression' is NULL and model_expression_lvar is valid
+
+  model_lvar is always valid - it may be a t_md_port_lvar or a t_md_lvar, depending on 'lvar_is_port'
+
+  handle points to a structure for the callback function
+
+  if wildcard is set then do not push down into the element of 'expression' or 'model_expression_lvar'
+
  */
 static void traverse_structure( class c_cyclicity *cyclicity,
                                 class c_model_descriptor *model,
@@ -152,7 +164,8 @@ static void traverse_structure( class c_cyclicity *cyclicity,
                                 t_type_value type_context,
                                 class c_co_expression *expression,
                                 struct t_md_lvar *model_expression_lvar,
-                                struct t_md_lvar *model_lvar_context )
+                                struct t_md_lvar *model_lvar_context,
+                                int wildcard )
 {
     struct t_md_lvar *model_expression_lvar_copy;
     void *model_lvar_copy;
@@ -170,7 +183,7 @@ static void traverse_structure( class c_cyclicity *cyclicity,
 
         num_elements = cyclicity->type_value_pool->get_structure_element_number( type_context ); // Get number of elements in the structure
         last_statement = NULL;
-        if (expression)
+        if (expression && !wildcard) // For wildcards, we call the leaves with 'expression' not 'model_expression_lvar'
         {
             model_expression_lvar = expression->build_lvar( cyclicity, model, module, model_lvar_context );
         }
@@ -178,7 +191,6 @@ static void traverse_structure( class c_cyclicity *cyclicity,
         {
             element_type = cyclicity->type_value_pool->get_structure_element_type( type_context, i );
             element_symbol = cyclicity->type_value_pool->get_structure_element_name( type_context, i );
-            model_expression_lvar_copy = model->lvar_duplicate( module, model_expression_lvar );
             if (lvar_is_port)
             {
                 model_lvar_copy = (void *)model->port_lvar_duplicate( module, (t_md_port_lvar *)model_lvar );
@@ -191,13 +203,28 @@ static void traverse_structure( class c_cyclicity *cyclicity,
                 if (model_lvar_copy)
                     model_lvar_copy = (void *)model->lvar_reference( module, (t_md_lvar *)model_lvar_copy, lex_string_from_terminal(element_symbol) );
             }
-            if (model_expression_lvar_copy)
+            if (wildcard)
             {
-                model_expression_lvar_copy = model->lvar_reference( module, model_expression_lvar_copy, lex_string_from_terminal(element_symbol) );
+                if (model_lvar_copy)
+                {
+                    traverse_structure( cyclicity, model, module, handle, callback, lvar_is_port, model_lvar_copy, element_type, expression, NULL, model_lvar_context, wildcard );
+                }
             }
-            if (model_lvar_copy && model_expression_lvar_copy)
+            else
             {
-                traverse_structure( cyclicity, model, module, handle, callback, lvar_is_port, model_lvar_copy, element_type, NULL, model_expression_lvar_copy, model_lvar_context );
+                model_expression_lvar_copy = model->lvar_duplicate( module, model_expression_lvar );
+                if (model_expression_lvar_copy)
+                {
+                    model_expression_lvar_copy = model->lvar_reference( module, model_expression_lvar_copy, lex_string_from_terminal(element_symbol) );
+                }
+                if (model_lvar_copy && model_expression_lvar_copy)
+                {
+                    traverse_structure( cyclicity, model, module, handle, callback, lvar_is_port, model_lvar_copy, element_type, NULL, model_expression_lvar_copy, model_lvar_context, wildcard );
+                }
+                if (model_expression_lvar_copy)
+                {
+                    model->lvar_free( module, model_expression_lvar_copy );
+                }
             }
             if (model_lvar_copy)
             {
@@ -209,10 +236,6 @@ static void traverse_structure( class c_cyclicity *cyclicity,
                 {
                     model->lvar_free( module, (t_md_lvar *)model_lvar_copy );
                 }
-            }
-            if (model_expression_lvar_copy)
-            {
-                model->lvar_free( module, model_expression_lvar_copy );
             }
         }
         if (expression && model_expression_lvar )
@@ -1008,6 +1031,7 @@ typedef struct
     struct t_md_statement *statement;
     int clocked;
     int wired_or;
+    int wildcard;
     class c_co_nested_assignment *cona;
     const char *documentation;
 } t_build_model_structure_assignment_callback_handle;
@@ -1037,6 +1061,10 @@ static void build_model_structure_assignment_callback( class c_cyclicity *cyclic
     if (expression) // If at top level of an assignment, we have not got a (sub-elemented) model lvar from the expression
     {
         model_expression = expression->build_model( cyclicity, model, module, model_lvar_context ); // model_lvar_context is the context on the 'lhs' of the assignment
+        if (bmsach->wildcard)
+        {
+            model_expression = model->expression_cast( module, model->lvar_width(model_lvar), 0 /* not signed */, model_expression );
+        }
     }
     else // we are nested in an implied assignment with the current (sub-elemented) model lvar valid; we should copy it and use it
     {
@@ -1166,55 +1194,72 @@ static struct t_md_statement *build_model_structure_assignment( class c_cyclicit
 */
 
 /*f c_co_nested_assignment::build_model_from_statement
+  Return a chain of model statements that build this nested assignment
+  first_statement is a statement in that chain - statement_add_to_chain automatically finds the end of the chain to add on to
+  If first_statement is NULL, then any statement should become the first statement of the chain
  */
-struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, int clocked, int wired_or, struct t_md_lvar *model_lvar_context, const char *documentation )
+struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, int clocked, int wired_or, struct t_md_lvar *model_lvar_context, const char *documentation, struct t_md_statement *first_statement )
 {
     t_md_statement *statement;
     t_md_lvar *model_lvar_copy;
-    c_co_nested_assignment *cona;
 
-    statement = NULL;
+    /*b Handle an 'lvar = expression' or 'lvar = *=expression'
+     */
     if (expression)
     {
         t_build_model_structure_assignment_callback_handle handle;
         handle.statement = NULL;
+        handle.wildcard = wildcard;
         handle.clocked = clocked;
         handle.wired_or = wired_or;
         handle.cona = this;
         handle.documentation = documentation;
-        traverse_structure( cyclicity, model, module, (void *) &handle, build_model_structure_assignment_callback, 0, (void *)model_lvar, this->type_context, this->expression, NULL, model_lvar_context );
-        statement = handle.statement;
-    }
-    else
-    {
-        t_md_statement *last_statement;
-        last_statement = NULL;
-        for (cona=this; cona; cona=(c_co_nested_assignment *)cona->next_in_list)
+        traverse_structure( cyclicity, model, module, (void *) &handle, build_model_structure_assignment_callback, 0, (void *)model_lvar, this->type_context, this->expression, NULL, model_lvar_context, wildcard );
+        if (!first_statement)
         {
-            if (cona->element>=0)
-            {
-                model_lvar_copy = model->lvar_duplicate( module, model_lvar );
-                if (model_lvar_copy)
-                {
-                    model_lvar_copy = model->lvar_reference( module, model_lvar_copy, lex_string_from_terminal( cona->symbol ) );
-                }
-                if (model_lvar_copy)
-                {
-                    statement = cona->nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar_copy, clocked, wired_or, model_lvar_context, documentation );
-                }
-                if (model_lvar_copy)
-                {
-                    model->lvar_free( module, model_lvar_copy );
-                }
-            }
-            if (last_statement)
-            {
-                statement = model->statement_add_to_chain( last_statement, statement );
-            }
-            last_statement = statement;
+            first_statement = handle.statement;
+        }
+        else
+        {
+            model->statement_add_to_chain( first_statement, handle.statement );
         }
     }
-    return statement;
+    /*b Handle when lvar is an array - um, not really permitted? Could be if we support [i]={} or [i;3;1]={} stuff which we do not yet
+     */
+    else if (cyclicity->type_value_pool->derefs_to_array( type_context ))
+    {
+        fprintf(stderr,"c_co_statement::build_model:CANNOT BUILD ARRAY ASSIGNMENTS YET\n");
+        exit(4);
+    }
+    /*b Handle an 'element=<na>'
+     */
+    else if (element>=0)
+    {
+        model_lvar_copy = model->lvar_duplicate( module, model_lvar );
+        if (model_lvar_copy)
+        {
+            model_lvar_copy = model->lvar_reference( module, model_lvar_copy, lex_string_from_terminal( symbol ) );
+        }
+        if (model_lvar_copy)
+        {
+            first_statement = nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar_copy, clocked, wired_or, model_lvar_context, documentation, first_statement );
+            model->lvar_free( module, model_lvar_copy );
+        }
+    }
+    /*b Argh
+     */
+    else
+    {
+        fprintf(stderr,"c_co_statement::build_model:DO NOT KNOW WHAT TO BUILD\n");
+        exit(4);
+    }
+
+    /*b Next nested_assignment in the list if any - this will automatically be added to the end of the chain
+     */
+    if (!next_in_list)
+        return first_statement;
+
+    return ((c_co_nested_assignment *)next_in_list)->build_model_from_statement( cyclicity, model, module, model_lvar, clocked, wired_or, model_lvar_context, NULL, first_statement );
 }
 
 /*f c_co_nested_assignment::build_model_reset_wildcarded
@@ -1301,7 +1346,6 @@ void c_co_nested_assignment::build_model_reset( class c_cyclicity *cyclicity, cl
     int i, size;
     t_md_lvar *model_lvar_copy;
     t_md_expression *model_expression;
-    c_co_nested_assignment *cona;
 
     CO_DEBUG( sl_debug_level_info, "Build reset with lvar %p expression %p symbol %p element %d na %p type_context %d", model_lvar, expression, symbol, element, nested_assignment, type_context );
     if (expression)
@@ -1576,7 +1620,7 @@ void c_co_port_map::build_model( class c_cyclicity *cyclicity, class c_model_des
             {
                 t_build_model_port_map_input_callback_handle handle;
                 handle.module_name = module_name;
-                traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_input_callback, 1, (void *)model_port_lvar, port_lvar->type, this->expression, NULL, NULL );
+                traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_input_callback, 1, (void *)model_port_lvar, port_lvar->type, this->expression, NULL, NULL, 0 );
             }
         }
         break;
@@ -1589,7 +1633,7 @@ void c_co_port_map::build_model( class c_cyclicity *cyclicity, class c_model_des
             {
                 t_build_model_port_map_output_callback_handle handle;
                 handle.module_name = module_name;
-                traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_output_callback, 1, (void *)model_port_lvar, port_lvar->type, NULL, model_lvar, NULL );
+                traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_output_callback, 1, (void *)model_port_lvar, port_lvar->type, NULL, model_lvar, NULL, 0 );
             }
         }
         break;
@@ -1627,7 +1671,7 @@ struct t_md_statement *c_co_statement::build_model( class c_cyclicity *cyclicity
         {
             fprintf(stderr,"Failed to build model_lvar for assignment %p\n",this);
         }
-        statement = type_data.assign_stmt.nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar, type_data.assign_stmt.clocked, type_data.assign_stmt.wired_or, model_lvar, DOC_STRING(type_data.assign_stmt.documentation) );
+        statement = type_data.assign_stmt.nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar, type_data.assign_stmt.clocked, type_data.assign_stmt.wired_or, model_lvar, DOC_STRING(type_data.assign_stmt.documentation), NULL );
         model->lvar_free( module, model_lvar );
         break;
     }

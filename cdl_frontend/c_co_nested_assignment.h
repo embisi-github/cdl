@@ -41,7 +41,7 @@ public:
     void check_types( class c_cyclicity *cyclicity, t_co_scope *types, t_co_scope *variables );
     void evaluate_constant_expressions( class c_cyclicity *cyclicity, t_co_scope *types, t_co_scope *variables, int reevaluate );
 
-    struct t_md_statement *build_model_from_statement( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, int clocked, int wired_or, struct t_md_lvar *model_lvar_context, const char *documentation );
+    struct t_md_statement *build_model_from_statement( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, int clocked, int wired_or, struct t_md_lvar *model_lvar_context, const char *documentation, struct t_md_statement *first_statement );
     void build_model_reset_wildcarded( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, struct t_md_lvar *model_lvar_context, t_type_value nested_type_context );
     void build_model_reset( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, struct t_md_lvar *model_lvar_context );
 
