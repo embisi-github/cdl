@@ -109,7 +109,54 @@ class bv(object):
 
     def size(self):
         return self._size
-            
+
+    def _getset(self, key, item, isset):
+        # Figure out the start and stop.
+        if isinstance(key, slice):
+            start = key.start
+            stop = key.stop
+            step = key.step
+        else:
+            start = key
+            stop = key
+            step = 1
+        if step is not None and step != 1:
+            raise IndexError
+        if start is None:
+            if self._size is None:
+                raise IndexError
+            start = self._size - 1
+        if stop is None:
+            stop = 0
+        if start < 0:
+            if self._size is None:
+                raise IndexError
+            start = self._size - start
+        if stop < 0:
+            if self._size is None:
+                raise IndexError
+            stop = self._size - stop
+        if stop > start:
+            (start, stop) = (stop, start)
+        if start >= 64 or (self._size is not None and start >= self._size):
+            raise IndexError
+
+        # OK, now we have a known-sane start and stop.
+        unshiftedmask = (1 << (start - stop + 1)) - 1
+        shiftedmask = unshiftedmask << stop
+
+        if (isset):
+            self._val &= ~shiftedmask
+            self._val |= (item & unshiftedmask) << stop
+        else:
+            return (self._val & shiftedmask) >> stop 
+
+    def __getitem__(self, key):
+        return self._getset(key, None, False)
+    
+    def __setitem__(self, key, item):
+        return self._getset(key, item, True)
+
 class bvbundle(object):
     """
     A bundle of bit vectors (or of more bvbundles)
@@ -550,7 +597,9 @@ class _hwexfile(py_engine.exec_file):
         if wire_basename not in ports:
             raise WireError("Connecting to undefined port %s" % wire_basename)
         port = ports[wire_basename]
-        if wireinst._size != port._size:
+        if not hasattr(port, "_size"):
+            raise WireError("Port does not have a _size attribute, please check port %s, connection to wire %s." % (wire_basename, wireinst._name))
+        elif wireinst._size != port._size:
             raise WireError("Port size mismatch for port %s, wire is size %d got a port size of %d" % (wire_basename, wireinst._size, port._size))
                 # size mismatch!
         if wireinst not in connectedwires:
