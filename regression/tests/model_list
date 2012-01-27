@@ -52,6 +52,7 @@ cdl tests/vector vector_reverse dc:width=8 model:vector_reverse__width_8 rmn:vec
 cdl tests/vector vector_nest dc:width=8 model:vector_nest__width_8 rmn:vector_nest=vector_nest__width_8
 cdl tests/vector vector_sum dc:width=4 model:vector_sum__width_4 rmn:vector_sum=vector_sum__width_4
 cdl tests/vector vector_sum dc:width=8 model:vector_sum__width_8 rmn:vector_sum=vector_sum__width_8
+cdl tests/vector vector_sum dc:width=64 model:vector_sum__width_64 rmn:vector_sum=vector_sum__width_64
 cdl tests/vector vector_op_1
 cdl tests/vector vector_op_2
 cdl tests/vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_sum_2=vector_sum_2__width_4

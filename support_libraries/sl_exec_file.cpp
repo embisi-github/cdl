@@ -3562,7 +3562,7 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
             PyErr_Clear();
             if (PyLong_Check(obj))
             {
-                cmd_cb->args[j].integer = PyLong_AsSsize_t(obj);
+                cmd_cb->args[j].integer = PyLong_AsUnsignedLongLongMask(obj);
             }
             else
             {

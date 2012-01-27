@@ -170,6 +170,25 @@ class TestVector(unittest.TestCase):
         self.do_test_with_waves(hw, "vector_sum__width_4.vcd", hw.hw(), 1000)
 
 
+    #f test_sum__width_64
+    def test_sum__width_64(self):
+        import random
+        r = random.Random()
+        r.seed("BananaFlumpWomble")
+        sum_test_vectors = [ (0, 0, 0, 0),(0, 0, 0, 0),(0, 0, 0, 0) ]
+        history = [(0,0,0,0), (0,0,0,0)]
+        for i in range(50):
+            in0 = (r.randint(0,0xffff)<<48) | (r.randint(0,0xffff)<<32) | (r.randint(0,0xffff)<<16) | (r.randint(0,0xffff)<<0)
+            in1 = (r.randint(0,0xffff)<<48) | (r.randint(0,0xffff)<<32) | (r.randint(0,0xffff)<<16) | (r.randint(0,0xffff)<<0)
+            sum_test_vectors.append( (in0, in1, history[0][2], history[0][3]) )
+            history.pop(0)
+            history.append( (0,0,in0+in1,0) )
+        sum_test_vectors.extend(history)
+        import vector
+        hw = vector.vector_hw( module_name="vector_sum__width_64", test_name="vector_sum__width_64.mif", test_vectors=sum_test_vectors, width=64 )
+        self.do_test_with_waves(hw, "vector_sum__width_64.vcd", hw.hw(), 1000)
+
+
     #f test_toggle__width_16
     def test_toggle__width_16(self):
         toggle_test_vectors = [ (0x0000,0x0000,0x0000,0xffff),
@@ -206,8 +225,8 @@ class TestVector(unittest.TestCase):
         hw = vector.vector_hw( module_name="vector_toggle__width_16", test_name="vector_toggle__width_16.mif", test_vectors=toggle_test_vectors, width=16 )
         self.do_test_with_waves(hw, "vector_toggle__width_16.vcd", hw.hw(), 1000)
 
-    #f test_toggle_18
-    def test_toggle_18(self):
+    #f test_toggle__width_18
+    def test_toggle__width_18(self):
         toggle_test_vectors = [ (0x0000,0x0000,0x0000,0x3ffff),
                         (0x0000,0x0000,0x0000,0x3ffff),
                         (0x0000,0x0000,0x0000,0x3ffff),
@@ -239,8 +258,8 @@ class TestVector(unittest.TestCase):
                         (0x0000,0x0000,0x0000,0x3ffff),
                         (0x0000,0x0000,0x3ffff,0x0000) ]
         import vector
-        hw = vector.vector_hw( module_name="vector_toggle__width_18", test_name="vector_toggle__width_18.mif", test_vectors=toggle_test_vectors, width=18 )
-        self.do_test_with_waves(hw, "vector_toggle__width_18.vcd", hw.hw(), 1000)
+        hw = vector.vector_hw( module_name="vector_toggle__width_18", test_name="vector_toggle__width__width_18.mif", test_vectors=toggle_test_vectors, width=18 )
+        self.do_test_with_waves(hw, "vector_toggle__width__18.vcd", hw.hw(), 1000)
 
 #a Toplevel
 if __name__ == '__main__':
