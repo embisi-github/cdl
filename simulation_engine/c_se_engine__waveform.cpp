@@ -775,7 +775,7 @@ int c_engine::waveform_handle_exec_file_command( struct t_sl_exec_file_data *exe
         wvf = waveform_vcd_file_create( sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 0 ));
         if (!wvf)
         {
-            fprintf(stderr, "NNE: wavefrom failed to add VCD file\n" );
+            fprintf(stderr, "NNE: Failed to create VCD file from filename '%s'\n",sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 0 ) );
             return 0;
         }
         memset(&object_desc,0,sizeof(object_desc));

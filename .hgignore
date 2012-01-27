@@ -3,6 +3,7 @@ syntax: glob
 *.pyc
 *.orig
 .DS_Store
+*.vcd
 */*.log
 */osx/*.o
 */osx/*.P

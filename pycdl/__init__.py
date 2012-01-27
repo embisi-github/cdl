@@ -384,6 +384,8 @@ class _instantiable(_clockable):
     test harness.
     """
     def _ports_from_ios(self, iolist, cdl_object):
+        if not iolist:
+            raise WireError("No IOs passed to a module - perhaps the module type could not be found")
         # The I/O list should have three members -- a list of clocks, a list of
         # inputs and a list of outputs.
         # Each of these members contains a list of ports. We'll turn these into
@@ -517,6 +519,8 @@ class module(_instantiable):
         self._inputs = inputs
         self._outputs = outputs
         self._options = options
+    def __repr__(self):
+        return "<Module {0}>".format(self._type)
 
 class _thfile(py_engine.exec_file):
     def __init__(self, th):
@@ -620,7 +624,10 @@ class _hwexfile(py_engine.exec_file):
                         self.cdlsim_instantiation.option_int(j, i._options[j])
                 #print "MODULE %s %s" % (i._type, i._name)
                 self.cdlsim_instantiation.module(i._type, i._name)
-                i._ports = i._ports_from_ios(self._hw._engine.get_module_ios(i._name), None)
+                ios = self._hw._engine.get_module_ios(i._name)
+                if not ios:
+                    raise WireError("Failed to find IOs for module '{0}'; probably failed to instantiate it".format(i._name))
+                i._ports = i._ports_from_ios(ios, None)
             elif isinstance(i, th):
                 i._thfile = _thfile(i)
                 self.cdlsim_instantiation.option_string("clock", " ".join(i._clocks.keys()))
@@ -640,6 +647,8 @@ class _hwexfile(py_engine.exec_file):
                 raise NotImplementedError
             
         for i in self._hw._children:
+            if hasattr(i, "_ports") and (not i._ports):
+                raise WireError("Bad port structure in connecting module '%s' - perhaps a module could not be found?" % (repr(i)))
             if hasattr(i, "_clocks") and hasattr(i, "_ports"):
                 self._connect_wires(i._name+".", i._clocks, connectedwires, inputs=True, ports=i._ports[0])
             if hasattr(i, "_inputs") and hasattr(i, "_ports"):
@@ -682,11 +691,18 @@ class hw(_clockable):
     """
     The object that represents a piece of hardware.
     """
+    hw_class_data = {"engine":None,"id":0}
     def __init__(self, *children):
+        if self.hw_class_data["engine"]==None:
+            self.hw_class_data["engine"] = py_engine.py_engine()
+        self.hw_class_data["id"] = self.hw_class_data["id"]+1
+        self._id = self.hw_class_data["id"]
+
         self._wavesinst = None
         self._wave_hook = _wave_hook()
         _clockable.__init__(self, children + (self._wave_hook,))
-        self._engine = py_engine.py_engine()
+        self._engine = self.hw_class_data["engine"]
+        self.display_all_errors()
         self._hwex = _hwexfile(self)
         self._engine.describe_hw(self._hwex)
         self.display_all_errors()
@@ -718,8 +734,8 @@ class hw(_clockable):
                 self._connect_waves()
                 
         def _connect_waves(self):
-            self._hw._wave_hook._thfile.cdlsim_wave.vcd_file("_waves")
-            self._cdl_obj = self._hw._wave_hook._thfile._waves
+            self._hw._wave_hook._thfile.cdlsim_wave.vcd_file("_waves%d"%self._hw._id)
+            self._cdl_obj = eval("self._hw._wave_hook._thfile._waves%d"%self._hw._id)
 
         def reset(self):
             self._cdl_obj.reset()
