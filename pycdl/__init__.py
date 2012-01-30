@@ -241,6 +241,8 @@ class wire(_nameable):
             raise WireError("No underlying value for signal %s" % repr(self))
 
     def drive(self, value):
+        if isinstance(value, bv):
+            value = int(value)
         if self._cdl_signal:
             self._cdl_signal.drive(value)
         else:
