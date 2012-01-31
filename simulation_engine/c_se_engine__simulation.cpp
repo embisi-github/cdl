@@ -503,12 +503,12 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
     t_sim_ef_lib_data *lib_data;
     const char *signal_prefix;
     char *input_string;
-    char *inputs[256];
-    int input_widths[256];
+    char **inputs;
+    int *input_widths;
     int num_inputs;
     char *output_string;
-    char *outputs[256];
-    int output_widths[256];
+    char **outputs;
+    int *output_widths;
     int num_outputs;
     int i, j;
 
@@ -517,6 +517,10 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
 
     result = 1;
     lib_data = NULL;
+    inputs = NULL;
+    input_widths = NULL;
+    outputs = NULL;
+    output_widths = NULL;
     num_inputs = 0;
     num_outputs = 0;
     output_string = NULL;
@@ -529,7 +533,8 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
         input_string = sl_str_alloc_copy(get_option_string( engine_handle, "inputs", "" ));
         output_string = sl_str_alloc_copy(get_option_string( engine_handle, "outputs", "" ));
 
-        sl_tokenize_line( input_string, inputs, sizeof(inputs)/sizeof(char *), &num_inputs );
+        inputs = sl_tokenize_line( input_string, &num_inputs );
+        input_widths = (int *)malloc(sizeof(int)*num_inputs);
         for (i=0; i<num_inputs; i++)
         {
             input_widths[i] = 1;
@@ -552,7 +557,8 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
             }
         }
 
-        sl_tokenize_line( output_string, outputs, sizeof(outputs)/sizeof(char *), &num_outputs );
+        outputs = sl_tokenize_line( output_string, &num_outputs );
+        output_widths = (int *)malloc(sizeof(int)*num_outputs);
         for (i=0; i<num_outputs; i++)
         {
             output_widths[i] = 1;
@@ -678,6 +684,10 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
         free(input_string);
         free(output_string);
     }
+    if (inputs) free(inputs);
+    if (input_widths) free(input_widths);
+    if (outputs) free(outputs);
+    if (output_widths) free(output_widths);
     return result;
 }
 
