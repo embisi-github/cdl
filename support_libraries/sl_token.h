@@ -26,6 +26,7 @@
  */
 extern char *sl_token_next( int continuation, char *line, char *line_end );
 extern void sl_tokenize_line( char *line, char **tokens, int max_tokens, int *num_tokens );
+extern char **sl_tokenize_line( char *line, int *num_tokens ); // allocates a buffer for the token pointers
 
 /*a Wrapper
  */
