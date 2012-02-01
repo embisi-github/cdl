@@ -1094,6 +1094,14 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 {
                     output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
                 }
+                model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter ); // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
+                while ((reference = model->reference_set_iterate(&iter))!=NULL)
+                {
+                    t_md_signal *clock;
+                    clock = reference->data.signal;
+                    while (clock->data.clock.clock_ref) { clock=clock->data.clock.clock_ref; }
+                    output( handle, 1, "engine->register_output_generated_on_clock( engine_handle, \"%s\", \"%s\", %d );\n", instance->output_name, clock->name, reference->edge==md_edge_pos);
+                }
                 output( handle, 1, "combinatorials.%s = 0;\n", instance->output_name);
             }
         }

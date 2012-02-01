@@ -886,7 +886,7 @@ t_sl_error_level c_engine::build_schedule( void )
 {
      t_engine_clock *clk;
      int posedge;
-     int cont, check;
+     int cont, check, modules_to_check;
      t_engine_function_reference *efr;
      t_engine_function *emi_sig;
      t_engine_signal *sig;
@@ -896,6 +896,7 @@ t_sl_error_level c_engine::build_schedule( void )
       */
      for (clk=global_clock_list; clk; clk=clk->next_in_list)
      {
+         //fprintf(stderr,"********************************************************************************\nBuilding schedule for clock %s\n",clk->global_name);
 
           /*b Generate schedule remainder values and length of clock cycle
            */
@@ -973,6 +974,7 @@ t_sl_error_level c_engine::build_schedule( void )
 
                /*b propagate changed and invalid inputs of comb fns as invalid outputs (not necessarily changed yet), through chains of combinatorial modules
                 */
+               //fprintf(stderr,"Propagating changed and invalid inputs of combs\n");
                cont = 1;
                while (cont)
                {
@@ -986,6 +988,7 @@ t_sl_error_level c_engine::build_schedule( void )
                               {
                                    if (emi_sig->data.input.driven_by)
                                    {
+                                       //fprintf(stderr,"check input %s:%s:comb %d:valid %d:changed %d\n",emi->full_name,emi_sig->name,emi_sig->data.input.combinatorial,emi_sig->data.input.driven_by->valid,emi_sig->data.input.driven_by->changed);
                                        SL_DEBUG( sl_debug_level_verbose_info, "try to check module '%s', input '%s', global '%s' (v %d c %d)", emi->name, emi_sig->name, emi_sig->data.input.driven_by->global_name, emi_sig->data.input.driven_by->valid, emi_sig->data.input.driven_by->changed );
                                        if ( (emi_sig->data.input.combinatorial) &&
                                             ((!emi_sig->data.input.driven_by->valid) || (emi_sig->data.input.driven_by->changed)) )
@@ -995,14 +998,17 @@ t_sl_error_level c_engine::build_schedule( void )
                                        }
                                    }
                               }
+                              //fprintf(stderr,"propagate invalids %s %d\n",emi->full_name,check);
                               if (check) // There is a combinatorial component to this instance whose inputs have changed or are invalid, so mark the globals the outputs drive as invalid
                               {
                                    for (emi_sig = emi->output_list; emi_sig; emi_sig=emi_sig->next_in_list)
                                    {
+                                       //fprintf(stderr,"check output is valid %s:%s:comb %d:valid %d\n",emi->full_name,emi_sig->name,emi_sig->data.output.combinatorial,emi_sig->data.output.drives?emi_sig->data.output.drives->signal->valid:-1);
                                         if ( (emi_sig->data.output.combinatorial) &&
                                              (emi_sig->data.output.drives) &&
                                              (emi_sig->data.output.drives->signal->valid) ) // All the globals driven by the output should be valid if any is; we do this test to determine if we should assert 'cont', i.e. changes have been made
                                         {
+                                            //fprintf(stderr,"make invalid %s:%s\n",emi->full_name,emi_sig->name);
                                             t_engine_signal_reference *sig_ref;
                                             t_engine_signal *sig;
                                             for (sig_ref = emi_sig->data.output.drives; sig_ref; sig_ref=sig_ref->next_in_list)
@@ -1024,6 +1030,7 @@ t_sl_error_level c_engine::build_schedule( void )
                while (cont)
                {
                     cont = 0;
+                    modules_to_check = 0;
                     for (emi=module_instance_list; emi; emi=emi->next_instance) // For all module instances with a combinatorial component
                     {
                         if ((!emi->parent_instance) && (emi->comb_fn_list))
@@ -1031,6 +1038,7 @@ t_sl_error_level c_engine::build_schedule( void )
                              check = 0; // Determine if any of its outputs are not valid; assert check if 1 (otherwise the instance does not need handling)
                               for (emi_sig = emi->output_list; (!check) && emi_sig; emi_sig=emi_sig->next_in_list)
                               {
+                                  //fprintf(stderr,"comb check %s:%s:comb %d:valid %d\n",emi->full_name,emi_sig->name,emi_sig->data.output.combinatorial,emi_sig->data.output.drives?emi_sig->data.output.drives->signal->valid:-1);
                                    if ( (emi_sig->data.output.combinatorial) &&
                                         (emi_sig->data.output.drives) &&
                                         (!emi_sig->data.output.drives->signal->valid) ) // All globals driven by this output should have the same validity, so we use the first in the list
@@ -1042,9 +1050,11 @@ t_sl_error_level c_engine::build_schedule( void )
                               {
                                    continue;
                               }
+                              modules_to_check++;
                               check = 1; // Determine if all the combinatorially-used globally driven inputs are now valid; set to zero if not
                               for (emi_sig = emi->input_list; (check) && emi_sig; emi_sig=emi_sig->next_in_list)
                               {
+                                  //fprintf(stderr,"check input %s:%s:comb %d:valid %d\n",emi->full_name,emi_sig->name,emi_sig->data.input.combinatorial,emi_sig->data.input.driven_by?emi_sig->data.input.driven_by->valid:-1);
                                    if ( (emi_sig->data.input.combinatorial) &&
                                         (emi_sig->data.input.driven_by) )
                                    {
@@ -1068,10 +1078,12 @@ t_sl_error_level c_engine::build_schedule( void )
                                    }
                                    for (emi_sig = emi->output_list; emi_sig; emi_sig=emi_sig->next_in_list)
                                    {
+
                                         if ( (emi_sig->data.output.combinatorial) &&
                                              (emi_sig->data.output.drives) &&
                                              (!emi_sig->data.output.drives->signal->valid) ) // All globals driven by this output have the same validity, so we can test with just the first
                                         {
+                                            //fprintf(stderr,"make valid changed %s:%s\n",emi->full_name,emi_sig->name);
                                             t_engine_signal_reference *sig_ref;
                                             t_engine_signal *sig;
                                             for (sig_ref = emi_sig->data.output.drives; sig_ref; sig_ref=sig_ref->next_in_list)
@@ -1087,6 +1099,7 @@ t_sl_error_level c_engine::build_schedule( void )
                          }
                     }
                }
+               //fprintf(stderr,"Finished listing comb functions with modules_to_check %d\n",modules_to_check);
 
                /*b Now list all the input propagation functions for global modules that have CHANGED global signals as inputs
                 */
@@ -1434,7 +1447,7 @@ t_sl_error_level c_engine::step_cycles( int cycles )
             This is resolved in normal simulation within the preclock edge functions, but for monitors
             and waveforms etc this propagation needs to be performed prior to the use of the inputs
            */
-          if (edge_occurred && (monitors || simulation_callbacks))
+          if (1 && (edge_occurred && (monitors || simulation_callbacks)))
           {
               //fprintf(stderr,"Calling monitors %p\n",simulation_callbacks);
               for (clk=global_clock_list; clk; clk=clk->next_in_list)
