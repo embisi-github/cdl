@@ -337,7 +337,7 @@ void c_engine::register_output_generated_on_clock( void *engine_handle, const ch
           error->add_error( (void *)emi->name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_register_output_generated_on_clock,
                             error_arg_type_malloc_string, name,
                             error_arg_type_malloc_string, efn_clk->name,
-                            error_arg_type_malloc_string, clock_name,
+                            error_arg_type_malloc_string, efn_sig->data.output.generated_by_clock->name,
                             error_arg_type_none );
      }
      efn_sig->data.output.generated_by_clock = efn_clk;

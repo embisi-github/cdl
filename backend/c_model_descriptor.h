@@ -434,6 +434,7 @@ typedef struct t_md_state
     t_md_type_instance_iter *instance_iter;
 
     t_md_signal *output_ref;
+    int async_read; // Set if the state is read asynchronously, so its output is not dependent on the clock
 } t_md_state;
 
 /*t t_md_lvar_data_type
@@ -1015,6 +1016,7 @@ public:
     t_md_state *state_create( t_md_module *module, const char *state_name, int copy_state_name, t_md_client_reference *client_ref, const char *clock_name, int edge, const char *reset_name, int reset_level, t_md_signal *clocks, t_md_signal *signals, t_md_state **list );
     t_md_state *state_find( const char *name, t_md_state *list );
     void state_add_reset_value( t_md_type_instance_data *reset_value_id, int subscript_start, int subscript_end, t_md_expression * expression );
+    int state_mark_async_read( t_md_module *module, const char *state_name );
     t_md_state *state_internal_add( t_md_module *module, const char *name, int copy_name, void *client_base_handle, const void *client_item_handle, int client_item_reference, int array_size, t_md_type_definition_handle type, const char *clock, int edge, const char *reset, int level, t_md_usage_type usage_type );
     int state_add( t_md_module *module, const char *name, int copy_name, void *client_base_handle, const void *client_item_handle, int client_item_reference, int width, t_md_usage_type usage_type, const char *clock, int edge, const char *reset, int level, t_md_signal_value *reset_value );
     int state_add( t_md_module *module, const char *name, int copy_name, void *client_base_handle, const void *client_item_handle, int client_item_reference, int array_size, t_md_type_definition_handle type, t_md_usage_type usage_type, const char *clock, int edge, const char *reset, int level );

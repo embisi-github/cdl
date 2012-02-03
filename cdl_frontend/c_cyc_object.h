@@ -45,6 +45,7 @@ typedef enum
 	 co_type_cmodel_eq,
 	 co_type_code_label,
 	 co_type_constant_declaration,
+	 co_type_declspec,
 	 co_type_enum_definition,
 	 co_type_enum_identifier,
 	 co_type_expression,
@@ -122,6 +123,7 @@ typedef union
     class c_co_cmodel_eq *co_cmodel_eq;
     class c_co_code_label *co_code_label;
     class c_co_constant_declaration *co_constant_declaration;
+    class c_co_declspec *co_declspec;
     class c_co_enum_definition *co_enum_definition;
     class c_co_enum_identifier *co_enum_identifier;
     class c_co_expression *co_expression;

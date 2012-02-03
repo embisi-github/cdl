@@ -414,7 +414,7 @@ int c_sl_error::generate_error_message( void *handle, char *buffer, int buffer_s
      {
           for (i=0; (!message) && (i<text_list->number_messages); i++)
           {
-               //printf("%p:%s:%d:%d:%d\n", this, text_list->messages[i].message, i, error->error_number,text_list->messages[i].number);
+              //printf("%p:%s:%d:%d:%d\n", this, text_list->messages[i].message, i, error->error_number,text_list->messages[i].number);
                if (error->error_number==text_list->messages[i].number)
                {
                     message = text_list->messages[i].message;

@@ -54,7 +54,7 @@ typedef enum
 class c_co_signal_declaration: public c_cyc_object
 {
 public:
-    c_co_signal_declaration( t_symbol *id, class c_co_type_specifier *type, t_signal_usage_type usage_type, class c_co_clock_reset_defn *clock, class c_co_clock_reset_defn *reset, class c_co_nested_assignment *reset_values, t_string *documentation ); // local clocked signal with nested reset
+    c_co_signal_declaration( t_symbol *id, class c_co_type_specifier *type, t_signal_usage_type usage_type, class c_co_clock_reset_defn *clock, class c_co_clock_reset_defn *reset, class c_co_nested_assignment *reset_values, class c_co_declspec *declspec, t_string *documentation ); // local clocked signal with nested reset
     c_co_signal_declaration( t_symbol *id, class c_co_type_specifier *type, t_signal_usage_type usage_type, t_string *documentation ); // local combinatorial signal
     c_co_signal_declaration( t_signal_declaration_type sd_type, t_symbol *id, class c_co_type_specifier *type, t_string *documentation ); // net declaration
     c_co_signal_declaration( t_symbol *bus_id, t_symbol *id, t_string *documentation ); // bus in a port declaration
@@ -72,6 +72,7 @@ public:
     void high_level_checks( c_cyclicity *cyclicity, t_co_scope *types, t_co_scope *variables );
 
     t_symbol *symbol; // Name of the signal
+    class c_co_declspec *declspec_list; // Declaration specifications
     class c_co_type_specifier *type_specifier; // Real type of the signal declaration
     t_signal_declaration_type signal_declaration_type; // Indicates if the declaration is a clock, input, clocked output, clocked local, etc
     t_string *documentation; // Documentation of the signal

@@ -34,6 +34,7 @@
 #include "c_co_clock_reset_defn.h"
 #include "c_co_code_label.h"
 #include "c_co_constant_declaration.h"
+#include "c_co_declspec.h"
 #include "c_co_enum_definition.h"
 #include "c_co_enum_identifier.h"
 #include "c_co_expression.h"
@@ -252,6 +253,17 @@ static void traverse_structure( class c_cyclicity *cyclicity,
         fprintf(stderr,"traverse_structure::c_co_build_model:Should not get this far - error at cross referencing ****************************************\n");
         //cyclicity->set_parse_error( this, co_compile_stage_cross_reference, "Error traversing structure - could be  '%s'", lex_string_from_terminal( lvar->symbol ) );
     }
+}
+
+/*a c_co_declspec
+ */
+int c_co_declspec::has_declspec_type( t_declspec_type declspec_type )
+{
+    if (declspec_type==this->declspec_type)
+        return 1;
+    if (next_in_list)
+        return ((c_co_declspec *)next_in_list)->has_declspec_type( declspec_type );
+    return 0;
 }
 
 /*a c_co_expression
@@ -854,6 +866,10 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                                   lex_string_from_terminal(cosd->data.clocked.clock_spec->symbol), (cosd->data.clocked.clock_spec->clock_edge == clock_edge_falling),
                                   lex_string_from_terminal(cosd->data.clocked.reset_spec->symbol), (cosd->data.clocked.reset_spec->reset_active == reset_active_high) );
                 CO_DEBUG( sl_debug_level_info, "Build model - clocked output state done for %s ", signal_name );
+                if (cosd->declspec_list && cosd->declspec_list->has_declspec_type(declspec_type_async_read))
+                {
+                    model->state_mark_async_read( md_module, signal_name );
+                }
                 if (!cosd->documentation && cosd->local_clocked_signal && cosd->local_clocked_signal->documentation)
                 {
                     model->state_document( md_module, signal_name, lex_string_from_terminal(cosd->local_clocked_signal->documentation) );
@@ -888,6 +904,10 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                                       lex_string_from_terminal(cosd->data.clocked.clock_spec->symbol), (cosd->data.clocked.clock_spec->clock_edge == clock_edge_falling),
                                       lex_string_from_terminal(cosd->data.clocked.reset_spec->symbol), (cosd->data.clocked.reset_spec->reset_active == reset_active_high) ))
                 {
+                    if (cosd->declspec_list && cosd->declspec_list->has_declspec_type(declspec_type_async_read))
+                    {
+                        model->state_mark_async_read( md_module, signal_name );
+                    }
                     model_lvar = model->lvar_reference( md_module, NULL, signal_name );
                     if (model_lvar)
                     {

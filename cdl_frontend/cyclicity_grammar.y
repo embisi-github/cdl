@@ -32,6 +32,7 @@ Also define YYLOG() to be printf
 #include "c_co_clock_reset_defn.h"
 #include "c_co_code_label.h"
 #include "c_co_constant_declaration.h"
+#include "c_co_declspec.h"
 #include "c_co_enum_identifier.h"
 #include "c_co_enum_definition.h"
 #include "c_co_fsm_state.h"
@@ -88,6 +89,7 @@ static t_lex_file_posn *last_ok_file_posn;
     class c_co_sized_int_pair *sized_int_pair;
     class c_co_expression *expr;
     class c_co_case_entry *case_entry;
+    class c_co_declspec *declspec;
     class c_co_lvar *lvar;
     class c_co_code_label *code_label;
     class c_co_type_specifier *type_specifier;		// For a type specifier
@@ -141,6 +143,7 @@ static t_lex_file_posn *last_ok_file_posn;
 %token <symbol> TOKEN_TEXT_RISING
 %token <symbol> TOKEN_TEXT_FALLING
 %token <symbol> TOKEN_TEXT_GATED_CLOCK
+%token <symbol> TOKEN_TEXT_DECL_ASYNC_READ
 %token <symbol> TOKEN_TEXT_RESET
 %token <symbol> TOKEN_TEXT_ACTIVE_LOW
 %token <symbol> TOKEN_TEXT_ACTIVE_HIGH
@@ -190,6 +193,7 @@ static t_lex_file_posn *last_ok_file_posn;
 %type <case_entry> case_entries case_entry
 %type <signal_declaration> comb_variable clocked_variable net_variable gated_clock_defn
 %type <named_expression> log_argument_list named_expression
+%type <declspec> clocked_decl_spec
 %type <reset_spec> var_reset_spec reset_spec reset_defn
 %type <clock_spec> var_clock_spec clock_spec clock_defn
 %type <nested_assignment> nested_assignment nested_assignment_bracketed_list nested_assignment_list nested_assignments
@@ -1470,23 +1474,23 @@ reset_defn:
     /*g clocked_variable, comb_variable, net_variable
      */
 clocked_variable:
-TOKEN_TEXT_CLOCKED var_clock_spec var_reset_spec type_specifier TOKEN_USER_ID '=' nested_assignment_list optional_documentation ';'
+TOKEN_TEXT_CLOCKED var_clock_spec var_reset_spec clocked_decl_spec type_specifier TOKEN_USER_ID '=' nested_assignment_list optional_documentation ';'
     {
-        $$ = new c_co_signal_declaration( $5, $4, signal_usage_type_rtl, $2, $3, $7, $8 );
+        $$ = new c_co_signal_declaration( $6, $5, signal_usage_type_rtl, $2, $3, $8, $4, $9 );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
-        $$->co_set_file_bound( $1->file_posn, $9 );
+        $$->co_set_file_bound( $1->file_posn, $10 );
     }
 |
 TOKEN_TEXT_ASSERT TOKEN_TEXT_CLOCKED var_clock_spec var_reset_spec type_specifier TOKEN_USER_ID '=' nested_assignment_list optional_documentation ';'
     {
-        $$ = new c_co_signal_declaration( $6, $5, signal_usage_type_assert, $3, $4, $8, $9 );
+        $$ = new c_co_signal_declaration( $6, $5, signal_usage_type_assert, $3, $4, $8, NULL, $9 );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
         $$->co_set_file_bound( $1->file_posn, $10 );
     }
 |
 TOKEN_TEXT_COVER TOKEN_TEXT_CLOCKED var_clock_spec var_reset_spec type_specifier TOKEN_USER_ID '=' nested_assignment_list optional_documentation ';'
     {
-        $$ = new c_co_signal_declaration( $6, $5, signal_usage_type_cover, $3, $4, $8, $9 );
+        $$ = new c_co_signal_declaration( $6, $5, signal_usage_type_cover, $3, $4, $8, NULL, $9 );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
         $$->co_set_file_bound( $1->file_posn, $10 );
     }
@@ -1661,6 +1665,18 @@ TOKEN_USER_ID  { $$ = new c_co_clock_reset_defn( clock_reset_type_reset, $1, res
 var_reset_spec:
 /* empty */ { $$ = NULL; }
 | TOKEN_TEXT_RESET reset_spec  { $$ = $2; }
+;
+
+clocked_decl_spec:
+/* empty */ { $$ = NULL; }
+| TOKEN_TEXT_DECL_ASYNC_READ clocked_decl_spec
+    {
+        $$ = new c_co_declspec(declspec_type_async_read,$1);
+        if ($$)
+        {
+            $$->chain_tail($2);
+        }
+    }
 ;
 
 /*g Expression

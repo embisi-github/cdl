@@ -186,6 +186,7 @@ static t_token default_tokens[] = {
      {"log", TOKEN_TEXT_LOG},
      {"config", TOKEN_TEXT_CONFIG},
      {"assert", TOKEN_TEXT_ASSERT},
+     {"__async_read__", TOKEN_TEXT_DECL_ASYNC_READ},
      {0, 0}
 };
 
@@ -678,6 +679,26 @@ void c_lexical_analyzer::set_token_table( int yyntokens, const char *const *yytn
      this->yytoknum = yytoknum;
 }
 
+/*f line_from_file_posn
+ */
+static int line_from_file_posn( t_lex_file *lex_file, int char_posn )
+{
+     int i;
+
+     //printf("Looking for char %d in file %s\n", char_posn, lex_file->filename );
+     if (char_posn<0)
+          return 0;
+     if (char_posn>=lex_file->file_size)
+          return lex_file->number_lines-1;
+
+     for (i=0; i<lex_file->number_lines-1; i++)
+     {
+          if (char_posn<lex_file->line_starts[i+1])
+               return i;
+     }
+     return lex_file->number_lines-1;
+}
+
 /*f file_add_terminal_entry
   Add a terminal to the lexical structure for a file
   The last one in the file should be terminal_entry_type_termination which does not have a start or end - these are implied from the previous terminal (if any)
@@ -932,7 +953,7 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
                     {
                         if (strchr(string->string,'\n'))
                         {
-                            fprintf(stderr,"Newline within commment - use triple-quotes for multiline comments -- this will error soon (Dec 2011)\n" );
+                            fprintf(stderr,"Newline within single-quoted string ending at line %d - use triple-quotes for multiline comments -- this will error soon (Dec 2011)\n",line_from_file_posn( file, file_ofs ) );
                             //cyclicity->set_parse_error( file->terminal_entries+file->number_terminal_entries, co_compile_stage_tokenize, "Newline within commment - use triple-quotes for multiline comments" );
                         }
                     }
@@ -943,7 +964,7 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
 
           /*b Identifier?
            */
-          if (isalpha (c))
+          if (isalpha(c) || (c=='_'))
           {
                file_ofs++;
                while ( (file_ofs<file->file_size) &&
@@ -1122,26 +1143,6 @@ t_lex_file_posn c_lexical_analyzer::get_current_location( void )
      if (current_file->file_terminal_pos > current_file->number_terminal_entries)
          return current_file->terminal_entries + current_file->number_terminal_entries; // Points at post-EOF
      return current_file->terminal_entries + current_file->file_terminal_pos;
-}
-
-/*f line_from_file_posn
- */
-static int line_from_file_posn( t_lex_file *lex_file, int char_posn )
-{
-     int i;
-
-     //printf("Looking for char %d in file %s\n", char_posn, lex_file->filename );
-     if (char_posn<0)
-          return 0;
-     if (char_posn>=lex_file->file_size)
-          return lex_file->number_lines-1;
-
-     for (i=0; i<lex_file->number_lines-1; i++)
-     {
-          if (char_posn<lex_file->line_starts[i+1])
-               return i;
-     }
-     return lex_file->number_lines-1;
 }
 
 /*f c_lexical_analyzer::translate_lex_file_posn

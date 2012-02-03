@@ -28,6 +28,7 @@
 #include "c_co_clock_reset_defn.h"
 #include "c_co_code_label.h"
 #include "c_co_constant_declaration.h"
+#include "c_co_declspec.h"
 #include "c_co_enum_definition.h"
 #include "c_co_enum_identifier.h"
 #include "c_co_expression.h"
@@ -157,6 +158,19 @@ c_co_constant_declaration::c_co_constant_declaration( t_symbol *symbol, class c_
  */
 c_co_constant_declaration::~c_co_constant_declaration()
 {
+}
+
+/*a c_co_declspec
+ */
+/*f c_co_declspec::c_co_declspec( declspec_typem, clock_symbol )
+ */
+c_co_declspec::c_co_declspec( t_declspec_type declspec_type, t_symbol *symbol )
+{
+    this->declspec_type = declspec_type;
+    this->symbol = symbol;
+
+    co_init(co_type_declspec,"co_type_declspec( clock )");
+    co_link(co_compile_stage_parse, symbol, "clock_symbol" );
 }
 
 /*a c_co_enum_definition
@@ -811,10 +825,13 @@ c_co_signal_declaration::c_co_signal_declaration( t_symbol *id,
                                                   class c_co_clock_reset_defn *clock,
                                                   class c_co_clock_reset_defn *reset,
                                                   class c_co_nested_assignment *reset_value,
+                                                  class c_co_declspec *declspec,
                                                   t_string *documentation ) // local clocked signal with nested reset
 {
     this->symbol = id;
     this->type_specifier = type;
+    this->declspec_list = declspec;
+
     this->signal_declaration_type = signal_declaration_type_clocked_local;
     this->documentation = documentation;
     this->data.clocked.usage_type = usage_type;
@@ -843,6 +860,7 @@ c_co_signal_declaration::c_co_signal_declaration( t_symbol *id,
     this->symbol = id;
     this->type_specifier = type;
     this->signal_declaration_type = signal_declaration_type_comb_local;
+    this->declspec_list = NULL;
     this->documentation = documentation;
     this->data.comb.usage_type = usage_type;
     this->local_clocked_signal = NULL;
@@ -864,6 +882,7 @@ c_co_signal_declaration::c_co_signal_declaration( t_signal_declaration_type sd_t
     this->symbol = id;
     this->type_specifier = type;
     this->signal_declaration_type = sd_type;
+    this->declspec_list = NULL;
     this->documentation = documentation;
     this->local_clocked_signal = NULL;
     this->output_port = NULL;
@@ -891,6 +910,7 @@ c_co_signal_declaration::c_co_signal_declaration( t_symbol *id, t_symbol *dirn, 
         co_init(co_type_signal_declaration,"signal_declaration( input port )");
     }
     this->documentation = documentation;
+    this->declspec_list = NULL;
     this->local_clocked_signal = NULL;
     this->output_port = NULL;
 
@@ -909,6 +929,7 @@ c_co_signal_declaration::c_co_signal_declaration( t_symbol *id, t_string *docume
     this->documentation = documentation;
     this->local_clocked_signal = NULL;
     this->output_port = NULL;
+    this->declspec_list = NULL;
 
     this->data.clock.clock_to_gate = NULL;
     this->data.clock.gate          = NULL;
@@ -926,6 +947,7 @@ c_co_signal_declaration::    c_co_signal_declaration( t_symbol *id, c_co_clock_r
     this->type_specifier = NULL;
     this->signal_declaration_type = signal_declaration_type_clock;
     this->documentation = documentation;
+    this->declspec_list = NULL;
     this->local_clocked_signal = NULL;
     this->output_port = NULL;
 

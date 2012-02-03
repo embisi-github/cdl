@@ -103,6 +103,7 @@ c_engine::c_engine( c_sl_error *error, const char *name )
      }
 
      internal_module_register_all( this );
+     //fprintf(stderr,"****************************************\nRegistering default_error_messages\n");
      error->add_text_list( 1, default_error_messages );
      message->add_text_list( 1, default_error_messages );
 }

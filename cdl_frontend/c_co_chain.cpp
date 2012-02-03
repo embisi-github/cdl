@@ -28,6 +28,7 @@
 #include "c_co_cmodel_eq.h"
 #include "c_co_code_label.h"
 #include "c_co_constant_declaration.h"
+#include "c_co_declspec.h"
 #include "c_co_enum_definition.h"
 #include "c_co_enum_identifier.h"
 #include "c_co_expression.h"
@@ -66,6 +67,7 @@ class_name *class_name::chain_tail( class_name *entry ) \
 CHAIN_TAIL( c_co_case_entry );
 CHAIN_TAIL( c_co_enum_identifier );
 CHAIN_TAIL( c_co_expression );
+CHAIN_TAIL( c_co_declspec );
 CHAIN_TAIL( c_co_fsm_state );
 CHAIN_TAIL( c_co_module_prototype_body_entry );
 CHAIN_TAIL( c_co_module_body_entry );

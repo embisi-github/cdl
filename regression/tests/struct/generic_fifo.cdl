@@ -53,7 +53,7 @@ module generic_fifo( clock io_clock,
                      input bit fifo_pop,
                      output bit fifo_empty,
                      output gt_fifo_content fifo_data_out )
-r"""
+"""
 Generic FIFO
 
 Build with a remapped gt_fifo_content type
@@ -71,8 +71,8 @@ cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy  rmt:gt_fi
     default clock io_clock;
     default reset io_reset;
 
-    clocked gt_fifo_content[8] fifo_data = {* = 0};
-    clocked bit[4] read_ptr=0;
+    clocked __async_read__ gt_fifo_content[8] fifo_data = {* = 0};
+    clocked __async_read__ bit[4] read_ptr=0;
     clocked bit[4] write_ptr=0;
 
     fifo_ptrs r"""\/\/ Fifo pointer handling""":

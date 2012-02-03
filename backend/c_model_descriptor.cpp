@@ -857,7 +857,14 @@ int c_model_descriptor::module_analyze( t_md_module *module )
                          }
                          else if (type==md_reference_type_state)
                          {
-                             reference_add( &signal->data.output.clocks_derived_from, state->clock_ref, state->edge );
+                             if (state->async_read)
+                             {
+                                 fprintf(stderr,"WARNING: using __async_read__ ; needs design review\n");
+                             }
+                             else
+                             {
+                                 reference_add( &signal->data.output.clocks_derived_from, state->clock_ref, state->edge );
+                             }
                          }
                      }
                      else if (reference->type==md_reference_type_clock_edge) 
@@ -3483,6 +3490,7 @@ t_md_state *c_model_descriptor::state_create( t_md_module *module, const char *s
      state->reset_level = reset_level;
      state->output_ref = NULL;
      state->documentation = NULL;
+     state->async_read = 0;
 
      reset->data.input.levels_used_for_reset[reset_level] = 1;
 
@@ -3551,6 +3559,19 @@ t_md_state *c_model_descriptor::state_internal_add( t_md_module *module, const c
           state->output_ref = output;
      }
      return state;
+}
+
+/*f c_model_descriptor::state_mark_async_read - mark a state as asynchronously read - so its value does not depend on the clock
+ */
+int c_model_descriptor::state_mark_async_read( t_md_module *module, const char *name )
+{
+    t_md_state *state;
+    WHERE_I_AM;
+    state = state_find( name, module->registers );
+    if (!state)
+        return 0;
+    state->async_read = 1;
+    return 1;
 }
 
 /*f c_model_descriptor::state_add_reset_value - append a reset expression with possible subscripts to an instance reset value
