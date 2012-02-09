@@ -953,7 +953,7 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
                     {
                         if (strchr(string->string,'\n'))
                         {
-                            fprintf(stderr,"Newline within single-quoted string ending at line %d - use triple-quotes for multiline comments -- this will error soon (Dec 2011)\n",line_from_file_posn( file, file_ofs ) );
+                            fprintf(stderr,"Newline within single-quoted string ending at line %d - use triple-quotes for multiline strings -- this will error soon (Dec 2011)\n",line_from_file_posn( file, file_ofs ) );
                             //cyclicity->set_parse_error( file->terminal_entries+file->number_terminal_entries, co_compile_stage_tokenize, "Newline within commment - use triple-quotes for multiline comments" );
                         }
                     }

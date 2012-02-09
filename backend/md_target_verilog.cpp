@@ -70,7 +70,7 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
 static void output_header( c_model_descriptor *model, t_md_output_fn output, void *handle )
 {
 
-    output( handle, 0, "//a Note: created by CDL " __CDL__VERSION_STRING " - do not hand edit without recognizing it will be out of sync with the source\n");
+    output( handle, 0, "//a Note: created by CDL " __CDL__SHORT_VERSION_STRING " - do not hand edit without recognizing it will be out of sync with the source\n");
     output( handle, 0, "// Output mode %d (VMOD=1, standard verilog=0)\n", options.vmod_mode );
     output( handle, 0, "\n");
 
