@@ -54,6 +54,7 @@ enum
     cmd_module,
     cmd_module_force_option_int,
     cmd_module_force_option_string,
+    cmd_module_force_option_object,
     cmd_option_int,
     cmd_option_string,
     cmd_option_object,
@@ -122,11 +123,18 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
                                     sl_option_list( NULL,
                                                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                                                     sl_exec_file_eval_fn_get_argument_integer( cmd_cb, 2) ));
+        break;
     case cmd_module_force_option_string:
         instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
                                     sl_option_list( NULL,
                                                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                                                     sl_exec_file_eval_fn_get_argument_string( cmd_cb, 2) ));
+        break;
+    case cmd_module_force_option_object:
+        instance_add_forced_option( sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
+                                    sl_option_list( NULL,
+                                                    sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
+                                                    sl_exec_file_eval_fn_get_argument_pointer( cmd_cb, 2) ));
         break;
     case cmd_option_int:
         option_list = sl_option_list( option_list, 

@@ -551,7 +551,11 @@ class timed_assign(_instantiable):
     """
     A timed assignment, often used for a reset sequence.
     """
-    def __init__(self, signal, init_value, wait, later_value):
+    def __init__(self, signal, init_value, wait=None, later_value=None):
+        if wait is None:
+            wait = 1<<31
+        if later_value is None:
+            later_value = init_value
         self._outputs = {"sig": signal}
         self._ports = self._ports_from_ios([[], [], [["sig", signal._size]]], None)
         self._firstval = init_value
@@ -562,12 +566,13 @@ class module(_instantiable):
     """
     The object that represents a CDL module.
     """
-    def __init__(self, moduletype, clocks={}, inputs={}, outputs={}, options={}):
+    def __init__(self, moduletype, clocks={}, inputs={}, outputs={}, options={}, forces={}):
         self._type = moduletype
         self._clocks = clocks
         self._inputs = inputs
         self._outputs = outputs
         self._options = options
+        self._forces = forces
     def __repr__(self):
         return "<Module {0}>".format(self._type)
 
@@ -597,7 +602,7 @@ class _hwexfile(py_engine.exec_file):
     def _connect_wire(self, name, wireinst, connectedwires, inputs, ports, assign, firstval, wait, afterval):
         wire_basename = name.split('.')[-1].split('__')[-1]
         if wire_basename not in ports:
-            raise WireError("Connecting to undefined port %s" % wire_basename)
+            raise WireError("Connecting to undefined port '%s' (from name '%s')" % (wire_basename,name))
         port = ports[wire_basename]
         if not hasattr(port, "_size"):
             raise WireError("Port does not have a _size attribute, please check port %s, connection to wire %s." % (wire_basename, wireinst._name))
@@ -668,6 +673,12 @@ class _hwexfile(py_engine.exec_file):
                 i._name = "__anon%3d" % anonid
                 anonid += 1
             if isinstance(i, module):
+                for j in i._forces.keys():
+                    (submodule,s,option) = j.rpartition(".")
+                    if isinstance(i._forces[j], str):
+                        self.cdlsim_instantiation.module_force_option_string(i._name+"."+submodule, option, i._forces[j])
+                    else:
+                        self.cdlsim_instantiation.module_force_option_int(i._name+"."+submodule, option, i._forces[j])
                 for j in i._options:
                     if isinstance(i._options[j], str):
                         self.cdlsim_instantiation.option_string(j, i._options[j])
@@ -751,7 +762,14 @@ class hw(_clockable):
 
         self._wavesinst = None
         self._wave_hook = _wave_hook()
-        _clockable.__init__(self, children + (self._wave_hook,))
+        children_unpacked = []
+        for child in children:
+            if (isinstance(child,list)):
+                children_unpacked.extend(child)
+            else:
+                children_unpacked.append(child)
+        children_unpacked = tuple(children_unpacked)
+        _clockable.__init__(self, children_unpacked + (self._wave_hook,))
         self._engine = self.hw_class_data["engine"]
         self.display_all_errors()
         self._hwex = _hwexfile(self)

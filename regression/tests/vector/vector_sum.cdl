@@ -28,9 +28,41 @@ module vector_sum( clock io_clock,
     clocked value vector_output_0 = 0;
     clocked value vector_output_1 = 0;
 
+    comb bit tied_off_high;
+    comb bit tied_off_low;
+    comb bit parity;
+    comb bit[width] next_vector_output;
+
+pass_through_code:
+    {
+
+        next_vector_output = bundle(vector_output_1[width-2;2],tied_off_low,tied_off_high);
+        if (tied_off_high && !tied_off_low)
+        {
+            next_vector_output[0] = vector_output_1[0];
+            next_vector_output[1] = vector_output_1[1];
+        }
+        else
+        {
+            next_vector_output[0] = !vector_output_1[0];
+            next_vector_output[1] = !vector_output_1[1];
+        }
+
+        parity = 0;
+        for (i;width) {
+         parity = parity ^ next_vector_output[i];
+        }
+    }
+tied_off_code:
+    {
+        tied_off_low = 0;
+        tied_off_high = 1;
+    }
+
+
 sum_code:
     {
-        vector_output_1 <= vector_output_1;
+        vector_output_1 <= next_vector_output;
         vector_output_0 <= vector_input_0 + vector_input_1;
     }
 }
