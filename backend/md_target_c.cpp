@@ -80,22 +80,22 @@ static const char *usage_type_comment[] = { // Note this must match md_usage_typ
     "/* cover use only */",
 };
 static const char *bit_mask[] = {
-     "0LL", "1LL", "3LL", "7LL",
-     "0xfLL", "0x1fLL", "0x3fLL", "0x7fLL",
-     "0xffLL", "0x1ffLL", "0x3ffLL", "0x7ffLL",
-     "0xfffLL", "0x1fffLL", "0x3fffLL", "0x7fffLL",
-     "((1LL<<16)-1)", "((1LL<<17)-1)", "((1LL<<18)-1)", "((1LL<<19)-1)", 
-     "((1LL<<20)-1)", "((1LL<<21)-1)", "((1LL<<22)-1)", "((1LL<<23)-1)", 
-     "((1LL<<24)-1)", "((1LL<<25)-1)", "((1LL<<26)-1)", "((1LL<<27)-1)", 
-     "((1LL<<28)-1)", "((1LL<<29)-1)", "((1LL<<30)-1)", "((1LL<<31)-1)", 
-     "((1LL<<32)-1)", "((1LL<<33)-1)", "((1LL<<34)-1)", "((1LL<<35)-1)", 
-     "((1LL<<36)-1)", "((1LL<<37)-1)", "((1LL<<38)-1)", "((1LL<<39)-1)", 
-     "((1LL<<40)-1)", "((1LL<<41)-1)", "((1LL<<42)-1)", "((1LL<<43)-1)", 
-     "((1LL<<44)-1)", "((1LL<<45)-1)", "((1LL<<46)-1)", "((1LL<<47)-1)", 
-     "((1LL<<48)-1)", "((1LL<<49)-1)", "((1LL<<50)-1)", "((1LL<<51)-1)", 
-     "((1LL<<52)-1)", "((1LL<<53)-1)", "((1LL<<54)-1)", "((1LL<<55)-1)", 
-     "((1LL<<56)-1)", "((1LL<<57)-1)", "((1LL<<58)-1)", "((1LL<<59)-1)", 
-     "((1LL<<60)-1)", "((1LL<<61)-1)", "((1LL<<62)-1)", "((1LL<<63)-1)", 
+     "0ULL", "1ULL", "3ULL", "7ULL",
+     "0xfULL", "0x1fULL", "0x3fULL", "0x7fULL",
+     "0xffULL", "0x1ffULL", "0x3ffULL", "0x7ffULL",
+     "0xfffULL", "0x1fffULL", "0x3fffULL", "0x7fffULL",
+     "((1ULL<<16)-1)", "((1ULL<<17)-1)", "((1ULL<<18)-1)", "((1ULL<<19)-1)", 
+     "((1ULL<<20)-1)", "((1ULL<<21)-1)", "((1ULL<<22)-1)", "((1ULL<<23)-1)", 
+     "((1ULL<<24)-1)", "((1ULL<<25)-1)", "((1ULL<<26)-1)", "((1ULL<<27)-1)", 
+     "((1ULL<<28)-1)", "((1ULL<<29)-1)", "((1ULL<<30)-1)", "((1ULL<<31)-1)", 
+     "((1ULL<<32)-1)", "((1ULL<<33)-1)", "((1ULL<<34)-1)", "((1ULL<<35)-1)", 
+     "((1ULL<<36)-1)", "((1ULL<<37)-1)", "((1ULL<<38)-1)", "((1ULL<<39)-1)", 
+     "((1ULL<<40)-1)", "((1ULL<<41)-1)", "((1ULL<<42)-1)", "((1ULL<<43)-1)", 
+     "((1ULL<<44)-1)", "((1ULL<<45)-1)", "((1ULL<<46)-1)", "((1ULL<<47)-1)", 
+     "((1ULL<<48)-1)", "((1ULL<<49)-1)", "((1ULL<<50)-1)", "((1ULL<<51)-1)", 
+     "((1ULL<<52)-1)", "((1ULL<<53)-1)", "((1ULL<<54)-1)", "((1ULL<<55)-1)", 
+     "((1ULL<<56)-1)", "((1ULL<<57)-1)", "((1ULL<<58)-1)", "((1ULL<<59)-1)", 
+     "((1ULL<<60)-1)", "((1ULL<<61)-1)", "((1ULL<<62)-1)", "((1ULL<<63)-1)", 
      "(-1LL)"
 };
 static char type_buffer[64];
@@ -1476,7 +1476,7 @@ static void output_simulation_methods_expression( c_model_descriptor *model, t_m
     switch (expr->type)
     {
     case md_expr_type_value:
-        output( handle, -1, "0x%llxLL", expr->data.value.value.value[0] );
+        output( handle, -1, "0x%llxULL", expr->data.value.value.value[0] );
         break;
     case md_expr_type_lvar:
         output_simulation_methods_lvar( model, output, handle, code_block, expr->data.lvar, main_indent, sub_indent, 1 );

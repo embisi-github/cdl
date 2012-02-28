@@ -20,6 +20,13 @@
 
 /*a Defines
  */
+#if 0
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,(int)tp.tv_usec,(void*)pthread_self(),__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
 
 /*a Types
  */
@@ -199,11 +206,13 @@ extern void *sl_option_get_object( t_sl_option *list, const char *keyword )
 extern t_sl_option *sl_option_list( t_sl_option *list, const char *keyword, void *object )
 {
      t_sl_option *opt;
-     opt = (t_sl_option *)malloc(sizeof(t_sl_option)+strlen(keyword)+1);
+     opt = (t_sl_option *)malloc(sizeof(t_sl_option)+strlen(keyword)+32+1);
      opt->next_in_list = list;
      opt->type = option_type_object;
      strcpy( opt->keyword, keyword );
-     Py_INCREF(object);
+     opt->string = opt->keyword+strlen(keyword)+1;
+     snprintf( opt->string, 32, "%p", object );
+     Py_XINCREF(object);
      opt->object = object;
      return opt;
 }
@@ -264,15 +273,23 @@ extern t_sl_option *sl_option_list_copy_item( t_sl_option *item )
     int size;
     t_sl_option *new_item;
 
+    WHERE_I_AM;
     if (!item) return NULL;
+
+    WHERE_I_AM;
     size = sizeof(t_sl_option)+strlen(item->keyword)+strlen(item->string)+1;
+
+    WHERE_I_AM;
     new_item = (t_sl_option *)malloc(size);
     if (!new_item) return NULL;
     new_item->next_in_list = NULL;
     new_item->type = item->type;
     strcpy( new_item->keyword, item->keyword );
+
+    WHERE_I_AM;
     new_item->string = new_item->keyword+strlen(new_item->keyword)+1;
     strcpy( new_item->string, item->string );
+    WHERE_I_AM;
     switch (item->type)
     {
     case option_type_string:
@@ -283,7 +300,11 @@ extern t_sl_option *sl_option_list_copy_item( t_sl_option *item )
     case option_type_int64:
         new_item->integer64 = item->integer64;
         break;
+    case option_type_object:
+        new_item->object = item->object;
+        break;
     }
+    WHERE_I_AM;
     return new_item;
 }
 
@@ -291,14 +312,18 @@ extern t_sl_option *sl_option_list_copy_item( t_sl_option *item )
  */
 extern t_sl_option *sl_option_list_prepend( t_sl_option *list, t_sl_option *item )
 {
+    WHERE_I_AM;
     item = sl_option_list_copy_item( item );
+    WHERE_I_AM;
     if (!item)
         return list;
 
+    WHERE_I_AM;
     if (list)
     {
         item->next_in_list = list;
     }
+    WHERE_I_AM;
     return item;
 }
 

@@ -22,6 +22,8 @@
 
 /*a Defines
  */
+#define WHERE_I_AM {}
+#define WHERE_I_AM_VERBOSE {fprintf(stderr,"%s:%s:%d\n",__FILE__,__func__,__LINE__ );}
 
 /*a Types
  */
@@ -88,6 +90,8 @@ extern t_sl_error_level sl_mif_allocate_and_read_mif_file( c_sl_error *error, co
 {
     int bytes_per_item;
 
+    WHERE_I_AM;
+
     /*b Allocate room for the data
      */
     bytes_per_item = BITS_TO_BYTES(bit_size);
@@ -118,13 +122,16 @@ extern t_sl_error_level sl_mif_reset_and_read_mif_file( c_sl_error *error, const
 
     /*b Allocate room for the data
      */
+    WHERE_I_AM;
     bytes_per_item = BITS_TO_BYTES(bit_size);
 
     /*b Reset if required
      */
+    WHERE_I_AM;
     switch (reset)
     {
     case 1:
+    WHERE_I_AM;
         for (i=0; i<max_size; i++)
         {
             switch (bytes_per_item)
@@ -135,12 +142,16 @@ extern t_sl_error_level sl_mif_reset_and_read_mif_file( c_sl_error *error, const
                 ((char *)data)[i*2+1] = reset_value>>8;
                 break;
             default:
-                data[i] = reset_value;
+                for (int j=0; j<bytes_per_item; j++)
+                {
+                    ((char *)data)[i*bytes_per_item+j] = (reset_value>>(8*(j&3)));
+                }
                 break;
             }
         }
         break;
     case 2:
+    WHERE_I_AM;
         for (i=0; i<max_size; i++)
         {
             switch (bytes_per_item)
@@ -151,13 +162,17 @@ extern t_sl_error_level sl_mif_reset_and_read_mif_file( c_sl_error *error, const
                 ((char *)data)[i*2+1] = (i+reset_value)>>8;
                 break;
             default:
-                data[i] = i+reset_value;
+                for (int j=0; j<bytes_per_item; j++)
+                {
+                    ((char *)data)[i*bytes_per_item+j] = ((i+reset_value)>>(8*(j&3)));
+                }
                 break;
             }
         }
         break;
     case 3:
     {
+    WHERE_I_AM;
         t_sl_uint64 value;
         t_sl_uint64 taps[2];
         taps[0] = 1LL<<((reset_value>>0)&0xff);
@@ -175,7 +190,10 @@ extern t_sl_error_level sl_mif_reset_and_read_mif_file( c_sl_error *error, const
                 ((char *)data)[i*2+1] = value>>8;
                 break;
             default:
-                data[i] = value;
+                for (int j=0; j<bytes_per_item; j++)
+                {
+                    ((char *)data)[i*bytes_per_item+j] = ((value)>>(8*(j&3)));
+                }
                 break;
             }
             for (j=0; j<8*bytes_per_item; j++)
@@ -189,6 +207,7 @@ extern t_sl_error_level sl_mif_reset_and_read_mif_file( c_sl_error *error, const
 
     /*b Read the MIF file
      */
+    WHERE_I_AM;
     write_info.bytes_per_item = bytes_per_item;
     write_info.bit_start = bit_start;
     write_info.bit_size = bit_size;
@@ -204,6 +223,7 @@ extern t_sl_error_level sl_mif_reset_and_read_mif_file( c_sl_error *error, const
                           write_data,
                           &write_info );
 
+    WHERE_I_AM;
     return error_level_okay;
 }
 

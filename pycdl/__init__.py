@@ -677,8 +677,10 @@ class _hwexfile(py_engine.exec_file):
                     (submodule,s,option) = j.rpartition(".")
                     if isinstance(i._forces[j], str):
                         self.cdlsim_instantiation.module_force_option_string(i._name+"."+submodule, option, i._forces[j])
-                    else:
+                    elif isinstance(i._forces[j], int):
                         self.cdlsim_instantiation.module_force_option_int(i._name+"."+submodule, option, i._forces[j])
+                    else:
+                        self.cdlsim_instantiation.module_force_option_object(i._name+"."+submodule, option, i._forces[j])
                 for j in i._options:
                     if isinstance(i._options[j], str):
                         self.cdlsim_instantiation.option_string(j, i._options[j])

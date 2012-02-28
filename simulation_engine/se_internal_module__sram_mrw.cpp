@@ -348,6 +348,7 @@ t_sl_error_level c_sram_mrw::reset( int pass )
                                            NULL,
                                            NULL );
     }
+    WHERE_I_AM;
     for (i=0; i<num_ports; i++)
     {
         clock_domains[i].posedge_clock_state.address = 0;
@@ -360,6 +361,7 @@ t_sl_error_level c_sram_mrw::reset( int pass )
         }
         //fprintf(stderr, "Reset: select %p\n",clock_domains[i].inputs.select);
     }
+    WHERE_I_AM;
     return error_level_okay;
 }
 

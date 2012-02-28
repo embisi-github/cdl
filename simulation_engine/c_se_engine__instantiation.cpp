@@ -29,6 +29,16 @@
 #include "c_se_engine.h"
 #include "c_se_engine__internal_types.h"
 
+/*a Defines
+ */
+#if 0
+#include <sys/time.h>
+#include <pthread.h>
+#define WHERE_I_AM {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%s:%d\n",tp.tv_sec,(int)tp.tv_usec,(void*)pthread_self(),__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
+
 /*a Types
  */
 /*t t_engine_module_forced_option
@@ -79,6 +89,7 @@ static t_sl_exec_file_cmd file_cmds[] =
      {cmd_module,         2, "module", "ss", "module <type> <instance>"},
      {cmd_module_force_option_int,  3, "module_force_option_int", "ssi", "module_force_option_int <full module instance name> <option> <value>"},
      {cmd_module_force_option_string,  3, "module_force_option_string", "sss", "module_force_option_string <full module instance name> <option> <value>"},
+     {cmd_module_force_option_object,  3, "module_force_option_object", "sso", "module_force_option_object <full module instance name> <option> <object>"},
      {cmd_option_int,     2, "option_int", "si", "option_int <name> <value>"},
      {cmd_option_string,  2, "option_string", "ss", "option_string <name> <value>"},
      {cmd_option_object,  2, "option_object", "so", "option_object <name> <object>"},
@@ -116,6 +127,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 0), 
                      sl_exec_file_eval_fn_get_argument_string( cmd_cb, 1),
                      option_list );
+        //fprintf(stderr,"Instantiation complete\n");
         option_list = NULL;
         break;
     case cmd_module_force_option_int:
@@ -422,6 +434,7 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
                                    error_arg_type_malloc_string, name,
                                    error_arg_type_none );
      }
+
 
      pemi = (t_engine_module_instance *)parent_engine_handle;
      emi = (t_engine_module_instance *)find_module_instance( pemi, name );
