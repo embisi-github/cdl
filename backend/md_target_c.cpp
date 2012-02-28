@@ -2178,8 +2178,10 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
         int need_to_output=0;
         for (output_port=module_instance->outputs; output_port && (!need_to_output); output_port=output_port->next_in_list)
         {
+            //output( handle, 1, "//   Module output %s derived combinatorially %d\n", output_port->lvar->instance->name, output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
             if (output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially)
             {
+                //output( handle, 1, "//   Module output %s has valid mask %d\n", output_port->lvar->instance->name,output_markers_value( output_port->lvar->instance, om_make_valid_mask ) );
                 if (output_markers_value( output_port->lvar->instance, om_make_valid_mask )==(om_invalid | om_must_be_valid))
                 {
                     output( handle, 1, "//   Module output %s needs to be made valid\n", output_port->lvar->instance->name );
@@ -2855,12 +2857,19 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
 
     /*b   Output code for this module (makes all its signals valid, including going through comb modules as required)
       Since inputs are not valid, we want ALL signals that effect outputs, that depend on states, that DO NOT depend directly on inputs
+      We mark signals that depend on any form of state as 0x10
+      We mark signals that outputs depend on (including outputs :-)) as 0x20
+      We mark signals that depend on inputs (i.e. cannot be valid) as 0x40
+      Note that static signals (i.e. those that are hard-wired) are marked as 0x20
+      Anything marked as 0x20 or 0x30 should be marked as 'must be made valid';
+      Outputs that depend purely on static signals end up with 0x20
      */
     output_markers_mask_all( model, module, 0, -1 );
     output_markers_mask_clock_edge_dependents( model, module, NULL, 0, 0x10, 0 );
     output_markers_mask_output_dependencies( model, module, 0x20, 0 );
     output_markers_mask_input_dependents( model, module, 0x40, 0 );
-    output_markers_mask_all_matching( model, module, 0x70, 0x30,   om_must_be_valid, 0,   0, 0 ); // Everything marked as '0x30' must be valid; others 0
+    //output_markers_mask_all_matching( model, module, 0x70, 0x30,   om_must_be_valid, 0,   0, 0 ); // Everything marked as '0x30' must be valid; others 0 - This was CDL1.4.1a6
+    output_markers_mask_all_matching( model, module, 0x60, 0x20,   om_must_be_valid, 0,   0, 0 ); // Everything marked as '0x20' or '0x30' must be valid; others 0 - this makes static tie-offs also need to be valid
     output_simulation_code_to_make_combinatorial_signals_valid( model, module, output, handle );
 
     /*b   Finish

@@ -22,5 +22,5 @@ extern module hierarchy_and( input bit in_a,
                              output bit out )
 {
     timing comb input in_a, in_b;
-//    timing comb output out;
+    timing comb output out;
 }
