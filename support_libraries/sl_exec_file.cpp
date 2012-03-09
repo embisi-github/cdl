@@ -2366,6 +2366,95 @@ extern int sl_exec_file_thread_wait_on_callback( t_sl_exec_file_cmd_cb *cmd_cb, 
      return 1;
 }
 
+/*f
+ */
+static void display_list_for_cmd( t_sl_exec_file_data *file_data, FILE *f, const char *arg )
+{
+    if (!strcmp(arg, "libs"))
+    {
+        t_sl_exec_file_lib_chain *lib;
+        fprintf(f,"sl_exec_file libraries for %s:\n", file_data->user );
+        for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
+        {
+            fprintf(f,"\t%s\n", lib->lib_desc.library_name);
+        }
+        return;
+    }
+    if (!strcmp(arg, "fns"))
+    {
+        t_sl_exec_file_lib_chain *lib;
+        fprintf(f,"sl_exec_file functions registered for %s:\n", file_data->user );
+        for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
+        {
+            int j;
+            for (j=0; lib->lib_desc.file_fns && lib->lib_desc.file_fns[j].fn_value!=sl_exec_file_fn_none; j++)
+            {
+                fprintf(f,"\t%s\n", lib->lib_desc.file_fns[j].fn);
+            }
+        }
+        return;
+    }
+    if (!strcmp(arg, "cmds"))
+    {
+        t_sl_exec_file_lib_chain *lib;
+        fprintf(f,"sl_exec_file commands registered for %s:\n", file_data->user );
+        for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
+        {
+            int j;
+            for (j=0; lib->lib_desc.file_cmds && lib->lib_desc.file_cmds[j].cmd_value!=sl_exec_file_cmd_none; j++)
+            {
+                fprintf(f,"\t%s\n", lib->lib_desc.file_cmds[j].cmd);
+            }
+        }
+        return;
+    }
+    if (!strcmp(arg, "objs"))
+    {
+        t_sl_exec_file_object_chain *obj;
+        fprintf(f,"sl_exec_file objects registered in %s:\n", file_data->user );
+        for (obj=file_data->object_chain; obj; obj=obj->next_in_list)
+        {
+            fprintf(f,"\t%s\n", obj->object_desc.name);
+        }
+        return;
+    }
+
+    t_sl_exec_file_lib_chain *lib;
+    for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
+    {
+        if (!strcmp(arg, lib->lib_desc.library_name))
+        {
+            int j;
+            fprintf(f,"sl_exec_file library '%s' registered in %s:\n", lib->lib_desc.library_name, file_data->user );
+            fprintf(f,"\tCommands:\n");
+            for (j=0; lib->lib_desc.file_cmds && lib->lib_desc.file_cmds[j].cmd_value!=sl_exec_file_cmd_none; j++)
+            {
+                fprintf(f,"\t\t%s\n", lib->lib_desc.file_cmds[j].cmd);
+            }
+            fprintf(f,"\tFunctions:\n");
+            for (j=0; lib->lib_desc.file_fns && lib->lib_desc.file_fns[j].fn_value!=sl_exec_file_fn_none; j++)
+            {
+                fprintf(f,"\t\t%s\n", lib->lib_desc.file_fns[j].fn);
+            }
+        }
+    }
+
+    t_sl_exec_file_object_chain *obj;
+    for (obj=file_data->object_chain; obj; obj=obj->next_in_list)
+    {
+        if (!strcmp(arg, obj->object_desc.name))
+        {
+            int j;
+            fprintf(f,"sl_exec_file object '%s' registered in %s:\n", obj->object_desc.name, file_data->user );
+            fprintf(f,"\tMethods:\n");
+            for (j=0; obj->object_desc.methods[j].method; j++ )
+            {
+                fprintf(f,"\t\t%s\n", obj->object_desc.methods[j].method);
+            }
+        }
+    }
+}
+
 /*f sl_exec_file_thread_execute
   Return 0 for no execution occurred, 1 if something did
  */
@@ -2472,86 +2561,7 @@ static int sl_exec_file_thread_execute( t_sl_exec_file_data *file_data, t_sl_exe
                   switch (file_data->lines[i].cmd)
                   {
                   case cmd_list:
-                      if (!strcmp(file_data->lines[i].args[0].p.string, "libs"))
-                      {
-                          t_sl_exec_file_lib_chain *lib;
-                          printf("sl_exec_file libraries for %s:\n", file_data->user );
-                          for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
-                          {
-                              printf("\t%s\n", lib->lib_desc.library_name);
-                          }
-                      }
-                      else if (!strcmp(file_data->lines[i].args[0].p.string, "fns"))
-                      {
-                          t_sl_exec_file_lib_chain *lib;
-                          printf("sl_exec_file functions registered for %s:\n", file_data->user );
-                          for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
-                          {
-                              int j;
-                              for (j=0; lib->lib_desc.file_fns && lib->lib_desc.file_fns[j].fn_value!=sl_exec_file_fn_none; j++)
-                              {
-                                  printf("\t%s\n", lib->lib_desc.file_fns[j].fn);
-                              }
-                          }
-                      }
-                      else if (!strcmp(file_data->lines[i].args[0].p.string, "cmds"))
-                      {
-                          t_sl_exec_file_lib_chain *lib;
-                          printf("sl_exec_file commands registered for %s:\n", file_data->user );
-                          for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
-                          {
-                              int j;
-                              for (j=0; lib->lib_desc.file_cmds && lib->lib_desc.file_cmds[j].cmd_value!=sl_exec_file_cmd_none; j++)
-                              {
-                                  printf("\t%s\n", lib->lib_desc.file_cmds[j].cmd);
-                              }
-                          }
-                      }
-                      else if (!strcmp(file_data->lines[i].args[0].p.string, "objs"))
-                      {
-                          t_sl_exec_file_object_chain *obj;
-                          printf("sl_exec_file objects registered in %s:\n", file_data->user );
-                          for (obj=file_data->object_chain; obj; obj=obj->next_in_list)
-                          {
-                              printf("\t%s\n", obj->object_desc.name);
-                          }
-                      }
-                      else
-                      {
-                          t_sl_exec_file_lib_chain *lib;
-                          for (lib=file_data->lib_chain; lib; lib=lib->next_in_list)
-                          {
-                              if (!strcmp(file_data->lines[i].args[0].p.string, lib->lib_desc.library_name))
-                              {
-                                  int j;
-                                  printf("sl_exec_file library '%s' registered in %s:\n", lib->lib_desc.library_name, file_data->user );
-                                  printf("\tCommands:\n");
-                                  for (j=0; lib->lib_desc.file_cmds && lib->lib_desc.file_cmds[j].cmd_value!=sl_exec_file_cmd_none; j++)
-                                  {
-                                      printf("\t\t%s\n", lib->lib_desc.file_cmds[j].cmd);
-                                  }
-                                  printf("\tFunctions:\n");
-                                  for (j=0; lib->lib_desc.file_fns && lib->lib_desc.file_fns[j].fn_value!=sl_exec_file_fn_none; j++)
-                                  {
-                                      printf("\t\t%s\n", lib->lib_desc.file_fns[j].fn);
-                                  }
-                              }
-                          }
-                          t_sl_exec_file_object_chain *obj;
-                          for (obj=file_data->object_chain; obj; obj=obj->next_in_list)
-                          {
-                              if (!strcmp(file_data->lines[i].args[0].p.string, obj->object_desc.name))
-                              {
-                                  int j;
-                                  printf("sl_exec_file object '%s' registered in %s:\n", obj->object_desc.name, file_data->user );
-                                  printf("\tMethods:\n");
-                                  for (j=0; obj->object_desc.methods[j].method; j++ )
-                                  {
-                                      printf("\t\t%s\n", obj->object_desc.methods[j].method);
-                                  }
-                              }
-                          }
-                      }
+                      display_list_for_cmd( file_data, stdout, file_data->lines[i].args[0].p.string);
                       fflush(stdout);
                       thread->line_number++;
                       break;
@@ -3329,6 +3339,7 @@ enum
     cmd_pyspawn,
     cmd_pypass,
     cmd_pyfail,
+    cmd_pylist,
     cmd_pypassed,
 };
 
@@ -3339,6 +3350,7 @@ static t_sl_exec_file_cmd py_internal_cmds[] =
      {cmd_pyspawn,       2, "pyspawn", "oo",    "spawn <function> <args>" },
      {cmd_pypass,        2, "pypass",  "is",    "pass <integer> <message>" },
      {cmd_pyfail,        2, "pyfail",  "is",    "fail <integer> <message>" },
+     {cmd_pylist,        1, "list",    "s",     "list <what>" },
      {sl_exec_file_cmd_none, 0, NULL, NULL, NULL},
 };
 
@@ -3358,6 +3370,10 @@ static t_sl_error_level py_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *cmd_cb,
 {
     switch (cmd_cb->cmd)
     {
+    case cmd_pylist:
+        display_list_for_cmd( cmd_cb->file_data, stdout, cmd_cb->args[0].p.string);
+        fflush(stdout);
+        break;
     case cmd_pyspawn:
         sl_exec_file_create_python_thread( cmd_cb->file_data, (PyObject*)cmd_cb->args[0].p.ptr, (PyObject*)cmd_cb->args[1].p.ptr );
         break;

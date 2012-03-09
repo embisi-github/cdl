@@ -1653,10 +1653,15 @@ static void output_simulation_methods_statement_parallel_switch( c_model_descrip
             stmts_reqd = 1;
             if (switem->statement)
             {
-                if (clock && !model->reference_set_includes( &switem->statement->effects, clock, edge ))
-                    stmts_reqd = 0;
-                if (instance && !model->reference_set_includes( &switem->statement->effects, instance ))
-                    stmts_reqd = 0;
+                stmts_reqd = 0;
+                t_md_statement *substmt;
+                for (substmt=switem->statement; substmt && !stmts_reqd; substmt=substmt->next_in_code)
+                {
+                    if (clock && model->reference_set_includes( &substmt->effects, clock, edge ))
+                        stmts_reqd = 1;
+                    if (instance && model->reference_set_includes( &substmt->effects, instance ))
+                        stmts_reqd = 1;
+                }
             }
 
             if (switem->type == md_switch_item_type_static)

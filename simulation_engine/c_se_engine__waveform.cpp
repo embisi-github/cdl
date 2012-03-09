@@ -265,18 +265,8 @@ int c_engine::waveform_vcd_file_count_and_fill_signals( t_waveform_vcd_file_enti
      t_se_signal_value *datas[4];
      int sizes[4];
 
-     //fprintf(stderr,"c_engine::waveform_vcd_file_count_and_fill_signals:Called with %p %d %p\n", wvfel, number_so_far, signals );
-     if (!wvfel)
-          return number_so_far;
 
-     if (0 && !signals)
-     {
-          number_so_far += interrogate_count_hierarchy( wvfel->ih,
-                                                        (t_engine_state_desc_type_mask) (engine_state_desc_type_mask_bits | engine_state_desc_type_mask_memory),
-                                                        (t_engine_interrogate_include_mask)(engine_interrogate_include_mask_state | engine_interrogate_include_mask_inputs | engine_interrogate_include_mask_outputs) );
-          //fprintf(stderr,"c_engine::waveform_vcd_file_count_and_fill_signals:Counted so far %d\n", number_so_far );
-     }
-     else
+     for (;wvfel; wvfel=wvfel->next_in_list)
      {
          //fprintf(stderr,"c_engine::waveform_vcd_file_count_and_fill_signals:So far %d %p\n", number_so_far, signals );
           local_ih = NULL;
@@ -350,7 +340,7 @@ int c_engine::waveform_vcd_file_count_and_fill_signals( t_waveform_vcd_file_enti
                }
           }
      }
-     return waveform_vcd_file_count_and_fill_signals( wvfel->next_in_list, number_so_far, signals );
+     return number_so_far;
 }
 
 /*f waveform_vcd_file_callback_fn

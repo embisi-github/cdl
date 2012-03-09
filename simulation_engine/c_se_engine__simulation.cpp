@@ -1113,7 +1113,7 @@ t_sl_error_level c_engine::build_schedule( void )
                                 (emi_sig->data.input.driven_by->changed) )
                                break;
                        }
-                       if (emi_sig)
+                       if ((emi_sig) || 1)
                        {
                            if (posedge)
                            {

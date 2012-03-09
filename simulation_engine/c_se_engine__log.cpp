@@ -119,6 +119,7 @@ typedef struct t_log_event_ef_lib
     int next_event;
     int next_arg;
     struct t_log_event_ef_object *log_events;
+    struct t_log_recorder_ef_object *log_recorders;
     t_engine_text_value_pair *log_desc; // malloced
     t_se_signal_value *values; // malloced
     t_engine_log_event_array *log_event_array;
@@ -137,22 +138,74 @@ typedef struct t_log_event_ef_object
     const char *arg_name[SL_EXEC_FILE_MAX_CMD_ARGS];
 } t_log_event_ef_object;
 
+/*t t_log_recorder_occurrence
+ */
+typedef struct t_log_recorder_occurrence
+{
+    struct t_log_recorder_occurrence *next_in_list;
+    struct t_log_recorder_module_log_interest *module_log_interest;
+    int event_number;
+    t_engine_log_event_array_entry  *log_event_array_entry;
+    t_se_signal_value values[1];
+} t_log_recorder_occurrence;
+
+/*t t_log_recorder_module_log_interest
+ */
+typedef struct t_log_recorder_module_log_interest
+{
+    const char *module_name;
+    struct t_engine_log_interest *eli;
+} t_log_recorder_module_log_interest;
+
+/*t t_log_recorder_ef_object
+ */
+typedef struct t_log_recorder_ef_object
+{
+    struct t_log_recorder_ef_object *next_in_list;
+    t_log_event_ef_lib *ef_lib;
+    int num_modules;
+    const char *name;
+    struct t_log_recorder_occurrence *occurrences;
+    struct t_log_recorder_occurrence *last_occurrence;
+    struct t_log_recorder_module_log_interest module_log_interests[1];
+} t_log_recorder_ef_object;
+
 /*a Static function declarations
  */
+static t_sl_exec_file_method_fn ef_method_eval_num_events;
+static t_sl_exec_file_method_fn ef_method_eval_event_peek;
+static t_sl_exec_file_method_fn ef_method_eval_event_pop;
+static t_sl_exec_file_method_fn ef_method_eval_num_events;
 static t_sl_exec_file_method_fn ef_method_eval_occurred;
 static void ef_poststate_callback( void *handle );
 
 /*a Statics
  */
-/*v sim_file_cmds
+/*v log_file_cmds
  */
-static t_sl_exec_file_cmd sim_file_cmds[] =
+enum
 {
-     {0,        1, "!log_event", "ssssssssssssssss", "log_event <name> [<args>]"},
+    log_cmd_event,
+    log_cmd_recorder
+};
+static t_sl_exec_file_cmd log_file_cmds[] =
+{
+     {log_cmd_event,           1, "!log_event",    "ssssssssssssssss", "log_event <name> [<args>]"},
+     {log_cmd_recorder,        1, "!log_recorder", "ssssssssssssssss", "log_recorder <name> [<modules>]"},
      SL_EXEC_FILE_CMD_NONE
 };
 
-/*v sl_vcd_file_obj_methods - Exec file object methods
+/*v sl_log_recorder_obj_methods - Exec file 'log_event' object methods
+ */
+static t_sl_exec_file_method sl_log_recorder_object_methods[] =
+{
+    {"num_events", 'i',  0, "",  "num_events() - Get number of events pending", ef_method_eval_num_events },
+    {"event_peek", 's',  1, "i",  "event_peek(<n>) - Peek at 'nth' pending event", ef_method_eval_event_peek },
+    {"event_pop",  's',  0, "",   "event_pop(<n>) - Return first pending event", ef_method_eval_event_pop },
+    SL_EXEC_FILE_METHOD_NONE
+};
+
+/*v sl_log_event_obj_methods - Exec file 'log_event' object methods
  */
 static t_sl_exec_file_method sl_log_event_object_methods[] =
 {
@@ -171,7 +224,7 @@ t_engine_log_event_array *c_engine::log_event_array_create( void *engine_handle,
     emi = (t_engine_module_instance *) engine_handle;
 
     lea = (t_engine_log_event_array *)malloc( sizeof(t_engine_log_event_array) + 
-                                              (num_events-1)*sizeof(t_engine_log_event_array) + 
+                                              (num_events-1)*sizeof(t_engine_log_event_array_entry) + 
                                               total_args*sizeof(t_engine_text_value_pair) );
     if (!lea) return NULL;
     lea->next_in_list = emi->log_event_list;
@@ -300,8 +353,13 @@ struct t_engine_log_event_array *c_engine::log_event_register_array( void *engin
 void c_engine::log_event_occurred( void *engine_handle, struct t_engine_log_event_array *event_array, int event_number )
 {
     t_engine_log_event_callback_fn_instance *cfi;
+    //fprintf(stderr,"event_array %p\n",event_array);
+    //fprintf(stderr,"event_number %d\n",event_number);
+    //fprintf(stderr,"callback_list %p\n",event_array->events[event_number].callback_list);
     for (cfi=event_array->events[event_number].callback_list; cfi; cfi=cfi->next_in_list)
     {
+        WHERE_I_AM;
+        //fprintf(stderr,"cfi %p\n",cfi);
         cfi->log_handle->callback_fn( engine_handle, cycle(), cfi->log_handle, cfi->log_handle->handle, cfi - cfi->log_handle->callbacks,  &(event_array->events[event_number]) );
     }
 }
@@ -334,6 +392,8 @@ struct t_engine_log_interest *c_engine::log_interest( void *engine_handle, void 
             }
         }
     }
+    WHERE_I_AM;
+    //fprintf(stderr,"Counted %d events for module %s cb %p handle %p\n", num_events, emi->name, callback_fn, handle );
 
     // Create array
     log_handle = log_interest_create( engine_handle, num_events, callback_fn, handle );
@@ -549,7 +609,7 @@ int c_engine::log_add_exec_file_enhancements( struct t_sl_exec_file_data *file_d
     lib_desc.library_name = "cdlsim_log";
     lib_desc.handle = (void *) log_event_ef_lib;
     lib_desc.cmd_handler = exec_file_cmd_handler;
-    lib_desc.file_cmds = sim_file_cmds;
+    lib_desc.file_cmds = log_file_cmds;
     lib_desc.file_fns = NULL;
     return sl_exec_file_add_library( file_data, &lib_desc );
 }
@@ -600,40 +660,251 @@ void ef_poststate_callback( void *handle )
     free(log_event_ef_lib->log_desc);
 }
 
+/*f logger_log_callback
+ */
+static t_sl_error_level logger_log_callback( void *engine_handle, int cycle, struct t_engine_log_interest *log_interest, void *handle, int event_number, struct t_engine_log_event_array_entry *log_event_array_entry )
+{
+    int i;
+    t_log_recorder_ef_object *lreo = (t_log_recorder_ef_object *)handle;
+
+    WHERE_I_AM;
+    //fprintf(stderr,"Checking for %p in  %d modules\n",log_interest, lreo->num_modules);
+    for (i=0; i<lreo->num_modules; i++)
+    {
+        if (log_interest == lreo->module_log_interests[i].eli)
+        {
+            break;
+        }
+    }
+    if (i>=lreo->num_modules)
+    {
+        // This should not happen as there should be a match to the actual registered interest
+        return error_level_okay;
+    }
+
+    //fprintf(stderr,"Found it in module %d\n",i);
+    WHERE_I_AM;
+    t_log_recorder_occurrence *lro;
+    lro = (t_log_recorder_occurrence *)malloc(sizeof(t_log_recorder_occurrence) + sizeof(t_se_signal_value)*(log_event_array_entry->num_args-1) );
+    lro->next_in_list = NULL;
+    lro->module_log_interest = lreo->module_log_interests+i;
+    lro->event_number = event_number;
+    lro->log_event_array_entry = log_event_array_entry;
+    if (lreo->occurrences)
+    {
+        lreo->last_occurrence->next_in_list = lro;
+        lreo->last_occurrence = lro;
+    }
+    else
+    {
+        lreo->occurrences = lro;
+        lreo->last_occurrence = lro;
+    }
+    for (i=0; i<log_event_array_entry->num_args; i++)
+    {
+        lro->values[i] = log_event_array_entry->value_base[log_event_array_entry->entries[i].value];
+    }
+    return error_level_okay;
+}
+
 /*f c_engine::log_handle_exec_file_command
  */
 int c_engine::log_handle_exec_file_command( t_log_event_ef_lib *log_event_ef_lib, struct t_sl_exec_file_data *exec_file_data, int cmd, int num_args, struct t_sl_exec_file_value *args )
 {
-    t_log_event_ef_object *leeo;
-    t_sl_exec_file_object_desc object_desc;
-    int i;
-
     WHERE_I_AM;
-    leeo = (t_log_event_ef_object *)malloc(sizeof(t_log_event_ef_object));
-    if (!leeo)
+    switch (cmd)
     {
-        fprintf(stderr, "NNE: log handler failed to add event\n" );
-        return 0;
-    }
-    leeo->next_in_list = log_event_ef_lib->log_events;
-    log_event_ef_lib->log_events = leeo;
-    leeo->ef_lib = log_event_ef_lib;
-    leeo->name = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 0 ));
-    leeo->num_args = num_args-1;
-    for (i=0; i<leeo->num_args; i++)
+    case log_cmd_event:
     {
-        leeo->arg_name[i] = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, i+1 ));
+        t_log_event_ef_object *leeo;
+        t_sl_exec_file_object_desc object_desc;
+        int i;
+
+        WHERE_I_AM;
+        leeo = (t_log_event_ef_object *)malloc(sizeof(t_log_event_ef_object));
+        if (!leeo)
+        {
+            fprintf(stderr, "NNE: log handler failed to add event\n" );
+            return 0;
+        }
+        leeo->next_in_list = log_event_ef_lib->log_events;
+        log_event_ef_lib->log_events = leeo;
+        leeo->ef_lib = log_event_ef_lib;
+        leeo->name = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 0 ));
+        leeo->num_args = num_args-1;
+        for (i=0; i<leeo->num_args; i++)
+        {
+            leeo->arg_name[i] = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, i+1 ));
+        }
+        log_event_ef_lib->num_events++;
+        log_event_ef_lib->total_args += leeo->num_args;
+        memset(&object_desc,0,sizeof(object_desc));
+        object_desc.version = sl_ef_object_version_checkpoint_restore;
+        object_desc.name = leeo->name;
+        object_desc.handle = (void *)leeo;
+        object_desc.methods = sl_log_event_object_methods;
+        object_desc.message_handler = ef_event_object_message_handler;
+        sl_exec_file_add_object_instance( exec_file_data, &object_desc );
+        return 1;
     }
-    log_event_ef_lib->num_events++;
-    log_event_ef_lib->total_args += leeo->num_args;
-    memset(&object_desc,0,sizeof(object_desc));
-    object_desc.version = sl_ef_object_version_checkpoint_restore;
-    object_desc.name = leeo->name;
-    object_desc.handle = (void *)leeo;
-    object_desc.methods = sl_log_event_object_methods;
-    object_desc.message_handler = ef_event_object_message_handler;
-    sl_exec_file_add_object_instance( exec_file_data, &object_desc );
-    return 1;
+    case log_cmd_recorder:
+    {
+        WHERE_I_AM;
+        t_log_recorder_ef_object *lreo;
+        t_sl_exec_file_object_desc object_desc;
+        int num_modules;
+        int i;
+
+        WHERE_I_AM;
+        // Count max number of modules = one per string plus one per space in each string
+        num_modules = 0;
+        for (i=1; i<num_args; i++)
+        {
+            num_modules++;
+            const char *module_names=sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, i );
+            for (int j=0; module_names[j]; j++)
+                num_modules += (module_names[j]==' ');
+        }
+        //fprintf(stderr, "Adding %d modules\n",num_modules );
+
+        lreo = (t_log_recorder_ef_object *)malloc(sizeof(t_log_recorder_ef_object) + (num_modules-1)*sizeof(struct t_log_recorder_module_log_interest));
+        if (!lreo)
+        {
+            fprintf(stderr, "NNE: log handler failed to add event recorder\n" );
+            return 0;
+        }
+        lreo->next_in_list = log_event_ef_lib->log_recorders;
+        log_event_ef_lib->log_recorders = lreo;
+        lreo->ef_lib = log_event_ef_lib;
+        lreo->name = sl_str_alloc_copy(sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 0 ));
+        lreo->occurrences = NULL;
+        lreo->last_occurrence = NULL;
+
+        // Split each arg into strings using spaces, and register interest in each
+        num_modules = 0;
+        for (i=1; i<num_args; i++)
+        {
+            const char *ptr, *module_name;
+            ptr = sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, i );
+            while (1)
+            {
+                int len;
+                for (;(ptr[0]==' ');ptr++);
+                module_name = ptr;
+                for (;(ptr[0]!=' ') && (ptr[0]);ptr++);
+                len = ptr-module_name;
+                if (len==0)
+                    break;
+                module_name = sl_str_alloc_copy( module_name, len );
+                //fprintf(stderr, "Adding module %d '%s'\n",num_modules,module_name );
+                struct t_engine_log_interest *eli;
+                eli = log_interest( log_event_ef_lib->engine_handle, log_event_ef_lib->engine->find_module_instance(module_name), NULL,  logger_log_callback, (void *)lreo );
+                if (eli)
+                {
+                    lreo->module_log_interests[num_modules].eli = eli;
+                    lreo->module_log_interests[num_modules].module_name = module_name;
+                    num_modules = num_modules+1;
+                }
+                else
+                {
+                    free((void *)module_name);
+                }
+            }
+        }
+        lreo->num_modules = num_modules;
+        WHERE_I_AM;
+        memset(&object_desc,0,sizeof(object_desc));
+        object_desc.version = sl_ef_object_version_checkpoint_restore;
+        object_desc.name = lreo->name;
+        object_desc.handle = (void *)lreo;
+        object_desc.methods = sl_log_recorder_object_methods;
+        object_desc.message_handler = NULL;
+        sl_exec_file_add_object_instance( exec_file_data, &object_desc );
+        return 1;
+    }
+    }
+    WHERE_I_AM;
+    return 0;
+}
+
+/*f ef_method_eval_num_events
+ */
+static t_sl_error_level ef_method_eval_num_events( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_log_recorder_ef_object  *lreo;
+    t_log_recorder_occurrence *lro;
+    int i;
+    WHERE_I_AM;
+    lreo = (t_log_recorder_ef_object *)object_desc->handle;
+    for (i=0, lro=lreo->occurrences; lro; i++,lro=lro->next_in_list);
+    sl_exec_file_eval_fn_set_result( cmd_cb, (t_sl_uint64) i );
+    return error_level_okay;
+}
+
+/*f ef_method_eval_event_peek
+ */
+static void lro_to_string( t_log_recorder_ef_object *lreo, t_log_recorder_occurrence *lro, char *buffer, int buffer_size )
+{
+    int ofs = snprintf( buffer, buffer_size, "%s,%s,%d",
+                        lro->module_log_interest->module_name,
+                        lro->log_event_array_entry->name,
+                        lro->event_number );
+    for (int i=0; i<lro->log_event_array_entry->num_args; i++)
+    {
+        if (ofs<buffer_size)
+        {
+            ofs = ofs+snprintf( buffer+ofs, buffer_size-ofs, ",%llx", lro->values[i] );
+        }
+    }
+}
+
+static t_sl_error_level ef_method_eval_event_peek( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_log_recorder_ef_object  *lreo;
+    t_log_recorder_occurrence *lro;
+    int i;
+    WHERE_I_AM;
+    int n =sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
+
+    lreo = (t_log_recorder_ef_object *)object_desc->handle;
+    for (i=0, lro=lreo->occurrences; lro && (i<n); i++,lro=lro->next_in_list);
+    if (lro)
+    {
+        char buffer[512];
+        lro_to_string( lreo, lro, buffer, sizeof(buffer ) );
+        sl_exec_file_eval_fn_set_result( cmd_cb, buffer, 1 );
+        return error_level_okay;
+    }
+    sl_exec_file_eval_fn_set_result( cmd_cb, "", 0 );
+    return error_level_okay;
+}
+
+/*f ef_method_eval_event_pop
+ */
+static t_sl_error_level ef_method_eval_event_pop( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_log_recorder_ef_object  *lreo;
+    t_log_recorder_occurrence *lro;
+    WHERE_I_AM;
+
+    lreo = (t_log_recorder_ef_object *)object_desc->handle;
+    lro=lreo->occurrences;
+    if (lro)
+    {
+        WHERE_I_AM;
+        char buffer[512];
+        lreo->occurrences = lro->next_in_list;
+
+        lro_to_string( lreo, lro, buffer, sizeof(buffer ) );
+        sl_exec_file_eval_fn_set_result( cmd_cb, buffer, 1 );
+
+        free(lro);
+
+        return error_level_okay;
+    }
+    WHERE_I_AM;
+    sl_exec_file_eval_fn_set_result( cmd_cb, "", 0 );
+    return error_level_okay;
 }
 
 /*f ef_method_eval_occurred

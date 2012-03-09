@@ -204,7 +204,7 @@ t_sl_error_level c_logger::reset( int pass )
             }
             else
             {
-                fprintf(stderr,"Failed to find module instance logs for instance '%s' in se_logger", lcb->module_instance_name );
+                fprintf(stderr,"****LOGGER: Failed to find module instance logs for instance '%s' in se_logger\n", lcb->module_instance_name );
             }
             if (lcb->num_events>0)
             {
