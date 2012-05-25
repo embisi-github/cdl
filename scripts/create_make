@@ -183,9 +183,11 @@ def parse_clib( model_object ):
 def parse_cdl_option( selection, cdl_options ):
     for option in selection["args"]:
         (o,v) = parse_arg(option)
-        for (opt_short, opt_name) in [("ass", "assertions"),
-                                      ("mul", "multithread"),
-                                      ("cov", "coverage"),
+        for (opt_short, opt_name) in [("ass",  "assertions"),
+                                      ("sv",   "system_verilog"),
+                                      ("disp", "displays"),
+                                      ("mul",  "multithread"),
+                                      ("cov",  "coverage"),
                                       ("stmt", "statements") ]:
             if o==opt_short:
                 cdl_options[opt_name] = "off"
@@ -212,8 +214,10 @@ def parse_cdl( model_object, cdl_options ):
 
     base_options = []
     if (cdl_options["extra_cdlflags"]!=None): base_options.append(cdl_options["extra_cdlflags"])
-    if (cdl_options["assertions"]=="on"):  base_options.append("--include-assertions")
-    if (cdl_options["coverage"]=="on"):    base_options.append("--include-coverage")
+    if (cdl_options["assertions"]=="on"):  base_options.extend(["--include-assertions"])
+    if (cdl_options["system_verilog"]=="on"):  base_options.extend(["--sv-assertions"])
+    if (cdl_options["displays"]=="on"):  base_options.extend(["--v_displays"])
+    if (cdl_options["coverage"]=="on"):    base_options.extend(["--include-coverage"])
     if (cdl_options["statements"]=="on"):  base_options.append("--include-stmt-coverage")
     if (cdl_options["multithread"]=="on"): base_options.append("--multithread")
 
@@ -261,9 +265,11 @@ def parse_models( object_list, extra_cdlflags ):
         parse_clib( selection )
 
     cdl_options = { "coverage":"off",
+                    "system_verilog":"off",
                     "assertions":"off",
                     "multithread":"off",
                     "statements":"off",
+                    "displays":"off",
                     "extra_cdlflags":extra_cdlflags }
     for selection in objs_of_type(object_list,["cdl", "cdl_options"]):
         if selection["type"]=="cdl_options":

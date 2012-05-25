@@ -145,6 +145,7 @@ typedef struct t_log_recorder_occurrence
     struct t_log_recorder_occurrence *next_in_list;
     struct t_log_recorder_module_log_interest *module_log_interest;
     int event_number;
+    t_sl_uint64 global_cycle;
     t_engine_log_event_array_entry  *log_event_array_entry;
     t_se_signal_value values[1];
 } t_log_recorder_occurrence;
@@ -689,6 +690,7 @@ static t_sl_error_level logger_log_callback( void *engine_handle, int cycle, str
     lro->next_in_list = NULL;
     lro->module_log_interest = lreo->module_log_interests+i;
     lro->event_number = event_number;
+    lro->global_cycle = (t_sl_uint64)(lreo->ef_lib->engine->cycle());
     lro->log_event_array_entry = log_event_array_entry;
     if (lreo->occurrences)
     {
@@ -845,9 +847,10 @@ static t_sl_error_level ef_method_eval_num_events( t_sl_exec_file_cmd_cb *cmd_cb
  */
 static void lro_to_string( t_log_recorder_ef_object *lreo, t_log_recorder_occurrence *lro, char *buffer, int buffer_size )
 {
-    int ofs = snprintf( buffer, buffer_size, "%s,%s,%d",
+    int ofs = snprintf( buffer, buffer_size, "%s,%s,%lld,%d",
                         lro->module_log_interest->module_name,
                         lro->log_event_array_entry->name,
+                        lro->global_cycle,
                         lro->event_number );
     for (int i=0; i<lro->log_event_array_entry->num_args; i++)
     {

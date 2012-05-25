@@ -78,7 +78,7 @@ typedef struct t_expr_op
 
 /*t t_traverse_structure_callback_fn
  */
-typedef void (t_traverse_structure_callback_fn)( class c_cyclicity *cyclicity,
+typedef int (t_traverse_structure_callback_fn)( class c_cyclicity *cyclicity,
                                                  class c_model_descriptor *model,
                                                  struct t_md_module *module,
                                                  void *handle,
@@ -155,7 +155,7 @@ static int get_sized_value_from_type_value( class c_cyclicity *cyclicity, int tm
   if wildcard is set then do not push down into the element of 'expression' or 'model_expression_lvar'
 
  */
-static void traverse_structure( class c_cyclicity *cyclicity,
+static int traverse_structure( class c_cyclicity *cyclicity,
                                 class c_model_descriptor *model,
                                 struct t_md_module *module,
                                 void *handle,
@@ -168,12 +168,13 @@ static void traverse_structure( class c_cyclicity *cyclicity,
                                 struct t_md_lvar *model_lvar_context,
                                 int wildcard )
 {
+    int result = 1;
     struct t_md_lvar *model_expression_lvar_copy;
     void *model_lvar_copy;
 
     if (cyclicity->type_value_pool->derefs_to_bit_vector( type_context )) // Termination condition - we hit something we terminals
     {
-        callback( cyclicity, model, module, handle, model_lvar, expression, model_expression_lvar, model_lvar_context );
+        result &= callback( cyclicity, model, module, handle, model_lvar, expression, model_expression_lvar, model_lvar_context );
     }
     else if ( cyclicity->type_value_pool->derefs_to_structure( type_context ) ) // assignment is structure_inst <= structure_inst
     {
@@ -208,7 +209,7 @@ static void traverse_structure( class c_cyclicity *cyclicity,
             {
                 if (model_lvar_copy)
                 {
-                    traverse_structure( cyclicity, model, module, handle, callback, lvar_is_port, model_lvar_copy, element_type, expression, NULL, model_lvar_context, wildcard );
+                    result &= traverse_structure( cyclicity, model, module, handle, callback, lvar_is_port, model_lvar_copy, element_type, expression, NULL, model_lvar_context, wildcard );
                 }
             }
             else
@@ -220,7 +221,7 @@ static void traverse_structure( class c_cyclicity *cyclicity,
                 }
                 if (model_lvar_copy && model_expression_lvar_copy)
                 {
-                    traverse_structure( cyclicity, model, module, handle, callback, lvar_is_port, model_lvar_copy, element_type, NULL, model_expression_lvar_copy, model_lvar_context, wildcard );
+                    result &= traverse_structure( cyclicity, model, module, handle, callback, lvar_is_port, model_lvar_copy, element_type, NULL, model_expression_lvar_copy, model_lvar_context, wildcard );
                 }
                 if (model_expression_lvar_copy)
                 {
@@ -246,13 +247,30 @@ static void traverse_structure( class c_cyclicity *cyclicity,
     }
     else if ( cyclicity->type_value_pool->derefs_to_array( type_context ) )
     {
-        fprintf(stderr,"traverse_structure::c_co_build_model:Should not get this far - error at cross referencing ****************************************\n");
+        char buffer[1024];
+        strcpy(buffer,"<unknown lvar");
+        if (model_lvar)
+        {
+            if (lvar_is_port)
+            {
+                model->port_lvar_print( buffer, sizeof(buffer), (t_md_port_lvar *)model_lvar );
+            }
+            else
+            {
+                model->lvar_print( buffer, sizeof(buffer), (t_md_lvar *)model_lvar );
+            }
+        }
+        buffer[sizeof(buffer)-1] = 0;
+        
+        fprintf(stderr,"traverse_structure::c_co_build_model:Assignment of an array is illegal (possibly for '%s'). Aborting (should error at cross referencing)\n", buffer);
+        result = 0;
     }
     else
     {
         fprintf(stderr,"traverse_structure::c_co_build_model:Should not get this far - error at cross referencing ****************************************\n");
-        //cyclicity->set_parse_error( this, co_compile_stage_cross_reference, "Error traversing structure - could be  '%s'", lex_string_from_terminal( lvar->symbol ) );
+        result = 0;
     }
+    return result;
 }
 
 /*a c_co_declspec
@@ -804,7 +822,7 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
         }
     }
 
-    /*b Create local non-clock signals
+    /*b Create local non-clock non-clocked signals
      */
     for (i=0; local_signals->co[i].cyc_object; i++)
     {
@@ -853,6 +871,48 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                     model->signal_document( md_module, signal_name, lex_string_from_terminal(cosd->documentation) );
             }
             break;
+        case signal_declaration_type_comb_local:
+            if (MD_TYPE_DEFINITION_HANDLE_VALID( model_type ))
+            {
+                model->signal_add_combinatorial( md_module, signal_name, 1, (void *)this, (void *)cosd, 0, model_type, model_usage_type[cosd->data.comb.usage_type] );
+                if (cosd->documentation)
+                    model->signal_document( md_module, signal_name, lex_string_from_terminal(cosd->documentation) );
+            }
+            break;
+        case signal_declaration_type_net_local:
+            if (MD_TYPE_DEFINITION_HANDLE_VALID( model_type ))
+            {
+                model->signal_add_net( md_module, signal_name, 1, (void *)this, (void *)cosd,  0, model_type );
+                if (cosd->documentation)
+                    model->signal_document( md_module, signal_name, lex_string_from_terminal(cosd->documentation) );
+            }
+            break;
+        }
+    }
+
+    /*b Create local clocked signals so that reset inputs and clock inputs are already ready
+     */
+    for (i=0; local_signals->co[i].cyc_object; i++)
+    {
+        c_co_signal_declaration *cosd;
+        const char *signal_name;
+        int array, array_size;
+
+        array=0;
+        array_size=1;
+        cosd = local_signals->co[i].co_signal_declaration;
+        signal_name = lex_string_from_terminal(cosd->symbol);
+
+        model_type.type = md_type_definition_handle_type_none;
+        if (cosd->type_specifier)
+        {
+            model_type = cyclicity->type_value_pool->get_model_type( model, cosd->type_specifier->type_value );
+        }
+
+        CO_DEBUG( sl_debug_level_info, "Build model - local signal %d : %p / %d . %s (will skip clocks)", i, cosd, cosd->signal_declaration_type, signal_name );
+
+        switch (cosd->signal_declaration_type)
+        {
         case signal_declaration_type_clocked_output:
             if (MD_TYPE_DEFINITION_HANDLE_VALID( model_type ))
             {
@@ -870,6 +930,10 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                 {
                     model->state_mark_async_read( md_module, signal_name );
                 }
+                if (cosd->declspec_list && cosd->declspec_list->has_declspec_type(declspec_type_approved))
+                {
+                    model->state_mark_approved( md_module, signal_name );
+                }
                 if (!cosd->documentation && cosd->local_clocked_signal && cosd->local_clocked_signal->documentation)
                 {
                     model->state_document( md_module, signal_name, lex_string_from_terminal(cosd->local_clocked_signal->documentation) );
@@ -879,22 +943,6 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                 {
                     cosd->data.clocked.reset_value->build_model_reset( cyclicity, model, md_module, model_lvar, model_lvar );
                 }
-            }
-            break;
-        case signal_declaration_type_comb_local:
-            if (MD_TYPE_DEFINITION_HANDLE_VALID( model_type ))
-            {
-                model->signal_add_combinatorial( md_module, signal_name, 1, (void *)this, (void *)cosd, 0, model_type, model_usage_type[cosd->data.comb.usage_type] );
-                if (cosd->documentation)
-                    model->signal_document( md_module, signal_name, lex_string_from_terminal(cosd->documentation) );
-            }
-            break;
-        case signal_declaration_type_net_local:
-            if (MD_TYPE_DEFINITION_HANDLE_VALID( model_type ))
-            {
-                model->signal_add_net( md_module, signal_name, 1, (void *)this, (void *)cosd,  0, model_type );
-                if (cosd->documentation)
-                    model->signal_document( md_module, signal_name, lex_string_from_terminal(cosd->documentation) );
             }
             break;
         case signal_declaration_type_clocked_local:
@@ -908,6 +956,10 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                     {
                         model->state_mark_async_read( md_module, signal_name );
                     }
+                    if (cosd->declspec_list && cosd->declspec_list->has_declspec_type(declspec_type_approved))
+                    {
+                        model->state_mark_approved( md_module, signal_name );
+                    }
                     model_lvar = model->lvar_reference( md_module, NULL, signal_name );
                     if (model_lvar)
                     {
@@ -917,9 +969,6 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                         model->state_document( md_module, signal_name, lex_string_from_terminal(cosd->documentation) );
                 }
             }
-            break;
-        default:
-//               CO_DEBUG( sl_debug_level_info, "%s: Type %p refers to %p value %d symbol %p ts %p first %p second %p", signal_name, cots, cots->refers_to, (int)cots->type_value, cots->symbol, cots->type_specifier, cots->first, cots->last );
             break;
         }
     }
@@ -1058,7 +1107,7 @@ typedef struct
 
 /*f build_model_structure_assignment_callback
  */
-static void build_model_structure_assignment_callback( class c_cyclicity *cyclicity,
+static int build_model_structure_assignment_callback( class c_cyclicity *cyclicity,
                                                        class c_model_descriptor *model,
                                                        struct t_md_module *module,
                                                        void *handle,
@@ -1067,6 +1116,7 @@ static void build_model_structure_assignment_callback( class c_cyclicity *cyclic
                                                        struct t_md_lvar *model_expression_lvar,
                                                        struct t_md_lvar *model_lvar_context )
 {
+    int result=0;
     struct t_md_expression *model_expression;
     struct t_md_lvar *model_expression_lvar_copy;
     struct t_md_lvar *model_lvar;
@@ -1102,6 +1152,7 @@ static void build_model_structure_assignment_callback( class c_cyclicity *cyclic
         {
             statement = model->statement_create_combinatorial_assignment( module, (void *)module, bmsach->cona, 0, bmsach->wired_or, model_lvar_copy, model_expression, bmsach->documentation );
         }
+        result = 1;
     }
     SL_DEBUG( sl_debug_level_info, "Built assignment statement %p with lvar %p expression %p", statement, model_lvar_copy, model_expression );
     if (bmsach->statement)
@@ -1109,6 +1160,7 @@ static void build_model_structure_assignment_callback( class c_cyclicity *cyclic
         statement = model->statement_add_to_chain( bmsach->statement, statement );
     }
     bmsach->statement = statement;
+    return result;
 }
 
 /*f build_model_structure_assignment
@@ -1228,20 +1280,28 @@ struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class
     if (expression)
     {
         t_build_model_structure_assignment_callback_handle handle;
+        int lvar_build_okay;
         handle.statement = NULL;
         handle.wildcard = wildcard;
         handle.clocked = clocked;
         handle.wired_or = wired_or;
         handle.cona = this;
         handle.documentation = documentation;
-        traverse_structure( cyclicity, model, module, (void *) &handle, build_model_structure_assignment_callback, 0, (void *)model_lvar, this->type_context, this->expression, NULL, model_lvar_context, wildcard );
-        if (!first_statement)
+        lvar_build_okay = traverse_structure( cyclicity, model, module, (void *) &handle, build_model_structure_assignment_callback, 0, (void *)model_lvar, this->type_context, this->expression, NULL, model_lvar_context, wildcard );
+        if (!lvar_build_okay)
         {
-            first_statement = handle.statement;
+            cyclicity->set_parse_error( (c_cyc_object *)this, co_compile_stage_high_level_checks, "Failed to build assignment" );
         }
-        else
+        if (handle.statement)
         {
-            model->statement_add_to_chain( first_statement, handle.statement );
+            if (!first_statement)
+            {
+                first_statement = handle.statement;
+            }
+            else
+            {
+                model->statement_add_to_chain( first_statement, handle.statement );
+            }
         }
     }
     /*b Handle when lvar is an array - um, not really permitted? Could be if we support [i]={} or [i;3;1]={} stuff which we do not yet
@@ -1542,7 +1602,7 @@ typedef struct
 
 /*f build_model_port_map_input_callback
  */
-static void build_model_port_map_input_callback( class c_cyclicity *cyclicity,
+static int build_model_port_map_input_callback( class c_cyclicity *cyclicity,
                                                  class c_model_descriptor *model,
                                                  struct t_md_module *module,
                                                  void *handle,
@@ -1551,6 +1611,7 @@ static void build_model_port_map_input_callback( class c_cyclicity *cyclicity,
                                                  struct t_md_lvar *model_expression_lvar,
                                                  struct t_md_lvar *model_lvar_context )
 {
+    int result=0;
     struct t_md_expression *model_expression;
     struct t_md_lvar *model_expression_lvar_copy;
     struct t_md_port_lvar *model_port_lvar_copy;
@@ -1574,8 +1635,10 @@ static void build_model_port_map_input_callback( class c_cyclicity *cyclicity,
     if (model_port_lvar_copy && model_expression)
     {
         model->module_instance_add_input( module, bmpmich->module_name, model_port_lvar_copy, model_expression );
+        result=1;
     }
     SL_DEBUG( sl_debug_level_info, "Added assignment with port lvar %p expression %p", model_port_lvar_copy, model_expression );
+    return result;
 }
 
 /*t t_build_model_port_map_output_callback_handle
@@ -1590,7 +1653,7 @@ typedef struct
   But the lvar can be a bit_vector with an index rather than a bit range, if it were part of a structure which has not been pushed down e.g. fred[0] where fred[0] is a structure with elements bit a and bit b
   Fortunately the backend can cope with this
  */
-static void build_model_port_map_output_callback( class c_cyclicity *cyclicity,
+static int build_model_port_map_output_callback( class c_cyclicity *cyclicity,
                                                  class c_model_descriptor *model,
                                                  struct t_md_module *module,
                                                  void *handle,
@@ -1602,6 +1665,7 @@ static void build_model_port_map_output_callback( class c_cyclicity *cyclicity,
     struct t_md_lvar *model_expression_lvar_copy;
     struct t_md_port_lvar *model_port_lvar_copy;
     struct t_md_port_lvar *model_port_lvar;
+    int result=0;
 
     t_build_model_port_map_output_callback_handle *bmpmoch;
     bmpmoch = (t_build_model_port_map_output_callback_handle *)handle;
@@ -1612,8 +1676,10 @@ static void build_model_port_map_output_callback( class c_cyclicity *cyclicity,
     if (model_port_lvar_copy && model_expression_lvar_copy)
     {
         model->module_instance_add_output( module, bmpmoch->module_name, model_port_lvar_copy, model_expression_lvar_copy );
+        result=1;
     }
     SL_DEBUG( sl_debug_level_info, "Added assignment with port lvar %p lvar %p", model_port_lvar_copy, model_expression_lvar_copy );
+    return result;
 }
 
 /*f c_co_port_map::build_model
@@ -1639,8 +1705,13 @@ void c_co_port_map::build_model( class c_cyclicity *cyclicity, class c_model_des
             if (model_port_lvar)
             {
                 t_build_model_port_map_input_callback_handle handle;
+                int lvar_build_okay;
                 handle.module_name = module_name;
-                traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_input_callback, 1, (void *)model_port_lvar, port_lvar->type, this->expression, NULL, NULL, 0 );
+                lvar_build_okay = traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_input_callback, 1, (void *)model_port_lvar, port_lvar->type, this->expression, NULL, NULL, 0 );
+                if (!lvar_build_okay)
+                {
+                    cyclicity->set_parse_error( (c_cyc_object *)this, co_compile_stage_high_level_checks, "Failed to port map of input" );
+                }
             }
         }
         break;
@@ -1652,8 +1723,13 @@ void c_co_port_map::build_model( class c_cyclicity *cyclicity, class c_model_des
             if (model_port_lvar && model_lvar)
             {
                 t_build_model_port_map_output_callback_handle handle;
+                int lvar_build_okay;
                 handle.module_name = module_name;
-                traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_output_callback, 1, (void *)model_port_lvar, port_lvar->type, NULL, model_lvar, NULL, 0 );
+                lvar_build_okay = traverse_structure( cyclicity, model, module, (void *) &handle, build_model_port_map_output_callback, 1, (void *)model_port_lvar, port_lvar->type, NULL, model_lvar, NULL, 0 );
+                if (!lvar_build_okay)
+                {
+                    cyclicity->set_parse_error( (c_cyc_object *)this, co_compile_stage_high_level_checks, "Failed to port map of input" );
+                }
             }
         }
         break;
@@ -1815,12 +1891,18 @@ struct t_md_statement *c_co_statement::build_model( class c_cyclicity *cyclicity
     case statement_type_partial_switch_statement:
     case statement_type_priority_statement:
     {
-        t_md_switch_item *md_switch_items;
-        t_md_expression *md_expression;
+        t_md_switch_item *md_switch_items = NULL;
+        t_md_expression *md_expression = NULL;
         int parallel, full;
 
-        md_expression = type_data.switch_stmt.expression->build_model( cyclicity, model, module, NULL );
-        md_switch_items = type_data.switch_stmt.cases->build_model( cyclicity, model, module );
+        if (type_data.switch_stmt.expression)
+        {
+            md_expression = type_data.switch_stmt.expression->build_model( cyclicity, model, module, NULL );
+        }
+        if (type_data.switch_stmt.cases)
+        {
+            md_switch_items = type_data.switch_stmt.cases->build_model( cyclicity, model, module );
+        }
 
         if (md_switch_items && md_expression)
         {

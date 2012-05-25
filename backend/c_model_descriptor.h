@@ -45,6 +45,7 @@
      { "v_displays", no_argument, NULL, option_be_v_displays }, \
      { "vhdl", required_argument, NULL, option_be_vhdl }, \
      { "include-assertions", no_argument, NULL, option_be_include_assertions }, \
+     { "sv-assertions", no_argument, NULL, option_be_sv_assertions }, \
      { "reduce-errors", no_argument, NULL, option_be_reduce_errors }, \
      { "multithread", no_argument, NULL, option_be_multithread }, \
      { "include-coverage", no_argument, NULL, option_be_include_coverage }, \
@@ -80,6 +81,7 @@ enum
     option_be_xml,
     option_be_model,
     option_be_include_assertions,
+    option_be_sv_assertions,
     option_be_reduce_errors,
     option_be_multithread,
     option_be_include_coverage,
@@ -435,6 +437,7 @@ typedef struct t_md_state
 
     t_md_signal *output_ref;
     int async_read; // Set if the state is read asynchronously, so its output is not dependent on the clock
+    int approved;   // Set if the state is approved for all warnings
 } t_md_state;
 
 /*t t_md_lvar_data_type
@@ -860,7 +863,8 @@ typedef struct t_md_module
     t_md_message *messages; // Ownership list of messages used in module
     t_md_labelled_expression *labelled_expressions; // Ownership list of labelled expressions used in module
     t_md_expression *expressions; // used as ownership list, for freeing purposes
-    t_md_statement *statements; // used as ownership list, for freeing purposes
+    t_md_statement *statements;     // used as ownership list, for freeing purposes
+    t_md_statement *last_statement; // NOT an ownership link - used for adding to tail
     t_md_switch_item *switch_items; // used as ownership list, for freeing purposes
     t_md_type_instance *instances; // used as ownership list, for freeing purposes
     t_md_lvar *lvars; // used as ownership list, for freeing purposes
@@ -972,6 +976,7 @@ public:
     t_md_lvar *lvar_bit_select( t_md_module *module, t_md_lvar *lvar, t_md_expression *bit_select );
     t_md_lvar *lvar_bit_range_select( t_md_module *module, t_md_lvar *lvar, t_md_expression *bit_select, int length );
     t_md_lvar *lvar_from_string( t_md_module *module, t_md_lvar *parent, const char *string );
+    int lvar_print( char *buffer, int buffer_size, t_md_lvar *lvar );
     int lvar_is_terminal( t_md_lvar *lvar );
     int lvar_width( t_md_lvar *lvar );
     void lvar_free( t_md_module *module, t_md_lvar *lvar ); // Completely remove an lvar from the module, going to its root to do so
@@ -985,6 +990,7 @@ public:
     t_md_type_instance *port_lvar_resolve( t_md_port_lvar *port_lvar, t_md_signal *signals );
     void port_lvar_free( t_md_module *module, t_md_port_lvar *port_lvar ); // Completely remove an port_lvar from the module, going to its root to do so
     void port_lvars_free( t_md_module *module );
+    int port_lvar_print( char *buffer, int buffer_size, t_md_port_lvar *lvar );
 
     /*b Signal handling (within module)
       Clocks, inputs and outputs can be added to a protoype; others cannot
@@ -1017,6 +1023,7 @@ public:
     t_md_state *state_find( const char *name, t_md_state *list );
     void state_add_reset_value( t_md_type_instance_data *reset_value_id, int subscript_start, int subscript_end, t_md_expression * expression );
     int state_mark_async_read( t_md_module *module, const char *state_name );
+    int state_mark_approved( t_md_module *module, const char *state_name );
     t_md_state *state_internal_add( t_md_module *module, const char *name, int copy_name, void *client_base_handle, const void *client_item_handle, int client_item_reference, int array_size, t_md_type_definition_handle type, const char *clock, int edge, const char *reset, int level, t_md_usage_type usage_type );
     int state_add( t_md_module *module, const char *name, int copy_name, void *client_base_handle, const void *client_item_handle, int client_item_reference, int width, t_md_usage_type usage_type, const char *clock, int edge, const char *reset, int level, t_md_signal_value *reset_value );
     int state_add( t_md_module *module, const char *name, int copy_name, void *client_base_handle, const void *client_item_handle, int client_item_reference, int array_size, t_md_type_definition_handle type, t_md_usage_type usage_type, const char *clock, int edge, const char *reset, int level );

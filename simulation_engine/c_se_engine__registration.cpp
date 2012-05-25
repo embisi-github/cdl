@@ -25,6 +25,14 @@
 #include "c_se_engine.h"
 #include "c_se_engine__internal_types.h"
 
+/*a Defines
+ */
+#if 0
+#define WHERE_I_AM {fprintf(stderr,"%s:%s:%d\n",__FILE__,__func__,__LINE__ );}
+#else
+#define WHERE_I_AM {}
+#endif
+
 /*a Types
  */
 /*t t_engine_state_desc_chain
@@ -404,31 +412,37 @@ void c_engine::register_state_desc( void *engine_handle, int desc_type, t_engine
      t_engine_module_instance *emi;
      emi = (t_engine_module_instance *)engine_handle;
 
+     WHERE_I_AM;
      if (!emi)
           return;
 
      //fprintf(stderr, "Registering state prefix %s state %s\n", prefix, state_desc[0].name );
      SL_DEBUG(sl_debug_level_info, "c_engine::register_state_desc", "Registering state descriptions prefix %s first state %s", prefix?prefix:"<no prefix>", state_desc[0].name?state_desc[0].name:"<no state!>" ) ;
 
+     WHERE_I_AM;
      for (i=0; state_desc[i].type!=engine_state_desc_type_none; i++);
      num_state = i;
      if (desc_type & 1)
      {
+     WHERE_I_AM;
           sdl = (t_engine_state_desc_list *)malloc(sizeof(t_engine_state_desc_list));
           sdl->state_desc = state_desc;
      }
      else
      {
+     WHERE_I_AM;
           sdl = (t_engine_state_desc_list *)malloc(sizeof(t_engine_state_desc_list) + num_state*sizeof(t_engine_state_desc));
           sdl->state_desc = (t_engine_state_desc *)(&(sdl[1]));
           memcpy( sdl->state_desc, state_desc, num_state * sizeof(t_engine_state_desc) );
      }
+     WHERE_I_AM;
      sdl->next_in_list = emi->state_desc_list;
      emi->state_desc_list = sdl;
      sdl->data_base_ptr = data;
      sdl->num_state = i;
      sdl->prefix = sl_str_alloc_copy( prefix );
      sdl->data_indirected = ((desc_type&2)!=0);
+     WHERE_I_AM;
 }
 
 /*a Exec file enhancements
@@ -440,15 +454,17 @@ static void se_engine_register_sl_exec_file_register_state( void *handle, const 
      t_register_sl_exec_file_data *rsefd;
      t_engine_state_desc_chain *sdc;
 
+     WHERE_I_AM;
      va_list ap;
      va_start( ap, width );
 
-     //fprintf(stderr, "Register state %s:%s\n", instance, state_name );
+     WHERE_I_AM;
      rsefd = (t_register_sl_exec_file_data *)handle;
      if (!rsefd->name)
      {
           rsefd->name = instance;
      }
+
      sdc = (t_engine_state_desc_chain *)malloc( sizeof(t_engine_state_desc_chain) );
      if (rsefd->last_state_desc_chain)
      {
@@ -458,10 +474,12 @@ static void se_engine_register_sl_exec_file_register_state( void *handle, const 
      {
           rsefd->state_desc_chain=sdc;
      }
+     WHERE_I_AM;
      sdc->next_in_list = NULL;
      rsefd->last_state_desc_chain=sdc;
      rsefd->number_state_desc++;
      sdc->data.name = (char *)state_name;
+     WHERE_I_AM;
      switch (type)
      {
      case 0:
@@ -480,8 +498,10 @@ static void se_engine_register_sl_exec_file_register_state( void *handle, const 
      default:
           break;
      }
+     WHERE_I_AM;
      //fprintf(stderr, "Registered state %s:%s\n", rsefd->name, sdc->data.name );
      va_end(ap);
+     WHERE_I_AM;
 }
 
 /*f se_engine_register_sl_exec_file_register_state_complete
@@ -493,7 +513,10 @@ static void se_engine_register_sl_exec_file_register_state_complete( void *handl
      t_engine_state_desc *state_desc;
      t_engine_state_desc_chain *sdc;
 
+     WHERE_I_AM;
      rsefd = (t_register_sl_exec_file_data *)handle;
+     //fprintf(stderr, "FREEING %p\n", rsefd );
+
      state_desc = (t_engine_state_desc *)malloc(sizeof(t_engine_state_desc)*(rsefd->number_state_desc+1));
      for (i=0, sdc=rsefd->state_desc_chain; sdc; sdc=sdc->next_in_list, i++)
      {
@@ -503,6 +526,7 @@ static void se_engine_register_sl_exec_file_register_state_complete( void *handl
      state_desc[i].type = engine_state_desc_type_none;
      state_desc[i].name = NULL;
 
+     WHERE_I_AM;
      rsefd->engine->register_state_desc( (void *)rsefd->module_instance, 0, state_desc, NULL, rsefd->name );
      while (rsefd->state_desc_chain)
      {
@@ -510,6 +534,7 @@ static void se_engine_register_sl_exec_file_register_state_complete( void *handl
           rsefd->state_desc_chain = sdc->next_in_list;
           free(sdc);
      }
+     WHERE_I_AM;
      free(rsefd);
      free(state_desc);
 }
@@ -535,6 +560,7 @@ int c_engine::register_add_exec_file_enhancements( struct t_sl_exec_file_data *f
 
     if (engine_handle)
     {
+        WHERE_I_AM;
         rsefd = (t_register_sl_exec_file_data *) malloc(sizeof(t_register_sl_exec_file_data));
         if (rsefd)
         {

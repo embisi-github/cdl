@@ -144,6 +144,7 @@ static t_lex_file_posn *last_ok_file_posn;
 %token <symbol> TOKEN_TEXT_FALLING
 %token <symbol> TOKEN_TEXT_GATED_CLOCK
 %token <symbol> TOKEN_TEXT_DECL_ASYNC_READ
+%token <symbol> TOKEN_TEXT_DECL_APPROVED
 %token <symbol> TOKEN_TEXT_RESET
 %token <symbol> TOKEN_TEXT_ACTIVE_LOW
 %token <symbol> TOKEN_TEXT_ACTIVE_HIGH
@@ -167,6 +168,10 @@ static t_lex_file_posn *last_ok_file_posn;
 %token <symbol> TOKEN_TEXT_LOG
 %token <symbol> TOKEN_TEXT_PRINT
 %token <symbol> TOKEN_TEXT_CONFIG
+%token <symbol> TOKEN_TEXT_REPEAT
+%token <symbol> TOKEN_TEXT_WHILE
+%token <symbol> TOKEN_TEXT_GENERATE
+%token <symbol> TOKEN_TEXT_MATCHES
 %token <string> TOKEN_STRING
 %token <string> TOKEN_TEXT_CONSTANT
 %token TOKEN_EOF
@@ -1672,6 +1677,14 @@ clocked_decl_spec:
 | TOKEN_TEXT_DECL_ASYNC_READ clocked_decl_spec
     {
         $$ = new c_co_declspec(declspec_type_async_read,$1);
+        if ($$)
+        {
+            $$->chain_tail($2);
+        }
+    }
+| TOKEN_TEXT_DECL_APPROVED clocked_decl_spec
+    {
+        $$ = new c_co_declspec(declspec_type_approved,$1);
         if ($$)
         {
             $$->chain_tail($2);

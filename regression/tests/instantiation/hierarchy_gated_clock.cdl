@@ -77,6 +77,11 @@ module hierarchy_gated_clock( clock io_clock,
                                         a <= in_a,
                                         b <= in_b,
                                             c => out_c[width;0] );
+            hierarchy_gated_clock_add hgca2( io_clock<-gated_clock_0,
+                                        io_reset<=io_reset,
+                                        a <= in_a,
+                                        b <= in_b,
+                                            c => out_c[width;0] );
         }
     drive_outputs "Drive outputs":
         {

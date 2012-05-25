@@ -286,6 +286,7 @@ t_md_module *c_model_descriptor::module_create( const char *name, int copy_name,
      module->labelled_expressions = NULL;
      module->expressions = NULL;
      module->statements = NULL;
+     module->last_statement = NULL;
      module->switch_items = NULL;
      module->instances = NULL;
      module->lvars = NULL;
@@ -857,7 +858,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
                          }
                          else if (type==md_reference_type_state)
                          {
-                             if (state->async_read)
+                             if (state->async_read && !state->approved)
                              {
                                  fprintf(stderr,"WARNING: using __async_read__ ; needs design review\n");
                              }
@@ -2481,7 +2482,9 @@ int c_model_descriptor::lvar_width( t_md_lvar *lvar )
      switch (lvar->instance->type)
      {
      case md_type_instance_type_bit_vector:
-          return lvar->instance->type_def.data.width;
+         if (lvar->index.type!=md_lvar_data_type_none)
+             return 1;
+         return lvar->instance->type_def.data.width;
      case md_type_instance_type_array_of_bit_vectors:
           if (lvar->index.type==md_lvar_data_type_none)
                return -1;
@@ -2535,6 +2538,58 @@ void c_model_descriptor::lvars_free( t_md_module *module )
      {
           lvar_free(module, module->lvars);
      }
+}
+
+/*f c_model_descriptor::lvar_print
+ */
+int c_model_descriptor::lvar_print( char *buffer, int buffer_size, t_md_lvar *lvar )
+{
+    char *ptr;
+    ptr = buffer;
+    if (lvar->parent_ref)
+    {
+        int x;
+        x = lvar_print( buffer, buffer_size, lvar->parent_ref );
+        ptr = buffer+x;
+        buffer_size = buffer_size-x;
+        if (buffer_size>0)
+        {
+            ptr[0] = '.';
+            buffer_size--;
+        }
+    }
+    if (buffer_size>0)
+    {
+        strncpy( ptr, lvar->instance->name, buffer_size );
+        ptr = ptr + strlen(ptr);
+    }
+    return ptr-buffer;
+}
+
+/*f c_model_descriptor::port_lvar_print
+ */
+int c_model_descriptor::port_lvar_print( char *buffer, int buffer_size, t_md_port_lvar *lvar )
+{
+    char *ptr;
+    ptr = buffer;
+    if (lvar->parent_ref)
+    {
+        int x;
+        x = port_lvar_print( buffer, buffer_size, lvar->parent_ref );
+        ptr = buffer+x;
+        buffer_size = buffer_size-x;
+        if (buffer_size>0)
+        {
+            ptr[0] = '.';
+            buffer_size--;
+        }
+    }
+    if (buffer_size>0)
+    {
+        strncpy( ptr, lvar->name, buffer_size );
+        ptr = ptr + strlen(ptr);
+    }
+    return ptr-buffer;
 }
 
 /*a Port lvar methods
@@ -3491,6 +3546,7 @@ t_md_state *c_model_descriptor::state_create( t_md_module *module, const char *s
      state->output_ref = NULL;
      state->documentation = NULL;
      state->async_read = 0;
+     state->approved = 0;
 
      reset->data.input.levels_used_for_reset[reset_level] = 1;
 
@@ -3527,6 +3583,7 @@ t_md_state *c_model_descriptor::state_internal_add( t_md_module *module, const c
      client_ref.item_handle = client_item_handle;
      client_ref.item_reference = client_item_reference;
 
+     SL_DEBUG(sl_debug_level_info, "Add state %s clock %s reset %s",name,clock,reset);
      state = state_create( module, name, copy_name, &client_ref, clock, edge, reset, level, module->clocks, module->inputs, &module->registers );
      if (!state)
      {
@@ -3571,6 +3628,19 @@ int c_model_descriptor::state_mark_async_read( t_md_module *module, const char *
     if (!state)
         return 0;
     state->async_read = 1;
+    return 1;
+}
+
+/*f c_model_descriptor::state_mark_approved - mark a state as approved - so no warnings come out
+ */
+int c_model_descriptor::state_mark_approved( t_md_module *module, const char *name )
+{
+    t_md_state *state;
+    WHERE_I_AM;
+    state = state_find( name, module->registers );
+    if (!state)
+        return 0;
+    state->approved = 1;
     return 1;
 }
 
@@ -4284,8 +4354,16 @@ t_md_statement *c_model_descriptor::statement_create( t_md_module *module, t_md_
           return NULL;
      }
 
-     statement->next_in_module = module->statements;
-     module->statements = statement;
+     statement->next_in_module = NULL;
+     if (module->statements)
+     {
+         module->last_statement->next_in_module = statement;
+     }
+     else
+     {
+         module->statements = statement;
+     }
+     module->last_statement = statement;
      statement->next_in_code = NULL;
 
      statement->client_ref = *client_ref;
@@ -5941,6 +6019,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
          options.verilog_comb_reg_suffix                 = sl_option_get_string( env_options, "be_v_comb_suffix" );
          options.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
          options.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
+         options.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
          options.include_coverage                        = (sl_option_get_string( env_options, "be_coverage" )!=NULL);
          f = fopen(filename, "w");
           if (f)
@@ -6030,6 +6109,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_include_assertions:
           *env_options = sl_option_list( *env_options, "be_assertions", "yes" );
+          return 1;
+     case option_be_sv_assertions:
+          *env_options = sl_option_list( *env_options, "be_v_sv_assertions", "yes" );
           return 1;
      case option_be_reduce_errors:
           *env_options = sl_option_list( *env_options, "be_reduce_errors", "yes" );

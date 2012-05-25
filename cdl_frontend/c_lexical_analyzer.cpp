@@ -186,7 +186,12 @@ static t_token default_tokens[] = {
      {"log", TOKEN_TEXT_LOG},
      {"config", TOKEN_TEXT_CONFIG},
      {"assert", TOKEN_TEXT_ASSERT},
+     {"repeat",   TOKEN_TEXT_REPEAT},
+     {"while",    TOKEN_TEXT_WHILE},
+     {"generate", TOKEN_TEXT_GENERATE},
+     {"matches", TOKEN_TEXT_MATCHES},
      {"__async_read__", TOKEN_TEXT_DECL_ASYNC_READ},
+     {"__approved__", TOKEN_TEXT_DECL_APPROVED},
      {0, 0}
 };
 

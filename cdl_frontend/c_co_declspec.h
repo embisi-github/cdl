@@ -30,6 +30,7 @@
 typedef enum
 {
     declspec_type_async_read,
+    declspec_type_approved
 } t_declspec_type;
 
 /*t c_co_declspec

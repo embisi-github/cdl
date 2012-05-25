@@ -940,30 +940,40 @@ extern void sl_exec_file_object_instance_register_state( struct t_sl_exec_file_c
 {
     char buffer[512];
     char *names;
+    WHERE_I_AM;
     if (cmd_cb->file_data->register_state_fn)
     {
+        WHERE_I_AM;
         snprintf( buffer, 512, "%s.%s", object_name, state_name );
+        WHERE_I_AM;
         names = sl_str_alloc_copy(buffer);
         if (size<=0)
         {
+            WHERE_I_AM;
             (*(cmd_cb->file_data->register_state_fn))( cmd_cb->file_data->register_state_handle, cmd_cb->file_data->id, names, 0, (int *)(data), width );
         }
         else
         {
+            WHERE_I_AM;
             (*(cmd_cb->file_data->register_state_fn))( cmd_cb->file_data->register_state_handle, cmd_cb->file_data->id, names, 1, (int *)(data), width, size );
         }
     }
+    WHERE_I_AM;
 }
 
 /*f sl_exec_file_object_instance_register_state_desc
  */
 extern void sl_exec_file_object_instance_register_state_desc( struct t_sl_exec_file_cmd_cb *cmd_cb, const char *object_name, t_sl_exec_file_state_desc_entry *state_desc_entry_array, void *base_data )
 {
+    WHERE_I_AM;
     while (state_desc_entry_array->name)
     {
+    WHERE_I_AM;
         sl_exec_file_object_instance_register_state( cmd_cb, object_name, state_desc_entry_array->name, (void *)(((char *)base_data)+state_desc_entry_array->offset), state_desc_entry_array->width, state_desc_entry_array->size );
         state_desc_entry_array++;
+    WHERE_I_AM;
     }
+    WHERE_I_AM;
 }
 
 /*a Exec file data structure creation/manipulation/freeing
@@ -1898,6 +1908,8 @@ extern t_sl_error_level sl_exec_file_allocate_and_read_exec_file( c_sl_error *er
          {
              (efc->callback_fn)( efc->handle );
          }
+         (*file_data_ptr)->register_state_fn = NULL;
+         (*file_data_ptr)->poststate_callbacks = NULL; // SHOULD FREE THE LIST
      }
 
      /*b Free text buffer, reset the threads,  and return
@@ -4406,6 +4418,8 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
         {
             (efc->callback_fn)( efc->handle );
         }
+        (*file_data_ptr)->register_state_fn = NULL;
+        (*file_data_ptr)->poststate_callbacks = NULL; // SHOULD FREE THE LIST
     }
 
     /*b Add in objects for each sl_exec_file object

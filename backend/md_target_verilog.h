@@ -26,6 +26,7 @@ typedef struct
     const char *verilog_comb_reg_suffix;
     int include_displays;
     int include_assertions;
+    int sv_assertions;
     int include_coverage;
 } t_md_verilog_options;
 

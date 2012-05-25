@@ -1900,10 +1900,10 @@ char *c_type_value_pool::display( char *buffer, int buffer_size, t_type_value ty
         switch (entry->type_value_pool_entry_type)
         {
         case type_value_pool_entry_type_struct:
-            snprintf( buffer, buffer_size, "struct" );
+            snprintf( buffer, buffer_size, "struct %s", lex_string_from_terminal(entry->data.type_structure.symbol) );
             break;
         case type_value_pool_entry_type_type_def:
-            snprintf( buffer, buffer_size, lex_string_from_terminal(entry->data.type_def.symbol) );
+            snprintf( buffer, buffer_size, "%s", lex_string_from_terminal(entry->data.type_def.symbol) );
             break;
         case type_value_pool_entry_type_type_array:
             display( buffer, buffer_size, entry->data.type_array.type_value );

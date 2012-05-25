@@ -20,6 +20,7 @@ typedef struct
 {
     bit[4] x;
     bit[4] y;
+    bit z;
 } t_fifo_content_struct;
 
 /*t t_fifo_content_deep_struct
@@ -71,7 +72,7 @@ cdl tests/struct generic_fifo rmn:generic_fifo=generic_fifo_hierarchy  rmt:gt_fi
     default clock io_clock;
     default reset io_reset;
 
-    clocked __async_read__ gt_fifo_content[8] fifo_data = {* = 0};
+    clocked __approved__ __async_read__ gt_fifo_content[8] fifo_data = {* = 0} "Approved this as an async read";
     clocked __async_read__ bit[4] read_ptr=0;
     clocked bit[4] write_ptr=0;
 

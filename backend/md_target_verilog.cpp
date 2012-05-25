@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "c_model_descriptor.h"
 #include "cdl_version.h"
 #include "md_target_verilog.h"
@@ -72,6 +73,14 @@ static void output_header( c_model_descriptor *model, t_md_output_fn output, voi
 
     output( handle, 0, "//a Note: created by CDL " __CDL__SHORT_VERSION_STRING " - do not hand edit without recognizing it will be out of sync with the source\n");
     output( handle, 0, "// Output mode %d (VMOD=1, standard verilog=0)\n", options.vmod_mode );
+    output( handle, 0, "// Verilog option comb reg suffix '%s'\n", options.verilog_comb_reg_suffix );
+    output( handle, 0, "// Verilog option include_displays %d\n", options.include_displays );
+    output( handle, 0, "// Verilog option include_assertions %d\n", options.include_assertions );
+    output( handle, 0, "// Verilog option sv_assertions %d\n", options.sv_assertions );
+    output( handle, 0, "// Verilog option assert delay string '%s'\n", options.assert_delay_string?options.assert_delay_string:"<NULL>" );
+    output( handle, 0, "// Verilog option include_coverage %d\n", options.include_coverage );
+    output( handle, 0, "// Verilog option clock_gate_module_instance_type '%s'\n", options.clock_gate_module_instance_type );
+    output( handle, 0, "// Verilog option clock_gate_module_instance_extra_ports '%s'\n", options.clock_gate_module_instance_extra_ports );
     output( handle, 0, "\n");
 
 }
@@ -82,14 +91,14 @@ static void output_set_usage_type( c_model_descriptor *model, t_md_output_fn out
 {
     if ((output_usage_type==md_usage_type_rtl) && (desired_output_usage_type!=md_usage_type_rtl))
     {
-        output( handle, 1, "//pragma coverage off\n");
         output( handle, 1, "//synopsys  translate_off\n");
+        output( handle, 1, "//pragma coverage off\n");
         output_usage_type = desired_output_usage_type;
     }
     else if ((output_usage_type!=md_usage_type_rtl) && (desired_output_usage_type==md_usage_type_rtl))
     {
-        output( handle, 1, "//synopsys  translate_on\n");
         output( handle, 1, "//pragma coverage on\n");
+        output( handle, 1, "//synopsys  translate_on\n");
         output_usage_type = desired_output_usage_type;
     }
 }
@@ -112,6 +121,50 @@ static void output_pop_usage_type( c_model_descriptor *model, t_md_output_fn out
         desired_output_usage_type = md_usage_type_rtl;
     }
     current_output_depth = (current_output_depth==0)?0:(current_output_depth-1);
+}
+
+/*f output_documentation
+ */
+static void output_documentation( c_model_descriptor *model, t_md_output_fn output, void *handle, int indent, char *documentation, int postpend_if_possible )
+{
+    int i;
+    unsigned int j;
+    int postpend;
+    char buffer[256];
+
+    if (!documentation)
+    {
+        if (postpend_if_possible)
+            output( handle, -1, "\n" );
+        return;
+    }
+
+    postpend = postpend_if_possible;
+    for (i=0; documentation[i] && postpend; i++)
+    {
+        if (documentation[i]=='\n')
+            postpend = 0;
+    }
+
+    if (postpend)
+    {
+        output( handle, -1, "//   %s\n", documentation );
+        return;
+    }
+
+    if (postpend_if_possible)
+    {
+        output( handle, -1, "\n" );
+    }
+    i=-1;
+    do
+    {
+        i++;
+        for (j=0; (documentation[i]) && (documentation[i]!='\n') && (j<sizeof(buffer)-1); i++,j++ )
+            buffer[j] = documentation[i];
+        buffer[j] = 0;
+        output( handle, indent+1, "//   %s\n", buffer );
+    } while (documentation[i]=='\n');
 }
 
 /*f output_module_rtl_architecture_ports; output clocks as inputs, inputs, outputs
@@ -163,6 +216,7 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
         if (!CLOCK_IS_GATED(clk))
         {
             t_md_signal *clk2;
+            output_documentation( model, output, handle, 1, clk->documentation, 0 );
             output( handle, 1, "input %s;\n", clk->name );
             for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
             {
@@ -178,6 +232,7 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
     output( handle, 1, "//b Inputs\n" );
     for (signal=module->inputs; signal; signal=signal->next_in_list)
     {
+        output_documentation( model, output, handle, 1, signal->documentation, 0 );
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
             instance = signal->instance_iter->children[i];
@@ -203,6 +258,7 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
     output( handle, 1, "//b Outputs\n" );
     for (signal=module->outputs; signal; signal=signal->next_in_list)
     {
+        output_documentation( model, output, handle, 1, signal->documentation, 0 );
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
             instance = signal->instance_iter->children[i];
@@ -276,50 +332,6 @@ static void output_signal_definition( c_model_descriptor *model, t_md_output_fn 
         output( handle, 1, "ZZZ Don't know how to register a %s '%s'\n", reason, override_name?override_name:instance->output_name );
         break;
     }
-}
-
-/*f output_documentation
- */
-static void output_documentation( c_model_descriptor *model, t_md_output_fn output, void *handle, int indent, char *documentation, int postpend_if_possible )
-{
-    int i;
-    unsigned int j;
-    int postpend;
-    char buffer[256];
-
-    if (!documentation)
-    {
-        if (postpend_if_possible)
-            output( handle, -1, "\n" );
-        return;
-    }
-
-    postpend = postpend_if_possible;
-    for (i=0; documentation[i] && postpend; i++)
-    {
-        if (documentation[i]=='\n')
-            postpend = 0;
-    }
-
-    if (postpend)
-    {
-        output( handle, -1, "//   %s\n", documentation );
-        return;
-    }
-
-    if (postpend_if_possible)
-    {
-        output( handle, -1, "\n" );
-    }
-    i=-1;
-    do
-    {
-        i++;
-        for (j=0; (documentation[i]) && (documentation[i]!='\n') && (j<sizeof(buffer)-1); i++,j++ )
-            buffer[j] = documentation[i];
-        buffer[j] = 0;
-        output( handle, indent+1, "//   %s\n", buffer );
-    } while (documentation[i]=='\n');
 }
 
 /*f output_module_rtl_architecture_internal_signals - (not gated clocks - in verilog we count them as 'ports') - output combs, output nets, clocked registers as regs, internal combs, internal nets
@@ -910,7 +922,7 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
                   output( handle, indent+2, "begin\n");
                   output( handle, indent+3, "%s\n", (options.assert_delay_string) ? options.assert_delay_string : "if (1)" );
                   output( handle, indent+3, "begin\n");
-                  output( handle, indent+4, "$display($time,\"*********CDL ASSERTION FAILURE:%s:%s: Full switch statement did not cover all values\");\n", code_block->module->output_name, code_block->name);
+                  output( handle, indent+4, "$display(\"%%t *********CDL ASSERTION FAILURE:%s:%s: Full switch statement did not cover all values\", $time);\n", code_block->module->output_name, code_block->name);
                   output( handle, indent+3, "end\n");
                   output( handle, indent+2, "end\n");
                   output_pop_usage_type( model, output, handle );
@@ -918,12 +930,16 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
               }
               else
               {
+                  output( handle, indent+1, "//synopsys  translate_off\n");
                   output( handle, indent+1, "//pragma coverage off\n");
+                  output( handle, indent+1, "//synopsys  translate_on\n");
                   output( handle, indent+1, "default:\n");
                   output( handle, indent+2, "begin\n");
                   output( handle, indent+2, "//Need a default case to make Cadence Lint happy, even though this is not a full case\n");
                   output( handle, indent+2, "end\n");
+                  output( handle, indent+1, "//synopsys  translate_off\n");
                   output( handle, indent+1, "//pragma coverage on\n");
+                  output( handle, indent+1, "//synopsys  translate_on\n");
               }
           }
           output( handle, indent+1, "endcase\n");
@@ -944,8 +960,6 @@ static void output_module_rtl_architecture_message( c_model_descriptor *model, t
     i=j=k=0;
     if (!message)
         return;
-    if (!options.include_displays)
-        return;
     while (message->text[i])
     {
         if ( (message->text[i]=='%') &&
@@ -964,7 +978,7 @@ static void output_module_rtl_architecture_message( c_model_descriptor *model, t
         }
     }
     buffer[j] =0;
-    output( handle, indent+1, "$display( \"%%d %s:%s\",\n", level?"ASSERTION FAILED":"Information", buffer );
+    output( handle, indent+1, "$%s( \"%%d %s:%s\",\n", (level&2)?"error":"display", (level&1)?"ASSERTION FAILED":"Information", buffer );
     output( handle, indent+2, "$time" );
     for (i=0; i<k; i++)
     {
@@ -1097,18 +1111,57 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
     case md_statement_type_print_assert:
         if ( !statement->data.print_assert_cover.expression && !statement->data.print_assert_cover.statement)  // Print statement
         {
-            output_module_rtl_architecture_message( model, output, handle, code_block, statement->data.print_assert_cover.message, indent, 0 );
+            if (options.include_displays)
+            {
+                output_module_rtl_architecture_message( model, output, handle, code_block, statement->data.print_assert_cover.message, indent, 0 );
+            }
         }
         else if (options.include_assertions)
         {
+            int named_assert_end; // Offset from start of text string for assert to ':' - a named assert has a message of the form 'blah_Mumble1:Message'
+            char assert_name[1024];
+            named_assert_end = -1;
+            if (statement->data.print_assert_cover.message)
+            {
+                const char *msg_ptr;
+                for (msg_ptr=statement->data.print_assert_cover.message->text; msg_ptr && (msg_ptr[0]); msg_ptr++)
+                {
+                    if (msg_ptr[0]==':') break;
+                    if (isalnum(msg_ptr[0])) continue;
+                    if (msg_ptr[0]=='_') continue;
+                    msg_ptr=NULL;
+                    break;
+                }
+                if ((msg_ptr!=NULL) && (msg_ptr[0]))
+                {
+                    named_assert_end = msg_ptr-statement->data.print_assert_cover.message->text;
+                }
+            }
+            if (named_assert_end>=0)
+            {
+                strncpy( assert_name, statement->data.print_assert_cover.message->text, named_assert_end );
+                assert_name[named_assert_end]=0;
+            }
+            
             output_push_usage_type( model, output, handle, md_usage_type_assert );
+
             // If value_list, then expression must be one of value_list ELSE do statement or message
             // If not value_list, then expression must be FALSE to do statement or message
             if (statement->data.print_assert_cover.expression &&
                 statement->data.print_assert_cover.value_list)
             {
+                // For sv need assert NOT of each one with an OR of these
+                // Also need 'else' before the begin
+                // Also need $error not $display
                 t_md_expression *value;
-                output( handle, indent+1, "if ( (1'b0==1'b0)" );
+                if (options.sv_assertions && (named_assert_end>=0))
+                {
+                    output( handle, indent+1, "assert_%s: assert( !( (1'b0==1'b0)\n", assert_name );
+                }
+                else
+                {
+                    output( handle, indent+1, "if ( (1'b0==1'b0)" );
+                }
                 for (value=statement->data.print_assert_cover.value_list; value; value=value->next_in_chain )
                 {
                     output( handle, -1, "&&\n" );
@@ -1118,30 +1171,72 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
                     output_module_rtl_architecture_expression( model, output, handle, code_block, value, indent+2, 4, statement->output.unique_id );
                     output( handle, -1, "))" );
                 }
-                output( handle, -1, ")\n" );
+                if (options.sv_assertions && (named_assert_end>=0))
+                {
+                    output( handle, -1, ")) else\n", assert_name );
+                }
+                else
+                {
+                    output( handle, -1, ")\n" );
+                }
                 output( handle, indent+1, "begin\n" );
             }
             else if (statement->data.print_assert_cover.expression)
             {
-                output( handle, indent+1, "if ( !(");
+                if (options.sv_assertions && (named_assert_end>=0))
+                {
+                    output( handle, indent+1, "assert_%s: assert(", assert_name );
+                }
+                else
+                {
+                    output( handle, indent+1, "if ( !(");
+                }
                 output_module_rtl_architecture_expression( model, output, handle, code_block, statement->data.print_assert_cover.expression, indent+2, 4, statement->output.unique_id );
-                output( handle, -1, ") )\n" );
+                if (options.sv_assertions && (named_assert_end>=0))
+                {
+                    output( handle, -1, ") else\n" );
+                }
+                else
+                {
+                    output( handle, -1, ") )\n" );
+                }
                 output( handle, indent+1, "begin\n" );
             }
             else
             {
-                output( handle, indent+1, "if (1'b0==1'b0)\n" );
+                if (options.sv_assertions && (named_assert_end>=0))
+                {
+                    output( handle, indent+1, "assert_%s: assert(1'b0!=1'b0) else\n", assert_name );
+                }
+                else
+                {
+                    output( handle, indent+1, "if (1'b0==1'b0)\n" );
+                }
                 output( handle, indent+1, "begin\n" );
             }
             if (statement->data.print_assert_cover.message)
             {
-                output_module_rtl_architecture_message( model, output, handle, code_block, statement->data.print_assert_cover.message, indent, 1 );
+                if (options.sv_assertions && (named_assert_end>=0))
+                {
+                    output_module_rtl_architecture_message( model, output, handle, code_block, statement->data.print_assert_cover.message, indent, 3 );
+                }
+                else
+                {
+                    output_module_rtl_architecture_message( model, output, handle, code_block, statement->data.print_assert_cover.message, indent, 1 );
+                }
             }
             if (statement->data.print_assert_cover.statement)
             {
                 output_module_rtl_architecture_statement( model, output, handle, code_block, statement->data.print_assert_cover.statement, indent+1, signal, edge, reset, reset_level );
             }
-            output( handle, indent+1, "end //if\n" );
+            if (options.sv_assertions && (named_assert_end>=0))
+            {
+                output( handle, indent+1, "end //assert_%s\n", assert_name );
+            }
+            else
+            {
+                output( handle, indent+1, "end //if\n" );
+            }
             output_pop_usage_type( model, output, handle );
             output_set_usage_type( model, output, handle );
         }
@@ -1413,6 +1508,7 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
             if (has_dependencies)
             {
                 output_pop_usage_type( model, output, handle );
+                output_set_usage_type( model, output, handle );
                 output( handle, -1, " )\n" );
             }
             else
@@ -1894,6 +1990,7 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
     options.include_displays = 0;
     options.include_assertions = 0;
     options.include_coverage = 0;
+    options.sv_assertions = 0;
     options.clock_gate_module_instance_type = "clock_gate_module";
     options.clock_gate_module_instance_extra_ports = "";
     options.assert_delay_string = NULL;
@@ -1905,6 +2002,7 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
         options.include_displays = options_in->include_displays;
         options.include_assertions = options_in->include_assertions;
         options.include_coverage = options_in->include_coverage;
+        options.sv_assertions = options_in->sv_assertions;
         if (options_in->clock_gate_module_instance_extra_ports) { options.clock_gate_module_instance_extra_ports = options_in->clock_gate_module_instance_extra_ports; }
         if (options_in->clock_gate_module_instance_type)        { options.clock_gate_module_instance_type = options_in->clock_gate_module_instance_type; }
         if (options_in->assert_delay_string)                    { options.assert_delay_string = options_in->assert_delay_string; }

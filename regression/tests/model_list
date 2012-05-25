@@ -71,6 +71,7 @@ cdl tests/instantiation hierarchy_struct              inc:tests/instantiation
 cdl tests/instantiation hierarchy_struct_test_harness inc:tests/instantiation
 cdl tests/instantiation failure_0
 
+cdl tests/bugs missing_reset
 cdl tests/bugs output_cyclic_dependency
 cdl tests/bugs empty_case_statements
 cdl tests/bugs sm_test inc:tests/bugs

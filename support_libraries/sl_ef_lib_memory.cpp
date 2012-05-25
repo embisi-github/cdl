@@ -22,6 +22,14 @@
 #include "sl_ef_lib_memory.h"
 #include "sl_exec_file.h"
 
+/*a Defines
+ */
+#if 1
+#define WHERE_I_AM {}
+#else
+#define WHERE_I_AM {fprintf(stderr,"%s:%s:%d\n",__FILE__,__func__,__LINE__ );}
+#endif
+
 /*a Types
  */
 /*t t_sl_memory_object
@@ -101,11 +109,13 @@ static t_sl_exec_file_method sl_memory_object_methods[] =
 static void ensure_contents(t_sl_ef_lib_memory *mem)
 {
     int bytes_per_item;
+    WHERE_I_AM;
     if (!mem->contents)
     {
         bytes_per_item = BITS_TO_BYTES(mem->bit_size);
         mem->contents = (t_sl_uint64 *)malloc(bytes_per_item*mem->max_size);
     }
+    WHERE_I_AM;
 }
 
 /*f object_message_handler
@@ -115,12 +125,14 @@ static t_sl_error_level object_message_handler( t_sl_exec_file_object_cb *obj_cb
     t_sl_ef_lib_memory *mem;
     mem = &(((t_sl_memory_object *)(obj_cb->object_desc->handle))->memory);
 
+    WHERE_I_AM;
     if (!strcmp(obj_cb->data.message.message,"memory_get"))
     {
         ensure_contents(mem);
         ((t_sl_ef_lib_memory **)obj_cb->data.message.client_handle)[0] = mem;
         return error_level_okay;
     }
+    WHERE_I_AM;
     return error_level_serious;
 }
 
@@ -161,17 +173,21 @@ static t_sl_error_level exec_file_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *
 {
     t_sl_memory_object *mem;
 
+    WHERE_I_AM;
     switch (cmd_cb->cmd)
     {
     case cmd_memory:
+        WHERE_I_AM;
         mem = find_object((t_sl_memory_object **)handle, sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 ));
         if (!mem)
         {
+            WHERE_I_AM;
             t_sl_exec_file_object_desc object_desc;
             mem = add_object((t_sl_memory_object **)handle, sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 ));
             mem->memory.max_size = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
             mem->memory.bit_size = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 2 );
             mem->memory.contents = NULL;
+            WHERE_I_AM;
             memset(&object_desc,0,sizeof(object_desc));
             object_desc.version = sl_ef_object_version_checkpoint_restore;
             object_desc.name = mem->name;
@@ -179,13 +195,17 @@ static t_sl_error_level exec_file_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *
             object_desc.message_handler = object_message_handler;
             object_desc.methods = sl_memory_object_methods;
             sl_exec_file_add_object_instance( cmd_cb->file_data, &object_desc );
+            WHERE_I_AM;
             ensure_contents(&(mem->memory));
+            WHERE_I_AM;
             sl_exec_file_object_instance_register_state( cmd_cb, mem->name, "memory", (void *)(mem->memory.contents), mem->memory.bit_size, mem->memory.max_size );
+            WHERE_I_AM;
         }
         break;
     default:
         return error_level_serious;
     }
+    WHERE_I_AM;
     return error_level_okay;
 }
 
@@ -198,6 +218,8 @@ extern void sl_ef_lib_memory_add_exec_file_enhancements( struct t_sl_exec_file_d
     object_ptr = (t_sl_memory_object **)malloc(sizeof(t_sl_memory_object *));
     *object_ptr = NULL;
 
+    WHERE_I_AM;
+
     lib_desc.version = sl_ef_lib_version_initial;
     lib_desc.library_name = "sys_memory";
     lib_desc.handle = (void *)object_ptr;
@@ -205,6 +227,7 @@ extern void sl_ef_lib_memory_add_exec_file_enhancements( struct t_sl_exec_file_d
     lib_desc.file_cmds = sl_memory_cmds;
     lib_desc.file_fns = NULL;
     sl_exec_file_add_library( file_data, &lib_desc );
+    WHERE_I_AM;
 }
 
 /*a Memory object methods
@@ -220,6 +243,7 @@ static void mif_compare_callback( void *handle, t_sl_uint64 address, t_sl_uint64
     mem = info->mem;
     address -= info->address_offset;
 
+    WHERE_I_AM;
     okay=0;
     if (mem->bit_size<=8)
     {
@@ -242,6 +266,8 @@ static void mif_compare_callback( void *handle, t_sl_uint64 address, t_sl_uint64
         info->okay = 0;
         info->first_error_address = address;
     }
+
+    WHERE_I_AM;
 }
 
 /*f ef_method_eval_compare
@@ -253,8 +279,10 @@ static t_sl_error_level ef_method_eval_compare( t_sl_exec_file_cmd_cb *cmd_cb, v
 
     t_mif_compare_info info;
 
+    WHERE_I_AM;
     ensure_contents(mem);
 
+    WHERE_I_AM;
     info.address_offset = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
     info.okay = 1;
     info.mem = mem;
@@ -268,8 +296,10 @@ static t_sl_error_level ef_method_eval_compare( t_sl_exec_file_cmd_cb *cmd_cb, v
                           mif_compare_callback,
                           (void *)&info );
 
+    WHERE_I_AM;
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, info.okay?((t_sl_uint64)-1):info.first_error_address ))
         return error_level_fatal;
+    WHERE_I_AM;
     return error_level_okay;
 }
 
@@ -283,9 +313,11 @@ static t_sl_error_level ef_method_eval_read( t_sl_exec_file_cmd_cb *cmd_cb, void
     int address;
     t_sl_uint64 data;
 
+    WHERE_I_AM;
     address = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
     if ( (address<0) || (address>=mem->max_size) )
     {
+        WHERE_I_AM;
         data = 0xdeadbeef000add00LL;
         //cmd_cb->error->add_error( (void *)file_data->user, error_level_serious, error_number_sl_exec_file_memory_address_out_of_range, error_id_sl_exec_file_get_next_cmd,
 //                                     error_arg_type_integer, (int)address,
@@ -296,6 +328,7 @@ static t_sl_error_level ef_method_eval_read( t_sl_exec_file_cmd_cb *cmd_cb, void
     }
     else
     {
+        WHERE_I_AM;
         data = 0xdeadbeef000add00LL;
         if (mem->contents)
         {
@@ -317,10 +350,12 @@ static t_sl_error_level ef_method_eval_read( t_sl_exec_file_cmd_cb *cmd_cb, void
             }
         }
     }
+    WHERE_I_AM;
     //printf("%p:%d:Reading address %d value %08llx\n",mem->contents, mem->bit_size,address,data);
 
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, data ))
         return error_level_fatal;
+    WHERE_I_AM;
     return error_level_okay;
 }
 
@@ -334,11 +369,14 @@ static t_sl_error_level ef_method_eval_write( t_sl_exec_file_cmd_cb *cmd_cb, voi
     int address;
     t_sl_uint64 data;
 
+    WHERE_I_AM;
     ensure_contents(mem);
 
     address = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
     data = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
     //printf("Writing address %d value %08llx\n",address,data);
+
+    WHERE_I_AM;
 
     if ( (address<0) || (address>=mem->max_size) )
     {
@@ -369,8 +407,12 @@ static t_sl_error_level ef_method_eval_write( t_sl_exec_file_cmd_cb *cmd_cb, voi
         }
     }
 
+    WHERE_I_AM;
+
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64)1 ))
         return error_level_fatal;
+
+    WHERE_I_AM;
 
     return error_level_okay;
 }
@@ -382,11 +424,13 @@ static t_sl_error_level ef_method_eval_load( t_sl_exec_file_cmd_cb *cmd_cb, void
     t_sl_ef_lib_memory *mem;
     mem = &(((t_sl_memory_object *)(object_desc->handle))->memory);
 
+    WHERE_I_AM;
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64)1 ))
         return error_level_fatal;
 
     if (mem->contents)
     {
+        WHERE_I_AM;
         return sl_mif_reset_and_read_mif_file( cmd_cb->error,
                                                sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 ),
                                                "exec file memory", //file_data->user,
@@ -399,6 +443,7 @@ static t_sl_error_level ef_method_eval_load( t_sl_exec_file_cmd_cb *cmd_cb, void
                                                NULL,
                                                NULL);
     }
+    WHERE_I_AM;
     return error_level_fatal;
 }
 
@@ -413,11 +458,14 @@ static t_sl_error_level ef_method_eval_save( t_sl_exec_file_cmd_cb *cmd_cb, void
     int address;
     int size;
 
+    WHERE_I_AM;
     ensure_contents(mem);
 
     filename = sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 );
     address = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
     size = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 2 );
+
+    WHERE_I_AM;
 
     //printf("Filename %s add %d size %d\n", filename, address, size );
     if ( (address<0) || (address+size>mem->max_size) )
@@ -432,6 +480,8 @@ static t_sl_error_level ef_method_eval_save( t_sl_exec_file_cmd_cb *cmd_cb, void
 
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64)1 ))
         return error_level_fatal;
+
+    WHERE_I_AM;
 
     return sl_mif_write_mif_file( cmd_cb->error,
                                   filename,
