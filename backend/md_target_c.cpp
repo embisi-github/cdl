@@ -271,6 +271,24 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 0, "/*a Types for %s\n", module->output_name);
     output( handle, 0, "*/\n");
 
+    /*b Output descriptor types
+     */
+    output( handle, 0, "typedef struct t_%s_input_desc\n", module->output_name);
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *port_name;\n");
+    output( handle, 1, "char width;\n");
+    output( handle, 1, "char is_comb;\n");
+    output( handle, 0, "} t_%s_input_desc;\n", module->output_name);
+    output( handle, 0, "\n");
+    output( handle, 0, "typedef struct t_%s_net_desc\n", module->output_name);
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *port_name;\n");
+    output( handle, 1, "int net_driver_offset;\n");
+    output( handle, 1, "char width;\n");
+    output( handle, 1, "char driven_in_parts;\n");
+    output( handle, 0, "} t_%s_net_desc;\n", module->output_name);
+    output( handle, 0, "\n");
+
     /*b Output clocked storage types
      */ 
     for (clk=module->clocks; clk; clk=clk->next_in_list)
@@ -575,6 +593,55 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     output( handle, 0, "/*v struct_offset wrapper\n");
     output( handle, 0, "*/\n");
     output( handle, 0, "#define struct_offset( ptr, a ) (((char *)&(ptr->a))-(char *)ptr)\n");
+
+    /*b Output input descriptor
+     */
+    if (module->inputs)
+    {
+        output( handle, 0, "/*v input_desc_%s\n", module->output_name );
+        output( handle, 0, "*/\n");
+        output( handle, 0, "static t_%s_input_desc input_desc_%s[] = \n", module->output_name, module->output_name );
+        output( handle, 0, "{\n");
+        for (signal=module->inputs; signal; signal=signal->next_in_list)
+        {
+            for (i=0; i<signal->instance_iter->number_children; i++)
+            {
+                instance = signal->instance_iter->children[i];
+                if (instance->type != md_type_instance_type_bit_vector) { fprintf(stderr,"BUG - port is an array, and cannot output that\n"); }
+                output( handle, 1, "{\"%s\",%d,0},\n", instance->output_name, instance->type_def.data.width );
+            }
+        }
+        output( handle, 1, "{NULL,0,0},\n" );
+        output( handle, 0, "};\n\n", module->output_name );
+    }
+
+    /*b Output net descriptor
+     */
+    if (module->nets)
+    {
+        output( handle, 0, "/*v net_desc_%s\n", module->output_name );
+        output( handle, 0, "*/\n");
+        output( handle, 0, "static t_%s_nets *___%s_nets__ptr;\n", module->output_name, module->output_name );
+        output( handle, 0, "static t_%s_net_desc net_desc_%s[] = \n", module->output_name, module->output_name );
+        output( handle, 0, "{\n");
+        for (signal=module->nets; signal; signal=signal->next_in_list)
+        {
+            for (i=0; i<signal->instance_iter->number_children; i++)
+            {
+                instance = signal->instance_iter->children[i];
+                if (instance->driven_in_parts)
+                {
+                    output( handle, 1, "{\"%s\",-1,%d,0},/*driven in parts - should set driver*/\n", instance->output_name, instance->type_def.data.width );
+                }
+                else
+                {
+                    output( handle, 1, "{\"%s\",struct_offset(___%s_nets__ptr, %s),%d,0},\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width );
+                }
+            }
+        }
+        output( handle, 1, "{NULL,-1,0,0},\n" );
+        output( handle, 0, "};\n\n", module->output_name );
+    }
 
     /*b Output logging
      */
@@ -1011,21 +1078,22 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
 
     /*b Register inputs
      */
+    output( handle, 1, "for (int i=0; input_desc_%s[i].port_name; i++)\n", module->output_name);
+    output( handle, 1, "{\n");
+    output( handle, 2, "engine->register_input_signal( engine_handle, input_desc_%s[i].port_name, input_desc_%s[i].width, ((t_sl_uint64 **)&inputs)+i );\n", module->output_name, module->output_name );
+    output( handle, 1, "}\n");
     for (signal=module->inputs; signal; signal=signal->next_in_list)
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
             instance = signal->instance_iter->children[i];
-            if (instance->type == md_type_instance_type_bit_vector)
-            {
-                output( handle, 1, "engine->register_input_signal( engine_handle, \"%s\", %d, &inputs.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name );
-            }
-            else
-            {
-                output( handle, 1, "engine->register_input_signal( engine_handle, \"%s\", %d, &inputs.%s ); // ZZZ Don't know how to register an input array\n", instance->output_name, 0, instance->output_name );
-            }
+            //output( handle, 1, "engine->register_input_signal( engine_handle, \"%s\", %d, &inputs.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name );
         }
+    }
+    output( handle, 0, "\n");
 
+    for (signal=module->inputs; signal; signal=signal->next_in_list)
+    {
         if (signal->data.input.used_combinatorially)
         {
             for (i=0; i<signal->instance_iter->number_children; i++)
@@ -1073,15 +1141,6 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             {
                 instance = reg->instance_iter->children[i];
                 output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &%s_%s_state.%s );\n", instance->output_name, instance->type_def.data.width, edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
-                if (!reg->clock_ref->data.clock.clock_ref)
-                {
-                    output( handle, 1, "engine->register_output_generated_on_clock( engine_handle, \"%s\", \"%s\", %d );\n", instance->output_name, reg->clock_ref->name, reg->edge==md_edge_pos);
-                }
-                else
-                {
-                    output( handle, 1, "engine->register_output_generated_on_clock( engine_handle, \"%s\", \"%s\", %d );\n", instance->output_name, reg->clock_ref->data.clock.clock_ref->name, reg->edge==md_edge_pos);
-                }
-                output( handle, 1, "%s_%s_state.%s = 0;\n", edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
             }
         }
         if (signal->data.output.combinatorial_ref)
@@ -1090,6 +1149,46 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             {
                 instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
                 output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &combinatorials.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name);
+            }
+        }
+        if (signal->data.output.net_ref)
+        {
+            for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
+            {
+                instance = signal->data.output.net_ref->instance_iter->children[i];
+                output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, NULL); // Will be tied to submodule\n", instance->output_name, instance->type_def.data.width );
+            }
+        }
+    }
+    output( handle, 0, "\n");
+
+    /*b Register outputs
+     */
+    for (signal=module->outputs; signal; signal=signal->next_in_list)
+    {
+        if (signal->data.output.register_ref)
+        {
+            reg = signal->data.output.register_ref;
+            for (i=0; i<reg->instance_iter->number_children; i++)
+            {
+                instance = reg->instance_iter->children[i];
+                //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &%s_%s_state.%s );\n", instance->output_name, instance->type_def.data.width, edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
+                if (!reg->clock_ref->data.clock.clock_ref)
+                {
+                    output( handle, 1, "engine->register_output_generated_on_clock( engine_handle, \"%s\", \"%s\", %d );\n", instance->output_name, reg->clock_ref->name, reg->edge==md_edge_pos);
+                }
+                else
+                {
+                    output( handle, 1, "engine->register_output_generated_on_clock( engine_handle, \"%s\", \"%s\", %d );\n", instance->output_name, reg->clock_ref->data.clock.clock_ref->name, reg->edge==md_edge_pos);
+                }
+            }
+        }
+        if (signal->data.output.combinatorial_ref)
+        {
+            for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
+            {
+                instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
+                //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &combinatorials.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name);
                 if (signal->data.output.derived_combinatorially )
                 {
                     output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
@@ -1102,7 +1201,6 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                     while (clock->data.clock.clock_ref) { clock=clock->data.clock.clock_ref; }
                     output( handle, 1, "engine->register_output_generated_on_clock( engine_handle, \"%s\", \"%s\", %d );\n", instance->output_name, clock->name, reference->edge==md_edge_pos);
                 }
-                output( handle, 1, "combinatorials.%s = 0;\n", instance->output_name);
             }
         }
         if (signal->data.output.net_ref)
@@ -1110,7 +1208,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.net_ref->instance_iter->children[i];
-                output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, NULL); // Will be tied to submodule\n", instance->output_name, instance->type_def.data.width );
+                //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, NULL); // Will be tied to submodule\n", instance->output_name, instance->type_def.data.width );
                 if (signal->data.output.derived_combinatorially)
                 {
                     output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
@@ -2531,29 +2629,42 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         }
     }
     output( handle, 1, "if (pass==0)\n" );
-    output( handle, 2, "{\n" );
-    output( handle, 2, "int unconnected_inputs; unconnected_inputs=0;\n");
-    output( handle, 2, "int unconnected_nets; unconnected_nets=0;\n");
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
+    output( handle, 1, "{\n" );
+    if (module->inputs || module->nets)
     {
-        for (i=0; i<signal->instance_iter->number_children; i++)
-        {
-            instance = signal->instance_iter->children[i];
-            output( handle, 2, "if (!inputs.%s) {DEFINE_DUMMY_INPUT;fprintf(stderr,\"POSSIBLY FATAL:Unconnected input %s on module %s at initial reset\\n\");unconnected_inputs=1;inputs.%s=&dummy_input[0];}\n", instance->output_name, instance->output_name, module->output_name, instance->output_name );
-        }
+        output( handle, 2, "DEFINE_DUMMY_INPUT;\n");
+        output( handle, 2, "t_sl_uint64 **ptr;\n");
     }
-    for (signal=module->nets; signal; signal=signal->next_in_list)
+    output( handle, 2, "int unconnected_inputs=0;\n");
+    output( handle, 2, "int unconnected_nets=0;\n");
+    if (module->inputs)
     {
-        for (i=0; i<signal->instance_iter->number_children; i++)
-        {
-            instance = signal->instance_iter->children[i];
-            if (!instance->driven_in_parts)
-            {
-                output( handle, 2, "if (!nets.%s) {DEFINE_DUMMY_INPUT;fprintf(stderr,\"POSSIBLY FATAL:Unconnected input %s on module %s at initial reset\\n\");unconnected_nets=1;nets.%s=&dummy_input[0];}\n", instance->output_name, instance->output_name, module->output_name, instance->output_name );
-            }
-        }
+        output( handle, 2, "ptr = (t_sl_uint64 **)(&inputs);\n");
+        output( handle, 2, "for (int i=0; input_desc_%s[i].port_name; i++)\n", module->output_name);
+        output( handle, 2, "{\n");
+        output( handle, 3, "if (ptr[i]==NULL)\n");
+        output( handle, 3, "{\n");
+        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Unconnected input port '%%s' on module %s at initial reset\\n\", input_desc_%s[i].port_name);\n", module->output_name, module->output_name );
+        output( handle, 4, "unconnected_inputs++;\n");
+        output( handle, 4, "ptr[i]=&dummy_input[0];\n");
+        output( handle, 3, "}\n");
+        output( handle, 2, "}\n");
     }
-    output( handle, 2, "}\n");
+    if (module->nets)
+    {
+        output( handle, 2, "for (int i=0; net_desc_%s[i].port_name; i++)\n", module->output_name);
+        output( handle, 2, "{\n");
+        output( handle, 3, "int j=net_desc_%s[i].net_driver_offset;\n", module->output_name);
+        output( handle, 3, "t_sl_uint64 **net_receiver_ptr=(t_sl_uint64 **)((((char *)(&nets))+j));\n");
+        output( handle, 3, "if ((j>=0) && (net_receiver_ptr[0]==NULL))\n");
+        output( handle, 3, "{\n");
+        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Undriven internal net '%%s' in module %s at initial reset (did its driver module instantiate okay?)\\n\", input_desc_%s[i].port_name);\n", module->output_name, module->output_name );
+        output( handle, 4, "unconnected_nets++;\n");
+        output( handle, 4, "net_receiver_ptr[0]=&dummy_input[0];\n");
+        output( handle, 3, "}\n");
+        output( handle, 2, "}\n");
+    }
+    output( handle, 1, "}\n" );
     output( handle, 1, "if (pass>0) {capture_inputs(); propagate_all();} // Dont call capture_inputs on first pass as they may be invalid; wait for second pass\n");
     for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
     {
