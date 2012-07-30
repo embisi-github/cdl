@@ -37,6 +37,7 @@ module partial_ports( clock clk, input bit rst,
     net bit[5] chain_out;
     comb bit[5] chain_in;
     net t_cnt[4] cnt_out;
+    comb t_cnt[4] cnt_out_copy;
     net t_cnt cnt_out_4;
     comb t_bit_pair[2] bit_pair_in_array;
     comb t_bit_pair bit_pair_in;
@@ -61,5 +62,9 @@ chain_logic : {
         }
         out = bundle( bit_pairs[0].b, bit_pairs[1].a );
         cnt = cnt_out_4-cnt_out[3]+cnt_out[2]-cnt_out[1];
+        for (i; 4)
+        {
+            cnt_out_copy[i] = cnt_out[i];
+        }
     }
 }

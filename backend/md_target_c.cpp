@@ -229,7 +229,7 @@ static void output_defines( c_model_descriptor *model, t_md_output_fn output, vo
 
 /*f output_type
  */
-static void output_type( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_type_instance *instance, int indent )
+static void output_type( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_type_instance *instance, int indent, int indirect )
 {
     switch (instance->type)
     {
@@ -240,7 +240,7 @@ static void output_type( c_model_descriptor *model, t_md_output_fn output, void 
                                    error_arg_type_malloc_string, instance->output_name,
                                    error_arg_type_none );
         }
-        output( handle, indent, "t_sl_uint64 %s%s;\n", instance->output_name, string_type(instance->type_def.data.width) );
+        output( handle, indent, "t_sl_uint64 %s%s%s;\n", indirect?"*":"", instance->output_name, string_type(instance->type_def.data.width) );
         break;
     case md_type_instance_type_array_of_bit_vectors:
         if (instance->type_def.data.width>64)
@@ -249,7 +249,7 @@ static void output_type( c_model_descriptor *model, t_md_output_fn output, void 
                                    error_arg_type_malloc_string, instance->output_name,
                                    error_arg_type_none );
         }
-        output( handle, indent, "t_sl_uint64 %s[%d]%s;\n", instance->output_name, instance->size, string_type(instance->type_def.data.width) );
+        output( handle, indent, "t_sl_uint64 %s%s[%d]%s;\n", indirect?"*":"", instance->output_name, instance->size, string_type(instance->type_def.data.width) );
         break;
     default:
         output( handle, indent, "<NO TYPE FOR STRUCTURES>\n");
@@ -275,6 +275,8 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
 
     /*b Output descriptor types
      */
+    output( handle, 0, "/*t t_%s_input_desc\n", module->output_name );
+    output( handle, 0, "*/\n");
     output( handle, 0, "typedef struct t_%s_input_desc\n", module->output_name);
     output( handle, 0, "{\n");
     output( handle, 1, "const char *port_name;\n");
@@ -284,6 +286,8 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 1, "char is_comb;\n");
     output( handle, 0, "} t_%s_input_desc;\n", module->output_name);
     output( handle, 0, "\n");
+    output( handle, 0, "/*t t_%s_output_desc\n", module->output_name );
+    output( handle, 0, "*/\n");
     output( handle, 0, "typedef struct t_%s_output_desc\n", module->output_name);
     output( handle, 0, "{\n");
     output( handle, 1, "const char *port_name;\n");
@@ -292,12 +296,14 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 1, "char edge;\n");
     output( handle, 0, "} t_%s_output_desc;\n", module->output_name);
     output( handle, 0, "\n");
+    output( handle, 0, "/*t t_%s_net_desc\n", module->output_name );
+    output( handle, 0, "*/\n");
     output( handle, 0, "typedef struct t_%s_net_desc\n", module->output_name);
     output( handle, 0, "{\n");
     output( handle, 1, "const char *port_name;\n");
     output( handle, 1, "int net_driver_offset;\n");
     output( handle, 1, "char width;\n");
-    output( handle, 1, "char driven_in_parts;\n");
+    output( handle, 1, "char vector_driven_in_parts;\n");
     output( handle, 0, "} t_%s_net_desc;\n", module->output_name);
     output( handle, 0, "\n");
 
@@ -320,7 +326,7 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
                     {
                         for (i=0; i<reg->instance_iter->number_children; i++)
                         {
-                            output_type( model, output, handle, reg->instance_iter->children[i], 1 );
+                            output_type( model, output, handle, reg->instance_iter->children[i], 1, 0 );
                         }
                     }
                 }
@@ -356,7 +362,7 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            output_type( model, output, handle, signal->instance_iter->children[i], 1 );
+            output_type( model, output, handle, signal->instance_iter->children[i], 1, 0 );
         }
     }
     output( handle, 0, "} t_%s_input_state;\n", module->output_name );
@@ -372,7 +378,7 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            output_type( model, output, handle, signal->instance_iter->children[i], 1 );
+            output_type( model, output, handle, signal->instance_iter->children[i], 1, 0 );
         }
         if (signal->usage_type!=md_usage_type_rtl) output( handle, -1, usage_type_comment[signal->usage_type] );
     }
@@ -389,13 +395,13 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            if (signal->instance_iter->children[i]->driven_in_parts)
+            if (signal->instance_iter->children[i]->vector_driven_in_parts) // The latter here appears to be synonymous with 'is an array'
             {
-                output_type( model, output, handle, signal->instance_iter->children[i], 1 );
+                output_type( model, output, handle, signal->instance_iter->children[i], 1, 0 );
             }
-            else
+            else // If an array driven in parts or a vector not driven in parts, we indirect
             {
-                output( handle, 1, "t_sl_uint64 *%s;\n", signal->instance_iter->children[i]->output_name );
+                output_type( model, output, handle, signal->instance_iter->children[i], 1, 1 );
             }
         }
     }
@@ -424,7 +430,7 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
             output( handle, 1, "{\n" );
             for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
             {
-                output_type( model, output, handle, input_port->module_port_instance, 2 );
+                output_type( model, output, handle, input_port->module_port_instance, 2, 0 );
             }        
             output( handle, 1, "} inputs;\n" );
             output( handle, 1, "struct\n" );
@@ -645,9 +651,9 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
             for (i=0; i<signal->instance_iter->number_children; i++)
             {
                 instance = signal->instance_iter->children[i];
-                if (instance->driven_in_parts)
+                if (instance->vector_driven_in_parts)
                 {
-                    output( handle, 1, "{\"%s\",-1,%d,0},/*driven in parts - should set driver*/\n", instance->output_name, instance->type_def.data.width );
+                    output( handle, 1, "{\"%s\",-1,%d,0},/*vector driven in parts - should set driver*/\n", instance->output_name, instance->type_def.data.width );
                 }
                 else
                 {
@@ -755,7 +761,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         {
             for (i=0; i<signal->instance_iter->number_children; i++)
             {
-                if (signal->instance_iter->children[i]->driven_in_parts)
+                if (signal->instance_iter->children[i]->vector_driven_in_parts)
                 {
                     has_direct=1;
                 }
@@ -777,7 +783,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
             {
                 for (i=0; i<signal->instance_iter->number_children; i++)
                 {
-                    if (!signal->instance_iter->children[i]->driven_in_parts)
+                    if (!signal->instance_iter->children[i]->vector_driven_in_parts)
                     {
                         instance = signal->instance_iter->children[i];
                         switch (instance->type)
@@ -809,7 +815,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
             {
                 for (i=0; i<signal->instance_iter->number_children; i++)
                 {
-                    if (signal->instance_iter->children[i]->driven_in_parts)
+                    if (signal->instance_iter->children[i]->vector_driven_in_parts)
                     {
                         instance = signal->instance_iter->children[i];
                         switch (instance->type)
@@ -1388,9 +1394,17 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                         module_instance->name, output_port->module_port_instance->output_name,
                         output_port->module_port_instance->type_def.data.width );
                 // Drive to this module's data nets.NETNAME
-                if (output_port->lvar->instance->driven_in_parts)
+                if (output_port->lvar->instance->vector_driven_in_parts)
                 {
                     //printf("If lvar is partially driven, we don't want the net driven here\n");
+                }
+                else if (output_port->lvar->instance->array_driven_in_parts)
+                {
+                    output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &nets.%s[%d], %d );\n",
+                            module_instance->name, output_port->module_port_instance->output_name,
+                            output_port->lvar->instance->output_name,
+                            output_port->lvar->index.data.integer,
+                            output_port->module_port_instance->type_def.data.width );
                 }
                 else
                 {
@@ -1415,7 +1429,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
         {
             for (i=0; i<signal->instance_iter->number_children; i++)
             {
-                if (signal->instance_iter->children[i]->driven_in_parts)
+                if (signal->instance_iter->children[i]->vector_driven_in_parts)
                 {
                     has_direct=1;
                 }
@@ -1505,6 +1519,8 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
  */
 static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, t_md_lvar *lvar, int main_indent, int sub_indent, int in_expression )
 {
+    int indirect=0;
+
     if (in_expression && (lvar->subscript_start.type != md_lvar_data_type_none))
     {
         output( handle, -1, "((" );
@@ -1545,13 +1561,10 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
             output( handle, -1, "combinatorials.%s", lvar->instance->output_name );
             break;
         case md_signal_type_net:
-            if (lvar->instance->driven_in_parts)
+            output( handle, -1, "nets.%s", lvar->instance->output_name );
+            if (!lvar->instance->vector_driven_in_parts)
             {
-                output( handle, -1, "nets.%s", lvar->instance->output_name );
-            }
-            else
-            {
-                output( handle, -1, "nets.%s[0]", lvar->instance->output_name );
+                indirect = 1;
             }
             break;
         default:
@@ -1574,6 +1587,10 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
             break;
         }
         output( handle, -1, "]" );
+    }
+    if (indirect)
+    {
+        output( handle, -1, "[0]" );
     }
     if ((in_expression) && (lvar->subscript_start.type != md_lvar_data_type_none))
     {
@@ -2384,7 +2401,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             int used_comb = output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially;
             if (!used_comb) // If it is completely clocked
             {
-                if (output_port->lvar->instance->driven_in_parts)
+                if (output_port->lvar->instance->vector_driven_in_parts)
                 {
                     if (first_output)
                     {
@@ -2515,7 +2532,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
             output( handle, 1, "engine->submodule_call_comb( instance_%s.handle );\n", module_instance->name );
             for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
             {
-                if (output_port->lvar->instance->driven_in_parts)
+                if (output_port->lvar->instance->vector_driven_in_parts)
                 {
                     // Should we only do this assignment if the output is derived combinatorially?
                     output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
@@ -2544,7 +2561,7 @@ static void output_simulation_code_to_make_combinatorial_signals_valid( c_model_
                 {
                     for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
                     {
-                        if ( output_port->lvar->instance->driven_in_parts &&
+                        if ( output_port->lvar->instance->vector_driven_in_parts &&
                              output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially &&
                              (output_markers_value(output_port->lvar->instance, om_make_valid_mask)==(om_invalid | om_must_be_valid)) )
                         {
@@ -2725,7 +2742,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
             t_md_module_instance_output_port *output_port;
             for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
             {
-                if (output_port->lvar->instance->driven_in_parts)
+                if (output_port->lvar->instance->vector_driven_in_parts)
                 {
                     output_simulation_methods_port_net_assignment( model, output, handle, NULL, 1, module_instance, output_port->lvar, output_port->module_port_instance );
                 }
@@ -2820,13 +2837,14 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 0, "{\n");
     output( handle, 1, "DEBUG_PROBE;\n");
 
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
+    if (module->inputs)
     {
-        for (i=0; i<signal->instance_iter->number_children; i++)
-        {
-            instance = signal->instance_iter->children[i];
-            output( handle, 1, "input_state.%s = inputs.%s[0];\n", instance->output_name, instance->output_name );
-        }
+        output( handle, 1, "for (int i=0; input_desc_%s[i].port_name; i++)\n", module->output_name);
+        output( handle, 1, "{\n");
+        output( handle, 2, "t_sl_uint64 **input_ptr      = struct_resolve( t_sl_uint64 **, this, input_desc_%s[i].driver_ofs );\n", module->output_name);
+        output( handle, 2, "t_sl_uint64 *input_state_ptr = struct_resolve( t_sl_uint64 *, this, input_desc_%s[i].input_state_ofs );\n", module->output_name);
+        output( handle, 2, "input_state_ptr[0] = *(input_ptr[0]);\n");
+        output( handle, 1, "}\n");
     }
     output( handle, 1, "return error_level_okay;\n");
     output( handle, 0, "}\n");

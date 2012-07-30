@@ -1805,7 +1805,8 @@ t_md_type_instance *c_model_descriptor::type_instance_create( t_md_module *modul
      instance->number_statements = 0;
 
      instance->derived_combinatorially = 0; // Only valid for instances of nets
-     instance->driven_in_parts = 0;  // Only valid for instances of nets
+     instance->array_driven_in_parts = 0;  // Only valid for instances of nets
+     instance->vector_driven_in_parts = 0;  // Only valid for instances of nets
 
      return instance;
 }
@@ -5542,10 +5543,14 @@ void c_model_descriptor::module_instance_analyze( t_md_module *module, t_md_modu
                 if (output_port->module_port_instance) // Only if it is valid port to drive the net
                 {
                     // Check to see if this only partially drives the net
-                    if ( (output_port->lvar->index.type!=md_lvar_data_type_none) ||
-                         (output_port->lvar->subscript_start.type!=md_lvar_data_type_none) )
+                    if (output_port->lvar->index.type!=md_lvar_data_type_none)
                     {
-                        output_port->lvar->instance->driven_in_parts = 1;
+                        output_port->lvar->instance->array_driven_in_parts = 1;
+                    }
+
+                    if (output_port->lvar->subscript_start.type!=md_lvar_data_type_none) 
+                    {
+                        output_port->lvar->instance->vector_driven_in_parts = 1;
                     }
 
                     // Look for combinatorially-derived outputs on the instance driving a net

@@ -318,7 +318,8 @@ typedef struct t_md_type_instance
     struct t_md_code_block *code_block_last_used_in; // code block that a combinatorial (or state possibly) was last used in
     int number_statements; // Number of statements the instance is assigned to (state or signal), or number of module instances which drive it (could be many if driven partially)
     int derived_combinatorially; // If a net, then indicates whether it is driven from purely a clock or at least partially from combinatorials through a module
-    int driven_in_parts; // 1 if the net is driven by many modules, 0 if it is by one module
+    int array_driven_in_parts; // 1 if the net is array which is driven by many modules, 0 if it is by one module - presumably always 1 for an array, if you think about it
+    int vector_driven_in_parts; // 1 if the net is a vector driven by many modules, 0 if it is driven by one module
 
     t_md_type_instance_data data[1]; // Must be last item of this structure due to malloc mechanism - the elements of a structure
 } t_md_type_instance;
