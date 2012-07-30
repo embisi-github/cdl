@@ -62,6 +62,7 @@ typedef struct
  */
 /*m nested_structures
  */
+constant integer c_fred=4;
 module nested_structures( clock io_clock,
                           input bit io_reset,
                           input bit[8] vector_input_0,
@@ -125,6 +126,11 @@ module nested_structures( clock io_clock,
         {
             vector_output_0 = 0;
             vector_output_1 = 0;
+            for (i;c_fred)
+            {
+                vector_output_0[sizeof(c_fred-1);0] = i;
+            }
+
             if (vector_input_0[6])
             {
                 vector_output_0[4;0] = cline.p_a.x;
