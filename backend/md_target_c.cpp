@@ -282,6 +282,8 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 1, "const char *name;\n");
     output( handle, 1, "int *posedge_inputs;\n");
     output( handle, 1, "int *negedge_inputs;\n");
+    output( handle, 1, "int *posedge_outputs;\n");
+    output( handle, 1, "int *negedge_outputs;\n");
     output( handle, 0, "} t_%s_clock_desc;\n", module->output_name);
     output( handle, 0, "\n");
 
@@ -302,8 +304,9 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 0, "typedef struct t_%s_output_desc\n", module->output_name);
     output( handle, 0, "{\n");
     output( handle, 1, "const char *port_name;\n");
-    output( handle, 1, "char is_comb;\n");
+    output( handle, 1, "int value_ofs;\n");
     output( handle, 1, "char width;\n");
+    output( handle, 1, "char is_comb;\n");
     output( handle, 0, "} t_%s_output_desc;\n", module->output_name);
     output( handle, 0, "\n");
     output( handle, 0, "/*t t_%s_net_desc\n", module->output_name );
@@ -611,6 +614,9 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     t_md_signal *clk, *signal;
     t_md_state *reg;
     t_md_type_instance *instance;
+    t_md_reference_iter iter;
+    t_md_reference *reference;
+    int signal_number;
 
     /*b Output header with #define
      */
@@ -621,71 +627,6 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     output( handle, 0, "*/\n");
     output( handle, 0, "static c_%s *___%s__ptr;\n", module->output_name, module->output_name );
 
-    /*b Output clock descriptors
-     */
-
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
-    {
-        if (!clk->data.clock.clock_ref) // Not a gated clock, i.e. a root clock
-        {
-            int edges_used[2];
-            for (edge=0; edge<2; edge++)
-            {
-                int signal_number=0;
-                int used_on_clock_edge = 0;
-
-                output( handle, 0, "/*v clock_desc_%s_%s_%s_inputs\n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "static int clock_desc_%s_%s_%s_inputs[] = \n", module->output_name, edge_name[edge], clk->name );
-                output( handle, 0, "{\n");
-
-                edges_used[edge] = 0;
-                for (signal=module->inputs; signal; signal=signal->next_in_list)
-                {
-                    for (i=0; i<signal->instance_iter->number_children; i++)
-                    {
-                        t_md_signal *clk2;
-                        instance = signal->instance_iter->children[i];
-                        for (clk2=module->clocks; clk2; clk2=clk2?clk2->next_in_list:NULL)
-                        {
-                            if ((clk2==clk) || (clk2->data.clock.clock_ref==clk))
-                            {
-                                if (model->reference_set_includes( &instance->dependents, clk2, edge ))
-                                {
-                                    used_on_clock_edge = 1;
-                                    clk2=NULL;
-                                }
-                            }
-                        }
-                        if (used_on_clock_edge) break;
-                    }
-                    if (used_on_clock_edge)
-                    {
-                        if (!edges_used[edge])
-                        {
-                        }
-                        edges_used[edge] = 1;
-                        output( handle, 1, "%d,\n", signal_number);
-                    }
-                    signal_number=signal_number+1;
-                }
-                output( handle, 1, "-1\n");
-                output( handle, 0, "};\n");
-            }
-            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) // 0 is posedge
-            {
-                output( handle, 0, "/*v clock_desc_%s_%s\n", module->output_name, clk->name );
-                output( handle, 0, "*/\n");
-                output( handle, 0, "static t_%s_clock_desc clock_desc_%s_%s = \n", module->output_name, module->output_name, clk->name );
-                output( handle, 0, "{\n");
-                output( handle, 1, "\"%s\",\n",clk->name);
-                output( handle, 1, "clock_desc_%s_posedge_%s_inputs,\n", module->output_name, clk->name);
-                output( handle, 1, "clock_desc_%s_negedge_%s_inputs,\n", module->output_name, clk->name);
-                output( handle, 0, "};\n");
-            }
-        }
-    }
-
     /*b Output input descriptor
      */
     if (module->inputs)
@@ -694,11 +635,14 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         output( handle, 0, "*/\n");
         output( handle, 0, "static t_%s_input_desc input_desc_%s[] = \n", module->output_name, module->output_name );
         output( handle, 0, "{\n");
+        signal_number = 0;
         for (signal=module->inputs; signal; signal=signal->next_in_list)
         {
             for (i=0; i<signal->instance_iter->number_children; i++)
             {
                 instance = signal->instance_iter->children[i];
+                instance->output_args[0] = signal_number;
+                signal_number++;
                 if (instance->type != md_type_instance_type_bit_vector) { fprintf(stderr,"BUG - port is an array, and cannot output that\n"); }
                 output( handle, 1, "{\"%s\",struct_offset(___%s__ptr, inputs.%s),struct_offset(___%s__ptr, input_state.%s),%d,%d},\n",
                         instance->output_name,
@@ -721,11 +665,14 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         output( handle, 0, "static t_%s_nets *___%s_nets__ptr;\n", module->output_name, module->output_name );
         output( handle, 0, "static t_%s_net_desc net_desc_%s[] = \n", module->output_name, module->output_name );
         output( handle, 0, "{\n");
+        signal_number = 0;
         for (signal=module->nets; signal; signal=signal->next_in_list)
         {
             for (i=0; i<signal->instance_iter->number_children; i++)
             {
                 instance = signal->instance_iter->children[i];
+                instance->output_args[0] = signal_number;
+                signal_number++;
                 if (instance->vector_driven_in_parts)
                 {
                     output( handle, 1, "{\"%s\",-1,%d,0},/*vector driven in parts - should set driver*/\n", instance->output_name, instance->type_def.data.width );
@@ -740,47 +687,174 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
             }
         }
         output( handle, 1, "{NULL,-1,0,0},\n" );
-        output( handle, 0, "};\n\n", module->output_name );
+        output( handle, 0, "};\n\n" );
     }
-
 
     /*b Output output descriptor
      */
-    if (module->outputs && 0)
+    if (module->outputs)
     {
         output( handle, 0, "/*v output_desc_%s\n", module->output_name );
         output( handle, 0, "*/\n");
         output( handle, 0, "static t_%s_output_desc output_desc_%s[] = \n", module->output_name, module->output_name );
         output( handle, 0, "{\n");
-    for (signal=module->outputs; signal; signal=signal->next_in_list)
-    {
-        if (signal->data.output.register_ref)
+        signal_number = 0;
+        for (signal=module->outputs; signal; signal=signal->next_in_list)
         {
-            reg = signal->data.output.register_ref;
-            for (i=0; i<reg->instance_iter->number_children; i++)
+            if (signal->data.output.register_ref)
             {
-                instance = reg->instance_iter->children[i];
-                output( handle, 1, "{\"%s\", \"%s\", %d, &%s_%s_state.%s );\n", instance->output_name, instance->type_def.data.width, edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
+                reg = signal->data.output.register_ref;
+                for (i=0; i<reg->instance_iter->number_children; i++)
+                {
+                    instance = reg->instance_iter->children[i];
+                    instance->output_args[0] = signal_number;
+                    signal_number++;
+                    output( handle, 1, "{\"%s\", struct_offset(___%s__ptr, %s_%s_state.%s), %d, %d },\n", instance->output_name, module->output_name, edge_name[reg->edge], reg->clock_ref->name, instance->output_name, instance->type_def.data.width, 0);
+                }
+            }
+            if (signal->data.output.combinatorial_ref)
+            {
+                for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
+                {
+                    instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
+                    instance->output_args[0] = signal_number;
+                    signal_number++;
+                    output( handle, 1, "{\"%s\", struct_offset(___%s__ptr, combinatorials.%s), %d, %d },\n", instance->output_name, module->output_name, instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially);
+                }
+            }
+            if (signal->data.output.net_ref)
+            {
+                for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
+                {
+                    instance = signal->data.output.net_ref->instance_iter->children[i];
+                    instance->output_args[0] = signal_number;
+                    signal_number++;
+                    output( handle, 1, "{\"%s\", -1, %d, %d },\n", instance->output_name, instance->type_def.data.width, signal->data.output.derived_combinatorially); // -1 as it will be tied to a submodule output
+                }
             }
         }
-        if (signal->data.output.combinatorial_ref)
-        {
-            for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
-            {
-                instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
-                output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &combinatorials.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name);
-            }
-        }
-        if (signal->data.output.net_ref)
-        {
-            for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
-            {
-                instance = signal->data.output.net_ref->instance_iter->children[i];
-                output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, NULL); // Will be tied to submodule\n", instance->output_name, instance->type_def.data.width );
-            }
-        }
+        output( handle, 1, "{NULL,-1,0,0},\n" );
+        output( handle, 0, "};\n\n" );
     }
-        output( handle, 0, "}\n");
+
+    /*b Output clock descriptors
+     */
+
+    for (clk=module->clocks; clk; clk=clk->next_in_list)
+    {
+        if (!clk->data.clock.clock_ref) // Not a gated clock, i.e. a root clock
+        {
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) // 0 is posedge
+            {
+                for (edge=0; edge<2; edge++)
+                {
+                    int used_on_clock_edge = 0;
+
+                    output( handle, 0, "/*v clock_desc_%s_%s_%s_inputs\n", module->output_name, edge_name[edge], clk->name );
+                    output( handle, 0, "*/\n");
+                    output( handle, 0, "static int clock_desc_%s_%s_%s_inputs[] = \n", module->output_name, edge_name[edge], clk->name );
+                    output( handle, 0, "{\n");
+
+                    signal_number=0;
+                    for (signal=module->inputs; signal; signal=signal->next_in_list)
+                    {
+                        for (i=0; i<signal->instance_iter->number_children; i++)
+                        {
+                            t_md_signal *clk2;
+                            instance = signal->instance_iter->children[i];
+                            for (clk2=module->clocks; clk2; clk2=clk2?clk2->next_in_list:NULL)
+                            {
+                                if ((clk2==clk) || (clk2->data.clock.clock_ref==clk))
+                                {
+                                    if (model->reference_set_includes( &instance->dependents, clk2, edge ))
+                                    {
+                                        used_on_clock_edge = 1;
+                                        clk2=NULL;
+                                    }
+                                }
+                            }
+                            if (used_on_clock_edge) break;
+                        }
+                        if (used_on_clock_edge)
+                        {
+                            output( handle, 1, "%d,\n", signal_number);
+                        }
+                        signal_number=signal_number+1;
+                    }
+                    output( handle, 1, "-1\n");
+                    output( handle, 0, "};\n");
+                    output( handle, 0, "\n");
+
+                    output( handle, 0, "/*v clock_desc_%s_%s_%s_outputs\n", module->output_name, edge_name[edge], clk->name );
+                    output( handle, 0, "*/\n");
+                    output( handle, 0, "static int clock_desc_%s_%s_%s_outputs[] = \n", module->output_name, edge_name[edge], clk->name );
+                    output( handle, 0, "{\n");
+                    signal_number = 0;
+                    for (signal=module->outputs; signal; signal=signal->next_in_list)
+                    {
+                        if (signal->data.output.register_ref)
+                        {
+                            reg = signal->data.output.register_ref;
+                            if ((reg->clock_ref->data.clock.root_clock_ref == clk) && (reg->edge==edge))
+                            {
+                                for (i=0; i<reg->instance_iter->number_children; i++)
+                                {
+                                    instance = reg->instance_iter->children[i];
+                                    output( handle, 1, "%d,\n", instance->output_args[0]);
+                                }
+                            }
+                        }
+                        if (signal->data.output.combinatorial_ref)
+                        {
+                            for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
+                            {
+                                instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
+                                model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter ); // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
+                                while ((reference = model->reference_set_iterate(&iter))!=NULL)
+                                {
+                                    t_md_signal *clk2;
+                                    clk2 = reference->data.signal;
+                                    if (clk2->data.clock.root_clock_ref==clk)
+                                    {
+                                        output( handle, 1, "%d,\n", instance->output_args[0] );
+                                    }
+                                }
+                            }
+                        }
+                        if (signal->data.output.net_ref)
+                        {
+                            for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
+                            {
+                                instance = signal->data.output.net_ref->instance_iter->children[i];
+                                model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter ); // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
+                                while ((reference = model->reference_set_iterate(&iter))!=NULL)
+                                {
+                                    t_md_signal *clk2;
+                                    clk2 = reference->data.signal;
+                                    if (clk2->data.clock.root_clock_ref==clk)
+                                    {
+                                        output( handle, 1, "%d,\n", instance->output_args[0] );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    output( handle, 1, "-1\n");
+                    output( handle, 0, "};\n");
+                    output( handle, 0, "\n");
+                }
+                output( handle, 0, "/*v clock_desc_%s_%s\n", module->output_name, clk->name );
+                output( handle, 0, "*/\n");
+                output( handle, 0, "static t_%s_clock_desc clock_desc_%s_%s = \n", module->output_name, module->output_name, clk->name );
+                output( handle, 0, "{\n");
+                output( handle, 1, "\"%s\",\n",clk->name);
+                output( handle, 1, "clock_desc_%s_posedge_%s_inputs,\n", module->output_name, clk->name);
+                output( handle, 1, "clock_desc_%s_negedge_%s_inputs,\n", module->output_name, clk->name);
+                output( handle, 1, "clock_desc_%s_posedge_%s_outputs,\n", module->output_name, clk->name);
+                output( handle, 1, "clock_desc_%s_negedge_%s_outputs,\n", module->output_name, clk->name);
+                output( handle, 0, "};\n");
+            }
+        }
     }
 
     /*b Output logging
@@ -1223,28 +1297,22 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 module->output_name, module->output_name, module->output_name );
         output( handle, 2, "if (input_desc_%s[i].is_comb) engine->register_comb_input( engine_handle, input_desc_%s[i].port_name );\n", module->output_name, module->output_name );
         output( handle, 1, "}\n");
-        for (clk=module->clocks; clk; clk=clk->next_in_list)
-        {
-            if (!clk->data.clock.clock_ref) // Not a gated clock
-            {
-                if (clk->data.clock.edges_used[0] || clk->data.clock.edges_used[1])
-                {
-                    for (edge=0; edge<2; edge++)
-                    {
-                        output( handle, 1, "for (int i=0; clock_desc_%s_%s.%s_inputs[i]>=0; i++)\n", module->output_name, clk->name, edge_name[edge] );
-                        output( handle, 1, "{\n");
-                        output( handle, 2, "int input_number=clock_desc_%s_%s.%s_inputs[i];\n", module->output_name, clk->name, edge_name[edge] );
-                        output( handle, 2, "engine->register_input_used_on_clock( engine_handle, input_desc_%s[input_number].port_name, \"%s\", %d );\n", module->output_name, clk->name, edge==md_edge_pos );
-                        output( handle, 1, "}\n");
-                    }
-                }
-            }
-        }
         output( handle, 0, "\n");
     }
 
     /*b Register outputs
      */
+    if (module->outputs)
+    {
+        output( handle, 1, "for (int i=0; output_desc_%s[i].port_name; i++)\n", module->output_name);
+        output( handle, 1, "{\n");
+        output( handle, 2, "engine->register_output_signal( engine_handle, output_desc_%s[i].port_name, output_desc_%s[i].width, struct_resolve( t_sl_uint64 *, this, output_desc_%s[i].value_ofs )  );\n",
+                module->output_name, module->output_name, module->output_name );
+        output( handle, 2, "if (output_desc_%s[i].is_comb) engine->register_comb_output( engine_handle, output_desc_%s[i].port_name );\n", module->output_name, module->output_name );
+        output( handle, 1, "}\n");
+        output( handle, 0, "\n");
+    }
+
     for (signal=module->outputs; signal; signal=signal->next_in_list)
     {
         if (signal->data.output.register_ref)
@@ -1253,7 +1321,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             for (i=0; i<reg->instance_iter->number_children; i++)
             {
                 instance = reg->instance_iter->children[i];
-                output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &%s_%s_state.%s );\n", instance->output_name, instance->type_def.data.width, edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
+                //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &%s_%s_state.%s );\n", instance->output_name, instance->type_def.data.width, edge_name[reg->edge], reg->clock_ref->name, instance->output_name );
             }
         }
         if (signal->data.output.combinatorial_ref)
@@ -1261,7 +1329,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             for (i=0; i<signal->data.output.combinatorial_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.combinatorial_ref->instance_iter->children[i];
-                output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &combinatorials.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name);
+                //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &combinatorials.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name);
             }
         }
         if (signal->data.output.net_ref)
@@ -1269,11 +1337,32 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
             for (i=0; i<signal->data.output.net_ref->instance_iter->number_children; i++)
             {
                 instance = signal->data.output.net_ref->instance_iter->children[i];
-                output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, NULL); // Will be tied to submodule\n", instance->output_name, instance->type_def.data.width );
+                //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, NULL); // Will be tied to submodule\n", instance->output_name, instance->type_def.data.width );
             }
         }
     }
     output( handle, 0, "\n");
+
+    /*b Register clock usage
+     */
+    for (clk=module->clocks; clk; clk=clk->next_in_list)
+    {
+        if (!clk->data.clock.clock_ref) // Not a gated clock
+        {
+            if (clk->data.clock.edges_used[0] || clk->data.clock.edges_used[1])
+            {
+                for (edge=0; edge<2; edge++)
+                {
+                    output( handle, 1, "for (int i=0; clock_desc_%s_%s.%s_inputs[i]>=0; i++)\n", module->output_name, clk->name, edge_name[edge] );
+                    output( handle, 1, "{\n");
+                    output( handle, 2, "int input_number=clock_desc_%s_%s.%s_inputs[i];\n", module->output_name, clk->name, edge_name[edge] );
+                    output( handle, 2, "engine->register_input_used_on_clock( engine_handle, input_desc_%s[input_number].port_name, \"%s\", %d );\n", module->output_name, clk->name, edge==md_edge_pos );
+                    output( handle, 1, "}\n");
+                }
+            }
+        }
+        output( handle, 0, "\n");
+    }
 
     /*b Register outputs
      */
@@ -1304,7 +1393,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, &combinatorials.%s );\n", instance->output_name, instance->type_def.data.width, instance->output_name);
                 if (signal->data.output.derived_combinatorially )
                 {
-                    output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
+                    //output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
                 }
                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter ); // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
                 while ((reference = model->reference_set_iterate(&iter))!=NULL)
@@ -1324,7 +1413,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 //output( handle, 1, "engine->register_output_signal( engine_handle, \"%s\", %d, NULL); // Will be tied to submodule\n", instance->output_name, instance->type_def.data.width );
                 if (signal->data.output.derived_combinatorially)
                 {
-                    output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
+                    //output( handle, 1, "engine->register_comb_output( engine_handle, \"%s\" );\n", instance->output_name );
                 }
                 model->reference_set_iterate_start( &signal->data.output.clocks_derived_from, &iter ); // For every clock that the prototype says the output is derived from, map back to clock name, go to top of clock gate tree, and say that generates it
                 while ((reference = model->reference_set_iterate(&iter))!=NULL)

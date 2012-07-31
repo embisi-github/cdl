@@ -814,7 +814,7 @@ int c_model_descriptor::module_analyze( t_md_module *module )
      {
           module_analyze_dependents_of_input( signal );
      }
-     for (t_md_signal *clk=module->clocks; signal; signal=signal->next_in_list)
+     for (t_md_signal *clk=module->clocks; clk; clk=clk->next_in_list)
      {
          clk->data.clock.root_clock_ref = clk;
          if (clk->data.clock.clock_ref) // A gated clock
