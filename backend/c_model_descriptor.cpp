@@ -814,6 +814,20 @@ int c_model_descriptor::module_analyze( t_md_module *module )
      {
           module_analyze_dependents_of_input( signal );
      }
+     for (t_md_signal *clk=module->clocks; signal; signal=signal->next_in_list)
+     {
+         clk->data.clock.root_clock_ref = clk;
+         if (clk->data.clock.clock_ref) // A gated clock
+         {
+             t_md_signal *clk2;
+             for (clk2=clk->data.clock.clock_ref; clk2; clk2=clk2->data.clock.clock_ref)
+             {
+                 clk->data.clock.root_clock_ref = clk2;
+                 clk2->data.clock.edges_used[0] |= clk->data.clock.edges_used[0];
+                 clk2->data.clock.edges_used[1] |= clk->data.clock.edges_used[1];
+             }
+         }
+     }
 
      /*b Now determine whether inputs are used combinatorially for outputs at all, and if outputs are combinatorial on inputs
        For each output that is combinatorial look at its base dependents; if any are inputs, then those inputs are combinatorially used, and the outputs are combinatorially derived

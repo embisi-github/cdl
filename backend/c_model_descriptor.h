@@ -383,6 +383,7 @@ typedef struct t_md_signal
         {
             int edges_used[2];
             t_md_reference_set *dependents[2];
+            t_md_signal *root_clock_ref; // for gated clocks
             t_md_signal *clock_ref; // for gated clocks
             t_md_signal *gate_signal;  // for gated clocks
             t_md_state  *gate_state;  // for gated clocks

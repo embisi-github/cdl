@@ -341,9 +341,10 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
     {
         for (i=0; i<signal->instance_iter->number_children; i++)
         {
-            output( handle, indent++, "<net ref='%p' driven_in_parts='%d' derived_combinatorially='%d'>\n",
+            output( handle, indent++, "<net ref='%p' array_driven_in_parts='%d' vector_driven_in_parts='%d' derived_combinatorially='%d'>\n",
                     signal->instance_iter->children[i],
-                    signal->instance_iter->children[i]->driven_in_parts,
+                    signal->instance_iter->children[i]->array_driven_in_parts,
+                    signal->instance_iter->children[i]->vector_driven_in_parts,
                     signal->instance_iter->children[i]->derived_combinatorially );
             output_instance( model, output, handle, signal->instance_iter->children[i], indent );
             output_references( model, module, output, handle, indent, "dependencies", signal->instance_iter->children[i]->dependencies );
@@ -418,7 +419,19 @@ static void output_submodules( c_model_descriptor *model, t_md_module *module, t
                         output_port->lvar->instance,
                         output_port->lvar->instance->output_name,
                         (output_port->lvar->instance->reference.data.signal->data.net.output_ref!=NULL) );
-                if (output_port->lvar->instance->driven_in_parts)
+                if (output_port->lvar->instance->array_driven_in_parts)
+                {
+                    switch (output_port->lvar->index.type)
+                    {
+                    case md_lvar_data_type_integer:
+                        output( handle, indent, "<index value='%d'/>\n", output_port->lvar->index.data.integer );
+                        break;
+                    default:
+                        output( handle, indent, "<!-- unexpected lvar index type '%d' -->\n", output_port->lvar->subscript_start.type );
+                        break;
+                    }
+                }
+                if (output_port->lvar->instance->vector_driven_in_parts)
                 {
                     switch (output_port->lvar->subscript_start.type)
                     {

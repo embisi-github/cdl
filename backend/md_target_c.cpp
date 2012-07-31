@@ -275,6 +275,16 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
 
     /*b Output descriptor types
      */
+    output( handle, 0, "/*t t_%s_clock_desc\n", module->output_name );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_%s_clock_desc\n", module->output_name);
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *name;\n");
+    output( handle, 1, "int *posedge_inputs;\n");
+    output( handle, 1, "int *negedge_inputs;\n");
+    output( handle, 0, "} t_%s_clock_desc;\n", module->output_name);
+    output( handle, 0, "\n");
+
     output( handle, 0, "/*t t_%s_input_desc\n", module->output_name );
     output( handle, 0, "*/\n");
     output( handle, 0, "typedef struct t_%s_input_desc\n", module->output_name);
@@ -286,14 +296,14 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 1, "char is_comb;\n");
     output( handle, 0, "} t_%s_input_desc;\n", module->output_name);
     output( handle, 0, "\n");
+
     output( handle, 0, "/*t t_%s_output_desc\n", module->output_name );
     output( handle, 0, "*/\n");
     output( handle, 0, "typedef struct t_%s_output_desc\n", module->output_name);
     output( handle, 0, "{\n");
     output( handle, 1, "const char *port_name;\n");
-    output( handle, 1, "const char *clock_name;\n"); // is_comb if clock_name is NULL; in the 
+    output( handle, 1, "char is_comb;\n");
     output( handle, 1, "char width;\n");
-    output( handle, 1, "char edge;\n");
     output( handle, 0, "} t_%s_output_desc;\n", module->output_name);
     output( handle, 0, "\n");
     output( handle, 0, "/*t t_%s_net_desc\n", module->output_name );
@@ -610,6 +620,71 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     output( handle, 0, "/*v struct_offset required variable\n");
     output( handle, 0, "*/\n");
     output( handle, 0, "static c_%s *___%s__ptr;\n", module->output_name, module->output_name );
+
+    /*b Output clock descriptors
+     */
+
+    for (clk=module->clocks; clk; clk=clk->next_in_list)
+    {
+        if (!clk->data.clock.clock_ref) // Not a gated clock, i.e. a root clock
+        {
+            int edges_used[2];
+            for (edge=0; edge<2; edge++)
+            {
+                int signal_number=0;
+                int used_on_clock_edge = 0;
+
+                output( handle, 0, "/*v clock_desc_%s_%s_%s_inputs\n", module->output_name, edge_name[edge], clk->name );
+                output( handle, 0, "*/\n");
+                output( handle, 0, "static int clock_desc_%s_%s_%s_inputs[] = \n", module->output_name, edge_name[edge], clk->name );
+                output( handle, 0, "{\n");
+
+                edges_used[edge] = 0;
+                for (signal=module->inputs; signal; signal=signal->next_in_list)
+                {
+                    for (i=0; i<signal->instance_iter->number_children; i++)
+                    {
+                        t_md_signal *clk2;
+                        instance = signal->instance_iter->children[i];
+                        for (clk2=module->clocks; clk2; clk2=clk2?clk2->next_in_list:NULL)
+                        {
+                            if ((clk2==clk) || (clk2->data.clock.clock_ref==clk))
+                            {
+                                if (model->reference_set_includes( &instance->dependents, clk2, edge ))
+                                {
+                                    used_on_clock_edge = 1;
+                                    clk2=NULL;
+                                }
+                            }
+                        }
+                        if (used_on_clock_edge) break;
+                    }
+                    if (used_on_clock_edge)
+                    {
+                        if (!edges_used[edge])
+                        {
+                        }
+                        edges_used[edge] = 1;
+                        output( handle, 1, "%d,\n", signal_number);
+                    }
+                    signal_number=signal_number+1;
+                }
+                output( handle, 1, "-1\n");
+                output( handle, 0, "};\n");
+            }
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) // 0 is posedge
+            {
+                output( handle, 0, "/*v clock_desc_%s_%s\n", module->output_name, clk->name );
+                output( handle, 0, "*/\n");
+                output( handle, 0, "static t_%s_clock_desc clock_desc_%s_%s = \n", module->output_name, module->output_name, clk->name );
+                output( handle, 0, "{\n");
+                output( handle, 1, "\"%s\",\n",clk->name);
+                output( handle, 1, "clock_desc_%s_posedge_%s_inputs,\n", module->output_name, clk->name);
+                output( handle, 1, "clock_desc_%s_negedge_%s_inputs,\n", module->output_name, clk->name);
+                output( handle, 0, "};\n");
+            }
+        }
+    }
 
     /*b Output input descriptor
      */
@@ -1148,38 +1223,19 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 module->output_name, module->output_name, module->output_name );
         output( handle, 2, "if (input_desc_%s[i].is_comb) engine->register_comb_input( engine_handle, input_desc_%s[i].port_name );\n", module->output_name, module->output_name );
         output( handle, 1, "}\n");
-        for (signal=module->inputs; signal; signal=signal->next_in_list)
+        for (clk=module->clocks; clk; clk=clk->next_in_list)
         {
-            if (signal->data.input.used_combinatorially)
+            if (!clk->data.clock.clock_ref) // Not a gated clock
             {
-                for (i=0; i<signal->instance_iter->number_children; i++)
-                {
-                    instance = signal->instance_iter->children[i];
-                    //output( handle, 1, "engine->register_comb_input( engine_handle, \"%s\" );\n", instance->output_name );
-                }
-            }
-            for (clk=module->clocks; clk; clk=clk->next_in_list)
-            {
-                if (!clk->data.clock.clock_ref) // Not a gated clock
+                if (clk->data.clock.edges_used[0] || clk->data.clock.edges_used[1])
                 {
                     for (edge=0; edge<2; edge++)
                     {
-                        for (i=0; i<signal->instance_iter->number_children; i++)
-                        {
-                            t_md_signal *clk2;
-                            instance = signal->instance_iter->children[i];
-                            for (clk2=module->clocks; clk2; clk2=clk2?clk2->next_in_list:NULL)
-                            {
-                                if ((clk2==clk) || (clk2->data.clock.clock_ref==clk))
-                                {
-                                    if (model->reference_set_includes( &instance->dependents, clk2, edge ))
-                                    {
-                                        output( handle, 1, "engine->register_input_used_on_clock( engine_handle, \"%s\", \"%s\", %d );\n", instance->output_name, clk->name, edge==md_edge_pos );
-                                        clk2=NULL;
-                                    }
-                                }
-                            }
-                        }
+                        output( handle, 1, "for (int i=0; clock_desc_%s_%s.%s_inputs[i]>=0; i++)\n", module->output_name, clk->name, edge_name[edge] );
+                        output( handle, 1, "{\n");
+                        output( handle, 2, "int input_number=clock_desc_%s_%s.%s_inputs[i];\n", module->output_name, clk->name, edge_name[edge] );
+                        output( handle, 2, "engine->register_input_used_on_clock( engine_handle, input_desc_%s[input_number].port_name, \"%s\", %d );\n", module->output_name, clk->name, edge==md_edge_pos );
+                        output( handle, 1, "}\n");
                     }
                 }
             }
