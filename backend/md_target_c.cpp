@@ -309,6 +309,7 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 1, "char is_comb;\n");
     output( handle, 0, "} t_%s_output_desc;\n", module->output_name);
     output( handle, 0, "\n");
+
     output( handle, 0, "/*t t_%s_net_desc\n", module->output_name );
     output( handle, 0, "*/\n");
     output( handle, 0, "typedef struct t_%s_net_desc\n", module->output_name);
@@ -318,6 +319,19 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     output( handle, 1, "char width;\n");
     output( handle, 1, "char vector_driven_in_parts;\n");
     output( handle, 0, "} t_%s_net_desc;\n", module->output_name);
+    output( handle, 0, "\n");
+
+    output( handle, 0, "/*t t_%s_instance_port\n", module->output_name );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_%s_instance_port\n", module->output_name);
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *port_name;\n");
+    output( handle, 1, "int instance_port_offset;\n");
+    output( handle, 1, "int net_port_offset;\n"); // Only set for some nets - those not vector_driven_in_parts
+    output( handle, 1, "char width;\n");
+    output( handle, 1, "char is_input;\n");
+    output( handle, 1, "char comb;\n");
+    output( handle, 0, "} t_%s_instance_port;\n", module->output_name);
     output( handle, 0, "\n");
 
     /*b Output clocked storage types
@@ -616,6 +630,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     t_md_type_instance *instance;
     t_md_reference_iter iter;
     t_md_reference *reference;
+    t_md_module_instance *module_instance;
     int signal_number;
 
     /*b Output header with #define
@@ -690,6 +705,66 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         output( handle, 0, "};\n\n" );
     }
 
+    /*b Output instantiations descriptors
+     */
+    for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
+    {
+        if (module_instance->module_definition)
+        {
+            output( handle, 0, "/*v instantiation_desc_%s_%s\n", module->output_name, module_instance->name );
+            output( handle, 0, "*/\n");
+            output( handle, 0, "static t_%s_instance_port instantiation_desc_%s_%s[] = \n", module->output_name, module->output_name, module_instance->name );
+            output( handle, 0, "{\n");
+            t_md_module_instance_input_port *input_port;
+            t_md_module_instance_output_port *output_port;
+            for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
+            {
+                output( handle, 1, "{ \"%s\", struct_offset( ___%s__ptr, instance_%s.inputs.%s ), -1, %d, 1, %d },\n",
+                        input_port->module_port_instance->output_name,
+                        module->output_name,
+                        module_instance->name, input_port->module_port_instance->output_name,
+                        input_port->module_port_instance->type_def.data.width,
+                        input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially );
+            }
+            for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
+            {
+                char driven_net[1024];
+                if (output_port->lvar->instance->vector_driven_in_parts)
+                {
+                    sprintf(driven_net,"-1");
+                }
+                else if (output_port->lvar->instance->array_driven_in_parts)
+                {
+                    snprintf( driven_net, sizeof(driven_net), "struct_offset( ___%s__ptr, nets.%s[%lld] )",
+                              module->output_name, 
+                              output_port->lvar->instance->output_name,
+                              output_port->lvar->index.data.integer );
+                }
+                else
+                {
+                    snprintf( driven_net, sizeof(driven_net), "struct_offset( ___%s__ptr, nets.%s )",
+                              module->output_name, 
+                              output_port->lvar->instance->output_name );
+                }
+                output( handle, 1, "{\"%s\", struct_offset( ___%s__ptr, instance_%s.outputs.%s ), %s, %d, 0, %d },\n",
+                        output_port->module_port_instance->output_name,
+                        module->output_name, module_instance->name, output_port->module_port_instance->output_name,
+                        driven_net,
+                        output_port->module_port_instance->type_def.data.width,
+                        output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially );
+
+                if (output_port->lvar->instance->reference.data.signal->data.net.output_ref) // If the submodule directly drives an output wholly
+                {
+                    //output( handle, 1, "engine->submodule_output_drive_module_output( instance_%s.handle, \"%s\", engine_handle, \"%s\" );\n",
+                    //        module_instance->name, output_port->module_port_instance->output_name,
+                    //        output_port->lvar->instance->output_name );
+                }
+            }
+            output( handle, 1, "{ NULL, -1, -1, 0, 0, 0 }\n");
+            output( handle, 0, "};\n\n");
+        }
+    }
+
     /*b Output output descriptor
      */
     if (module->outputs)
@@ -739,7 +814,6 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
 
     /*b Output clock descriptors
      */
-
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
         if (!clk->data.clock.clock_ref) // Not a gated clock, i.e. a root clock
@@ -1409,41 +1483,42 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
     {
         if (module_instance->module_definition)
         {
+            output( handle, 1, "for (int i=0; instantiation_desc_%s_%s[i].port_name; i++)\n", module->output_name, module_instance->name );
+            output( handle, 1, "{\n");
+            output( handle, 2, "t_%s_instance_port *port = &(instantiation_desc_%s_%s[i]);\n", module->output_name, module->output_name, module_instance->name );
+            output( handle, 2, "int comb, size;\n");
+            output( handle, 2, "if (port->is_input)\n");
+            output( handle, 2, "{\n");
+            output( handle, 3, "engine->submodule_input_type( instance_%s.handle, port->port_name, &comb, &size );\n", module_instance->name );
+            output( handle, 3, "if (!comb && port->comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule input %s.%s.%%s is used for flops (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the input was used combaintorially (with 'timing comb input').\\n\",port->port_name); }\n", module->output_name, module_instance->name );
+            output( handle, 3, "if (comb && !port->comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule input %s.%s.%%s is used combinatorially in that submodule to produce an output, but timing file used by the calling module indicated that it was not. If the input is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\",port->port_name); }\n", module->output_name, module_instance->name );
+            output( handle, 3, "engine->submodule_drive_input( instance_%s.handle, port->port_name, struct_resolve( t_sl_uint64 *, this, port->instance_port_offset), port->width );\n", module_instance->name );
+            output( handle, 2, "}\n");
+            output( handle, 2, "else\n");
+            output( handle, 2, "{\n");
+            output( handle, 3, "engine->submodule_output_type( instance_%s.handle, port->port_name, &comb, &size );\n", module_instance->name );
+            output( handle, 3, "if (!comb && port->comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule output %s.%s.%%s is generated only off a clock (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the output was generated combaintorially from an input (with 'timing comb output').\\n\",port->port_name); }\n", module->output_name, module_instance->name );
+            output( handle, 3, "if (comb && !port->comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule output %s.%s.%%s is generated combinatorially in that submodule from an input, but timing file used by the calling module indicated that it was not. If the output is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\",port->port_name); }\n", module->output_name, module_instance->name );
+            output( handle, 3, "engine->submodule_output_add_receiver( instance_%s.handle, port->port_name, struct_resolve( t_sl_uint64 **, this, port->instance_port_offset), port->width );\n", module_instance->name );
+            output( handle, 3, "if (port->net_port_offset>=0) {engine->submodule_output_add_receiver( instance_%s.handle, port->port_name, struct_resolve( t_sl_uint64 **, this, port->net_port_offset), port->width );}\n", module_instance->name );
+            output( handle, 2, "}\n");
+            output( handle, 1, "}\n");
             t_md_module_instance_input_port *input_port;
             t_md_module_instance_output_port *output_port;
-            for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
-            {
-                int is_comb = input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially;
-                output( handle, 1, "{ int comb, size;\n");
-                output( handle, 2, "engine->submodule_input_type( instance_%s.handle, \"%s\", &comb, &size );\n", module_instance->name, input_port->module_port_instance->output_name );
-                if (is_comb)
-                {
-                    output( handle, 2, "if (!comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule input %s.%s.%s is used for flops (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the input was used combaintorially (with 'timing comb input').\\n\"); }\n", module->output_name, module_instance->name, input_port->module_port_instance->output_name );
-                }
-                else
-                {
-                    output( handle, 2, "if (comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule input %s.%s.%s is used combinatorially in that submodule to produce an output, but timing file used by the calling module indicated that it was not. If the input is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\"); }\n", module->output_name, module_instance->name, input_port->module_port_instance->output_name );
-                }
-                output( handle, 1, "}\n");
-                output( handle, 1, "engine->submodule_drive_input( instance_%s.handle, \"%s\", &instance_%s.inputs.%s, %d );\n",
-                        module_instance->name, input_port->module_port_instance->output_name,
-                        module_instance->name, input_port->module_port_instance->output_name,
-                        input_port->module_port_instance->type_def.data.width );
-            }
             for (output_port=module_instance->outputs; output_port; output_port=output_port->next_in_list)
             {
                 int used_comb = output_port->module_port_instance->reference.data.signal->data.output.derived_combinatorially;
-                output( handle, 1, "{ int comb, size;\n");
-                output( handle, 2, "engine->submodule_output_type( instance_%s.handle, \"%s\", &comb, &size );\n", module_instance->name, output_port->module_port_instance->output_name );
+                //output( handle, 1, "{ int comb, size;\n");
+                //output( handle, 2, "engine->submodule_output_type( instance_%s.handle, \"%s\", &comb, &size );\n", module_instance->name, output_port->module_port_instance->output_name );
                 if (used_comb)
                 {
-                    output( handle, 2, "if (!comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule output %s.%s.%s is generated only off a clock (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the output was generated combaintorially from an input (with 'timing comb output').\\n\"); }\n", module->output_name, module_instance->name, output_port->module_port_instance->output_name );
+                    //output( handle, 2, "if (!comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule output %s.%s.%s is generated only off a clock (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the output was generated combaintorially from an input (with 'timing comb output').\\n\"); }\n", module->output_name, module_instance->name, output_port->module_port_instance->output_name );
                 }
                 else
                 {
-                    output( handle, 2, "if (comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule output %s.%s.%s is generated combinatorially in that submodule from an input, but timing file used by the calling module indicated that it was not. If the output is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\"); }\n", module->output_name, module_instance->name, output_port->module_port_instance->output_name );
+                    //output( handle, 2, "if (comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule output %s.%s.%s is generated combinatorially in that submodule from an input, but timing file used by the calling module indicated that it was not. If the output is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\"); }\n", module->output_name, module_instance->name, output_port->module_port_instance->output_name );
                 }
-                output( handle, 1, "}\n");
+                //output( handle, 1, "}\n");
                 if (output_port->lvar->instance->reference.data.signal->data.net.output_ref) // If the submodule directly drives an output wholly
                 {
                     output( handle, 1, "engine->submodule_output_drive_module_output( instance_%s.handle, \"%s\", engine_handle, \"%s\" );\n",
@@ -1451,10 +1526,10 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                             output_port->lvar->instance->output_name );
                 }
                 // Drive to this module's data instance_SUB.outputs.SUBPORT
-                output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &instance_%s.outputs.%s, %d );\n",
-                        module_instance->name, output_port->module_port_instance->output_name,
-                        module_instance->name, output_port->module_port_instance->output_name,
-                        output_port->module_port_instance->type_def.data.width );
+                //output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &instance_%s.outputs.%s, %d );\n",
+                //        module_instance->name, output_port->module_port_instance->output_name,
+                //        module_instance->name, output_port->module_port_instance->output_name,
+                //        output_port->module_port_instance->type_def.data.width );
                 // Drive to this module's data nets.NETNAME
                 if (output_port->lvar->instance->vector_driven_in_parts)
                 {
@@ -1462,18 +1537,18 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
                 }
                 else if (output_port->lvar->instance->array_driven_in_parts)
                 {
-                    output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &nets.%s[%d], %d );\n",
-                            module_instance->name, output_port->module_port_instance->output_name,
-                            output_port->lvar->instance->output_name,
-                            output_port->lvar->index.data.integer,
-                            output_port->module_port_instance->type_def.data.width );
+                    //output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &nets.%s[%d], %d );\n",
+                    //        module_instance->name, output_port->module_port_instance->output_name,
+                    //        output_port->lvar->instance->output_name,
+                    //        output_port->lvar->index.data.integer,
+                    //        output_port->module_port_instance->type_def.data.width );
                 }
                 else
                 {
-                    output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &nets.%s, %d );\n",
-                            module_instance->name, output_port->module_port_instance->output_name,
-                            output_port->lvar->instance->output_name,
-                            output_port->module_port_instance->type_def.data.width );
+                    //output( handle, 1, "engine->submodule_output_add_receiver( instance_%s.handle, \"%s\", &nets.%s, %d );\n",
+                    //        module_instance->name, output_port->module_port_instance->output_name,
+                    //        output_port->lvar->instance->output_name,
+                    //        output_port->module_port_instance->type_def.data.width );
                 }
             }
         }
