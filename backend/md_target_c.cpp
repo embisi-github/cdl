@@ -50,6 +50,79 @@ The dependency stuff (which is correct in c_model_descriptor.cpp) is not correct
 We should pull out the output_marker stuff to another file
 We should invoke some of that in the md_target_xml so we can see whether/how it is working
 
+
+New CDL
+ real    22m25.052s
+ user    20m36.721s
+ sys     0m51.255s
+
+  4048 -rw-r--r--  1 gstark  staff   2068615 Aug  1 13:43 mu_ctm_no_mbist.cpp
+>2.5MB
+  5304 -rw-r--r--  1 gstark  staff   2713665 Aug  1 13:43 mu_ctm.cpp
+  5840 -rw-r--r--  1 gstark  staff   2987755 Aug  1 13:44 mu_ae_resource_handler.cpp
+  6096 -rw-r--r--  1 gstark  staff   3118934 Aug  1 13:44 mu_dc_mbistin_wrapper_128_to_8.cpp
+  6384 -rw-r--r--  1 gstark  staff   3266602 Aug  1 13:44 mu_pe_dma_resource_handler.cpp
+  7176 -rw-r--r--  1 gstark  staff   3673992 Aug  1 13:48 mu_ctm_dc.o
+  7184 -rw-r--r--  1 gstark  staff   3677316 Aug  1 13:48 mu_external_dc.o
+  9032 -rw-r--r--  1 gstark  staff   4620872 Aug  1 13:49 mu_be_ext_orderer_channel.o
+  9136 -rw-r--r--  1 gstark  staff   4677228 Aug  1 13:49 mu_internal_dc.o
+ 13376 -rw-r--r--  1 gstark  staff   6844469 Aug  1 13:44 mu_ctm_dc.cpp
+ 13520 -rw-r--r--  1 gstark  staff   6918750 Aug  1 13:44 mu_external_dc.cpp
+ 17496 -rw-r--r--  1 gstark  staff   8956023 Aug  1 13:48 mu_internal_dc.cpp
+ 20568 -rw-r--r--  1 gstark  staff  10529190 Aug  1 13:45 mu_be_ext_orderer_channel.cpp
+116560 -rwxr-xr-x  1 gstark  staff  59675448 Aug  1 13:50 sim
+116632 -rwxr-xr-x  1 gstark  staff  59711948 Aug  1 13:49 py_engine.so
+
+13:38:09:~/Desktop/Development/Mercurial/me_island.hg:750$ time make
+(cd build/cdl; make DEBUG_BUILD="yes" all verilog)
+CDL design/mu_dcache.hg/cdl/src/mu_internal_dc.cdl -cpp -mu_internal_dc.cpp
+CC mu_internal_dc.cpp -o -mu_internal_dc.o
+Building command line simulation osx/sim
+Building Python simulation library for GUI sims osx/py_engine.so
+CDL mu_internal_dc.v -v -design/mu_dcache.hg/cdl/src/mu_internal_dc.cdl
+cp osx/mu_internal_dc.v /Users/gstark/Desktop/Development/Mercurial/me_island.hg/design/mu_dcache.hg/genrtl/mu_internal_dc.v
+
+real    3m55.372s
+user    3m43.922s
+sys     0m1.826s
+
+CDl 1.4.2
+
+real    32m4.009s
+user    30m22.281s
+sys     1m0.746s
+
+>5MB
+ 10536 -rw-r--r--  1 gstark  staff    5392984 Aug  1 12:28 mu_pe_dma_resource_handler.o
+ 10720 -rw-r--r--  1 gstark  staff    5487467 Aug  1 12:28 mu_pe_dma_resource_handler.cpp
+ 12120 -rw-r--r--  1 gstark  staff    6203820 Aug  1 12:13 mu_ctm_no_mbist.o
+ 13176 -rw-r--r--  1 gstark  staff    6744044 Aug  1 12:13 mu_ctm.o
+ 22856 -rw-r--r--  1 gstark  staff   11700716 Aug  1 12:35 mu_be_ext_orderer_channel.o
+ 25088 -rw-r--r--  1 gstark  staff   12841795 Aug  1 12:26 mu_ctm_dc.cpp
+ 25192 -rw-r--r--  1 gstark  staff   12897216 Aug  1 12:24 mu_external_dc.cpp
+ 27624 -rw-r--r--  1 gstark  staff   14141830 Aug  1 12:34 mu_be_ext_orderer_channel.cpp
+ 31592 -rw-r--r--  1 gstark  staff   16173360 Aug  1 12:28 mu_ctm_dc.o
+ 31688 -rw-r--r--  1 gstark  staff   16222524 Aug  1 12:26 mu_external_dc.o
+ 33288 -rw-r--r--  1 gstark  staff   17039957 Aug  1 12:20 mu_internal_dc.cpp
+ 43368 -rw-r--r--  1 gstark  staff   22202160 Aug  1 12:24 mu_internal_dc.o
+352152 -rwxr-xr-x  1 gstark  staff  180299728 Aug  1 12:35 sim
+352224 -rwxr-xr-x  1 gstark  staff  180335124 Aug  1 12:36 py_engine.so
+
+13:29:23:~/Desktop/Development/Mercurial/me_island.hg:746$ rm build/cdl/osx/mu_internal_dc.*
+13:30:07:~/Desktop/Development/Mercurial/me_island.hg:747$ time make
+(cd build/cdl; make DEBUG_BUILD="yes" all verilog)
+CDL design/mu_dcache.hg/cdl/src/mu_internal_dc.cdl -cpp -mu_internal_dc.cpp
+CC mu_internal_dc.cpp -o -mu_internal_dc.o
+Building command line simulation osx/sim
+Building Python simulation library for GUI sims osx/py_engine.so
+CDL mu_internal_dc.v -v -design/mu_dcache.hg/cdl/src/mu_internal_dc.cdl
+cp osx/mu_internal_dc.v /Users/gstark/Desktop/Development/Mercurial/me_island.hg/design/mu_dcache.hg/genrtl/mu_internal_dc.v
+
+real    7m38.912s
+user    7m5.664s
+sys     0m3.591s
+13:37:49:~/Desktop/Development/Mercurial/me_island.hg:748$ 
+
  */
 
 /*a Includes
@@ -227,6 +300,78 @@ static void output_defines( c_model_descriptor *model, t_md_output_fn output, vo
     output( handle, 0, "\n");
 }
 
+/*f output_global_types_fns
+ */
+static void output_global_types_fns( c_model_descriptor *model, t_md_output_fn output, void *handle )
+{
+    /*b Output header
+     */
+    output( handle, 0, "/*a Global types\n");
+    output( handle, 0, "*/\n");
+
+    /*b Output descriptor types
+     */
+    output( handle, 0, "/*t t_clock_desc\n" );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_clock_desc\n" );
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *name;\n");
+    output( handle, 1, "int *posedge_inputs;\n");
+    output( handle, 1, "int *negedge_inputs;\n");
+    output( handle, 1, "int *posedge_outputs;\n");
+    output( handle, 1, "int *negedge_outputs;\n");
+    output( handle, 0, "} t_clock_desc;\n" );
+    output( handle, 0, "\n");
+
+    output( handle, 0, "/*t t_input_desc\n" );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_input_desc\n" );
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *port_name;\n");
+    output( handle, 1, "int driver_ofs;\n");
+    output( handle, 1, "int input_state_ofs;\n");
+    output( handle, 1, "char width;\n");
+    output( handle, 1, "char is_comb;\n");
+    output( handle, 0, "} t_input_desc;\n" );
+    output( handle, 0, "\n");
+
+    output( handle, 0, "/*t t_output_desc\n" );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_output_desc\n" );
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *port_name;\n");
+    output( handle, 1, "int value_ofs;\n");
+    output( handle, 1, "char width;\n");
+    output( handle, 1, "char is_comb;\n");
+    output( handle, 0, "} t_output_desc;\n" );
+    output( handle, 0, "\n");
+
+    output( handle, 0, "/*t t_net_desc\n" );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_net_desc\n" );
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *port_name;\n");
+    output( handle, 1, "int net_driver_offset;\n");
+    output( handle, 1, "char width;\n");
+    output( handle, 1, "char vector_driven_in_parts;\n");
+    output( handle, 0, "} t_net_desc;\n" );
+    output( handle, 0, "\n");
+
+    output( handle, 0, "/*t t_instance_port\n" );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_instance_port\n" );
+    output( handle, 0, "{\n");
+    output( handle, 1, "const char *port_name;\n");
+    output( handle, 1, "const char *output_port_name;\n");
+    output( handle, 1, "int instance_port_offset;\n");
+    output( handle, 1, "int net_port_offset;\n"); // Only set for some nets - those not vector_driven_in_parts
+    output( handle, 1, "char width;\n");
+    output( handle, 1, "char is_input;\n");
+    output( handle, 1, "char comb;\n");
+    output( handle, 0, "} t_instance_port;\n" );
+    output( handle, 0, "\n");
+}
+
 /*f output_type
  */
 static void output_type( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_type_instance *instance, int indent, int indirect )
@@ -272,68 +417,6 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
      */
     output( handle, 0, "/*a Types for %s\n", module->output_name);
     output( handle, 0, "*/\n");
-
-    /*b Output descriptor types
-     */
-    output( handle, 0, "/*t t_%s_clock_desc\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "typedef struct t_%s_clock_desc\n", module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "const char *name;\n");
-    output( handle, 1, "int *posedge_inputs;\n");
-    output( handle, 1, "int *negedge_inputs;\n");
-    output( handle, 1, "int *posedge_outputs;\n");
-    output( handle, 1, "int *negedge_outputs;\n");
-    output( handle, 0, "} t_%s_clock_desc;\n", module->output_name);
-    output( handle, 0, "\n");
-
-    output( handle, 0, "/*t t_%s_input_desc\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "typedef struct t_%s_input_desc\n", module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "const char *port_name;\n");
-    output( handle, 1, "int driver_ofs;\n");
-    output( handle, 1, "int input_state_ofs;\n");
-    output( handle, 1, "char width;\n");
-    output( handle, 1, "char is_comb;\n");
-    output( handle, 0, "} t_%s_input_desc;\n", module->output_name);
-    output( handle, 0, "\n");
-
-    output( handle, 0, "/*t t_%s_output_desc\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "typedef struct t_%s_output_desc\n", module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "const char *port_name;\n");
-    output( handle, 1, "int value_ofs;\n");
-    output( handle, 1, "char width;\n");
-    output( handle, 1, "char is_comb;\n");
-    output( handle, 0, "} t_%s_output_desc;\n", module->output_name);
-    output( handle, 0, "\n");
-
-    output( handle, 0, "/*t t_%s_net_desc\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "typedef struct t_%s_net_desc\n", module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "const char *port_name;\n");
-    output( handle, 1, "int net_driver_offset;\n");
-    output( handle, 1, "char width;\n");
-    output( handle, 1, "char vector_driven_in_parts;\n");
-    output( handle, 0, "} t_%s_net_desc;\n", module->output_name);
-    output( handle, 0, "\n");
-
-    output( handle, 0, "/*t t_%s_instance_port\n", module->output_name );
-    output( handle, 0, "*/\n");
-    output( handle, 0, "typedef struct t_%s_instance_port\n", module->output_name);
-    output( handle, 0, "{\n");
-    output( handle, 1, "const char *port_name;\n");
-    output( handle, 1, "const char *output_port_name;\n");
-    output( handle, 1, "int instance_port_offset;\n");
-    output( handle, 1, "int net_port_offset;\n"); // Only set for some nets - those not vector_driven_in_parts
-    output( handle, 1, "char width;\n");
-    output( handle, 1, "char is_input;\n");
-    output( handle, 1, "char comb;\n");
-    output( handle, 0, "} t_%s_instance_port;\n", module->output_name);
-    output( handle, 0, "\n");
 
     /*b Output clocked storage types
      */ 
@@ -649,7 +732,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     {
         output( handle, 0, "/*v input_desc_%s\n", module->output_name );
         output( handle, 0, "*/\n");
-        output( handle, 0, "static t_%s_input_desc input_desc_%s[] = \n", module->output_name, module->output_name );
+        output( handle, 0, "static t_input_desc input_desc_%s[] = \n", module->output_name );
         output( handle, 0, "{\n");
         signal_number = 0;
         for (signal=module->inputs; signal; signal=signal->next_in_list)
@@ -679,7 +762,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         output( handle, 0, "/*v net_desc_%s\n", module->output_name );
         output( handle, 0, "*/\n");
         output( handle, 0, "static t_%s_nets *___%s_nets__ptr;\n", module->output_name, module->output_name );
-        output( handle, 0, "static t_%s_net_desc net_desc_%s[] = \n", module->output_name, module->output_name );
+        output( handle, 0, "static t_net_desc net_desc_%s[] = \n", module->output_name );
         output( handle, 0, "{\n");
         signal_number = 0;
         for (signal=module->nets; signal; signal=signal->next_in_list)
@@ -714,7 +797,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         {
             output( handle, 0, "/*v instantiation_desc_%s_%s\n", module->output_name, module_instance->name );
             output( handle, 0, "*/\n");
-            output( handle, 0, "static t_%s_instance_port instantiation_desc_%s_%s[] = \n", module->output_name, module->output_name, module_instance->name );
+            output( handle, 0, "static t_instance_port instantiation_desc_%s_%s[] = \n", module->output_name, module_instance->name );
             output( handle, 0, "{\n");
             t_md_module_instance_input_port *input_port;
             t_md_module_instance_output_port *output_port;
@@ -776,7 +859,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
     {
         output( handle, 0, "/*v output_desc_%s\n", module->output_name );
         output( handle, 0, "*/\n");
-        output( handle, 0, "static t_%s_output_desc output_desc_%s[] = \n", module->output_name, module->output_name );
+        output( handle, 0, "static t_output_desc output_desc_%s[] = \n", module->output_name );
         output( handle, 0, "{\n");
         signal_number = 0;
         for (signal=module->outputs; signal; signal=signal->next_in_list)
@@ -936,7 +1019,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                 }
                 output( handle, 0, "/*v clock_desc_%s_%s\n", module->output_name, clk->name );
                 output( handle, 0, "*/\n");
-                output( handle, 0, "static t_%s_clock_desc clock_desc_%s_%s = \n", module->output_name, module->output_name, clk->name );
+                output( handle, 0, "static t_clock_desc clock_desc_%s_%s = \n", module->output_name, clk->name );
                 output( handle, 0, "{\n");
                 output( handle, 1, "\"%s\",\n",clk->name);
                 output( handle, 1, "clock_desc_%s_posedge_%s_inputs,\n", module->output_name, clk->name);
@@ -1502,7 +1585,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
         {
             output( handle, 1, "for (int i=0; instantiation_desc_%s_%s[i].port_name; i++)\n", module->output_name, module_instance->name );
             output( handle, 1, "{\n");
-            output( handle, 2, "t_%s_instance_port *port = &(instantiation_desc_%s_%s[i]);\n", module->output_name, module->output_name, module_instance->name );
+            output( handle, 2, "t_instance_port *port = &(instantiation_desc_%s_%s[i]);\n", module->output_name, module_instance->name );
             output( handle, 2, "int comb, size;\n");
             output( handle, 2, "if (port->is_input)\n");
             output( handle, 2, "{\n");
@@ -2818,7 +2901,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         output( handle, 2, "{\n");
         output( handle, 3, "if (ptr[i]==NULL)\n");
         output( handle, 3, "{\n");
-        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Unconnected input port '%%s' on module %s at initial reset\\n\", input_desc_%s[i].port_name);\n", module->output_name, module->output_name );
+        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Unconnected input port '%%s' on module '%%s' (of type %s) at initial reset\\n\", input_desc_%s[i].port_name, engine->get_instance_name(engine_handle));\n", module->output_name, module->output_name );
         output( handle, 4, "unconnected_inputs++;\n");
         output( handle, 4, "ptr[i]=&dummy_input[0];\n");
         output( handle, 3, "}\n");
@@ -2833,7 +2916,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         output( handle, 3, "t_sl_uint64 **net_receiver_ptr=(t_sl_uint64 **)((((char *)(&nets))+j));\n");
         output( handle, 3, "if ((j>=0) && (net_receiver_ptr[0]==NULL))\n");
         output( handle, 3, "{\n");
-        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Undriven internal net '%%s' in module %s at initial reset (did its driver module instantiate okay?)\\n\", input_desc_%s[i].port_name);\n", module->output_name, module->output_name );
+        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Undriven internal net '%%s' in module '%%s' (of type %s) at initial reset (did its driver module instantiate okay?)\\n\", input_desc_%s[i].port_name, engine->get_instance_name(engine_handle));\n", module->output_name, module->output_name );
         output( handle, 4, "unconnected_nets++;\n");
         output( handle, 4, "net_receiver_ptr[0]=&dummy_input[0];\n");
         output( handle, 3, "}\n");
@@ -3502,8 +3585,14 @@ extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn
 {
     t_md_module *module;
 
+    /*b Output the header, defines, and global types/fns
+     */
     output_header( model, output_fn, output_handle );
     output_defines( model, output_fn, output_handle, include_assertions, include_coverage, include_stmt_coverage );
+    output_global_types_fns( model, output_fn, output_handle );
+
+    /*b Output the modules
+     */
     for (module=model->module_list; module; module=module->next_in_list)
     {
         if (module->external)
@@ -3541,6 +3630,9 @@ extern void target_c_output( c_model_descriptor *model, t_md_output_fn output_fn
         output_constructors_destructors( model, module, output_fn, output_handle, include_coverage, include_stmt_coverage );
         output_simulation_methods( model, module, output_fn, output_handle );
     }
+
+    /*b Output the initialization functions
+     */
     output_initalization_functions( model, output_fn, output_handle );
 }
 
