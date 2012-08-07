@@ -50,6 +50,31 @@ The dependency stuff (which is correct in c_model_descriptor.cpp) is not correct
 We should pull out the output_marker stuff to another file
 We should invoke some of that in the md_target_xml so we can see whether/how it is working
 
+New cdl and new code:
+
+
+real    4m13.925s
+user    26m38.042s
+sys     1m36.487s
+1
+
+>2.5MB
+
+  5664 -rw-r--r--  1 gstark  staff   2899345 Aug  7 12:23 mu_ae_resource_handler.cpp
+  6048 -rw-r--r--  1 gstark  staff   3093716 Aug  7 12:26 mu_ctm_dcache.o
+  6104 -rw-r--r--  1 gstark  staff   3124944 Aug  7 12:23 mu_dc_mbistin_wrapper_128_to_8.cpp
+  6440 -rw-r--r--  1 gstark  staff   3293297 Aug  7 12:23 mu_pe_dma_resource_handler.cpp
+  6584 -rw-r--r--  1 gstark  staff   3367344 Aug  7 12:26 mu_external_dcache.o
+  8728 -rw-r--r--  1 gstark  staff   4466664 Aug  7 12:26 mu_be_ext_orderer_channel.o
+  9656 -rw-r--r--  1 gstark  staff   4940982 Aug  1 15:55 mu_ctm.cpp~
+  9776 -rw-r--r--  1 gstark  staff   5005056 Aug  7 12:26 mu_internal_dcache.o
+ 11704 -rw-r--r--  1 gstark  staff   5989289 Aug  7 12:23 mu_ctm_dcache.cpp
+ 12864 -rw-r--r--  1 gstark  staff   6584183 Aug  7 12:23 mu_external_dcache.cpp
+ 19056 -rw-r--r--  1 gstark  staff   9754663 Aug  7 12:23 mu_internal_dcache.cpp
+ 20376 -rw-r--r--  1 gstark  staff  10430940 Aug  7 12:23 mu_be_ext_orderer_channel.cpp
+105144 -rwxr-xr-x  1 gstark  staff  53833288 Aug  7 12:26 sim
+105224 -rwxr-xr-x  1 gstark  staff  53873884 Aug  7 12:26 py_engine.so
+
 
 New CDL
  real    22m25.052s

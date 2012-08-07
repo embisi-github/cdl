@@ -100,7 +100,7 @@ void c_co_fsm_state::cross_reference( class c_cyclicity *cyclicity, t_co_scope *
     {
         expression->cross_reference_within_type_context( cyclicity, types, variables, type_value_undefined, type_value_undefined );
         has_expression = 1;
-        fprintf(stderr, "NYI:c_co_fsm_state::cross_reference:Expressions not typechecked yet\n");
+        fprintf(stderr, "**** WARNING - expressions given to FSM declarations are NOT checked for being suitably in range or one-hot; please do not specify values for states in FSMs unless absolutely required\nNYI:c_co_fsm_state::cross_reference:Expressions not typechecked yet\n");
     }
     this->type_def = type_def;
     for (state = (c_co_fsm_state *)next_in_list; state; )
