@@ -371,11 +371,77 @@ static void output_global_types_fns( c_model_descriptor *model, t_md_output_fn o
     output( handle, 0, "} t_instance_port;\n" );
     output( handle, 0, "\n");
 
+    output( handle, 0, "/*t t_module_desc\n" );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "typedef struct t_module_desc\n" );
+    output( handle, 0, "{\n");
+    output( handle, 1, "t_input_desc  *input_descs;\n");
+    output( handle, 1, "t_output_desc *output_descs;\n");
+    output( handle, 1, "t_clock_desc  **clock_descs_list;\n");
+    output( handle, 0, "} t_module_desc;\n" );
+    output( handle, 0, "\n");
+
     /*b Output header for functions
      */
     output( handle, 0, "/*a Global functions\n");
     output( handle, 0, "*/\n");
 
+
+    /*b Output module declaration function - declares inputs, outputs, and clocks they depend on
+     */
+    output( handle, 0, "/*f module_declaration\n");
+    output( handle, 0, "*/\n");
+    output( handle, 0, "static void module_declaration( c_engine *engine, void*engine_handle, void *base, t_module_desc *module_desc )\n" );
+    output( handle, 0, "{\n");
+    output( handle, 1, "for (int i=0; module_desc->input_descs && module_desc->input_descs[i].port_name; i++)\n" );
+    output( handle, 1, "{\n");
+    output( handle, 2, "engine->register_input_signal( engine_handle, module_desc->input_descs[i].port_name, module_desc->input_descs[i].width, struct_resolve( t_sl_uint64 **, base, module_desc->input_descs[i].driver_ofs )  );\n" );
+    output( handle, 2, "if (module_desc->input_descs[i].is_comb) engine->register_comb_input( engine_handle, module_desc->input_descs[i].port_name );\n" );
+    output( handle, 1, "}\n");
+    output( handle, 1, "for (int i=0; module_desc->output_descs && module_desc->output_descs[i].port_name; i++)\n" );
+    output( handle, 1, "{\n");
+    output( handle, 2, "engine->register_output_signal( engine_handle, module_desc->output_descs[i].port_name, module_desc->output_descs[i].width, struct_resolve( t_sl_uint64 *, base, module_desc->output_descs[i].value_ofs )  );\n" );    
+    output( handle, 2, "if (module_desc->output_descs[i].is_comb) engine->register_comb_output( engine_handle, module_desc->output_descs[i].port_name );\n" );
+    output( handle, 1, "}\n");
+    output( handle, 1, "for (int i=0; module_desc->clock_descs_list[i]; i++)\n" );
+    output( handle, 1, "{\n");
+    output( handle, 2, "t_clock_desc *clock_desc = module_desc->clock_descs_list[i];\n");
+    for (int edge=0; edge<2; edge++)
+    {
+        output( handle, 2, "for (int j=0; clock_desc->%s_inputs && clock_desc->%s_inputs[j]>=0; j++)\n", edge_name[edge], edge_name[edge] );
+        output( handle, 2, "{\n");
+        output( handle, 3, "int input_number=clock_desc->%s_inputs[j];\n", edge_name[edge] );
+        output( handle, 3, "engine->register_input_used_on_clock( engine_handle, module_desc->input_descs[input_number].port_name, clock_desc->name, %d );\n", edge==md_edge_pos );
+        output( handle, 2, "}\n");
+        output( handle, 2, "for (int j=0; clock_desc->%s_outputs && clock_desc->%s_outputs[j]>=0; j++)\n", edge_name[edge], edge_name[edge] );
+        output( handle, 2, "{\n");
+        output( handle, 3, "int output_number=clock_desc->%s_outputs[j];\n", edge_name[edge] );
+        output( handle, 3, "engine->register_output_generated_on_clock( engine_handle, module_desc->output_descs[output_number].port_name, clock_desc->name, %d );\n", edge==md_edge_pos );
+        output( handle, 2, "}\n");
+    }
+    output( handle, 1, "}\n");
+    output( handle, 0, "}\n\n");
+
+    /*b Output clock desc declaration function
+     */
+    output( handle, 0, "/*f clock_desc_declaration\n");
+    output( handle, 0, "*/\n");
+    output( handle, 0, "static void clock_desc_declaration( c_engine *engine, void*engine_handle, void *base, t_clock_desc *clock_desc, t_module_desc *module_desc )\n" );
+    output( handle, 0, "{\n");
+    for (int edge=0; edge<2; edge++)
+    {
+        output( handle, 1, "for (int i=0; clock_desc->%s_inputs && clock_desc->%s_inputs[i]>=0; i++)\n", edge_name[edge], edge_name[edge] );
+        output( handle, 1, "{\n");
+        output( handle, 2, "int input_number=clock_desc->%s_inputs[i];\n", edge_name[edge] );
+        output( handle, 2, "engine->register_input_used_on_clock( engine_handle, module_desc->input_descs[input_number].port_name, clock_desc->name, %d );\n", edge==md_edge_pos );
+        output( handle, 1, "}\n");
+        output( handle, 1, "for (int i=0; clock_desc->%s_outputs && clock_desc->%s_outputs[i]>=0; i++)\n", edge_name[edge], edge_name[edge] );
+        output( handle, 1, "{\n");
+        output( handle, 2, "int output_number=clock_desc->%s_outputs[i];\n", edge_name[edge] );
+        output( handle, 2, "engine->register_output_generated_on_clock( engine_handle, module_desc->output_descs[output_number].port_name, clock_desc->name, %d );\n", edge==md_edge_pos );
+        output( handle, 1, "}\n");
+    }
+    output( handle, 0, "}\n\n");
 
     /*b Output instantiation wiring function
      */
@@ -938,7 +1004,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         output( handle, 0, "};\n\n" );
     }
 
-    /*b Output clock descriptors
+    /*b Output individual clock descriptors
      */
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
@@ -1069,6 +1135,50 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         }
     }
 
+    /*b Output combined clock descriptor list
+     */
+    output( handle, 0, "/*v clock_desc_%s\n", module->output_name );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "static t_clock_desc *clock_desc_%s[] = \n", module->output_name );
+    output( handle, 0, "{\n");
+    for (clk=module->clocks; clk; clk=clk->next_in_list)
+    {
+        if (!clk->data.clock.clock_ref) // Not a gated clock, i.e. a root clock
+        {
+            if (clk->data.clock.edges_used[1] || clk->data.clock.edges_used[0]) // 0 is posedge
+            {
+                output( handle, 1, "&clock_desc_%s_%s,\n", module->output_name, clk->name );
+            }
+        }
+    }
+    output( handle, 1, "NULL\n");
+    output( handle, 0, "};\n\n");
+
+    /*b Output module descriptor
+     */
+    output( handle, 0, "/*v module_desc_%s\n", module->output_name );
+    output( handle, 0, "*/\n");
+    output( handle, 0, "static t_module_desc module_desc_%s = \n", module->output_name );
+    output( handle, 0, "{\n");
+    if (module->inputs)
+    {
+        output( handle, 1, "input_desc_%s,\n" , module->output_name );
+    }
+    else
+    {
+        output( handle, 1, "NULL,\n" );
+    }
+    if (module->outputs)
+    {
+        output( handle, 1, "output_desc_%s,\n", module->output_name );
+    }
+    else
+    {
+        output( handle, 1, "NULL,\n" );
+    }
+    output( handle, 1, "clock_desc_%s,\n" , module->output_name );
+    output( handle, 0, "};\n");
+
     /*b Output logging
      */
     module->output.total_log_args = 0;
@@ -1111,7 +1221,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         module->output.total_log_args = num_args;
     }
 
-    /*b Output nets structures if required
+    /*b Output state desc nets structures if required
      */
     if (module->nets)
     {
@@ -1199,7 +1309,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         }
     }
 
-    /*b Output combinatorials structure if required
+    /*b Output state desc combinatorials structure if required
      */
     if (module->combinatorials)
     {
@@ -1231,7 +1341,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         output( handle, 0, "};\n\n");
     }
 
-    /*b Output structure for each clock, if required
+    /*b Output state desc structure for each clock, if required
      */
     for (clk=module->clocks; clk; clk=clk->next_in_list)
     {
@@ -1282,6 +1392,8 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
         }
     }
 
+    /*b All done
+     */
 }
 
 /*f output_wrapper_functions
@@ -1499,63 +1611,9 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
     }
     output( handle, 0, "\n");
 
-    /*b Register inputs
+    /*b Register inputs and outputs and clocks they depend on
      */
-    if (module->inputs)
-    {
-        output( handle, 1, "for (int i=0; input_desc_%s[i].port_name; i++)\n", module->output_name);
-        output( handle, 1, "{\n");
-        output( handle, 2, "engine->register_input_signal( engine_handle, input_desc_%s[i].port_name, input_desc_%s[i].width, struct_resolve( t_sl_uint64 **, this, input_desc_%s[i].driver_ofs )  );\n",
-                module->output_name, module->output_name, module->output_name );
-        output( handle, 2, "if (input_desc_%s[i].is_comb) engine->register_comb_input( engine_handle, input_desc_%s[i].port_name );\n", module->output_name, module->output_name );
-        output( handle, 1, "}\n");
-        output( handle, 0, "\n");
-    }
-
-    /*b Register outputs
-     */
-    if (module->outputs)
-    {
-        output( handle, 1, "for (int i=0; output_desc_%s[i].port_name; i++)\n", module->output_name);
-        output( handle, 1, "{\n");
-        output( handle, 2, "engine->register_output_signal( engine_handle, output_desc_%s[i].port_name, output_desc_%s[i].width, struct_resolve( t_sl_uint64 *, this, output_desc_%s[i].value_ofs )  );\n",
-                module->output_name, module->output_name, module->output_name );
-        output( handle, 2, "if (output_desc_%s[i].is_comb) engine->register_comb_output( engine_handle, output_desc_%s[i].port_name );\n", module->output_name, module->output_name );
-        output( handle, 1, "}\n");
-        output( handle, 0, "\n");
-    }
-
-    /*b Register clock usage
-     */
-    for (clk=module->clocks; clk; clk=clk->next_in_list)
-    {
-        if (!clk->data.clock.clock_ref) // Not a gated clock
-        {
-            if (clk->data.clock.edges_used[0] || clk->data.clock.edges_used[1])
-            {
-                for (edge=0; edge<2; edge++)
-                {
-                    if (module->inputs)
-                    {
-                        output( handle, 1, "for (int i=0; clock_desc_%s_%s.%s_inputs[i]>=0; i++)\n", module->output_name, clk->name, edge_name[edge] );
-                        output( handle, 1, "{\n");
-                        output( handle, 2, "int input_number=clock_desc_%s_%s.%s_inputs[i];\n", module->output_name, clk->name, edge_name[edge] );
-                        output( handle, 2, "engine->register_input_used_on_clock( engine_handle, input_desc_%s[input_number].port_name, \"%s\", %d );\n", module->output_name, clk->name, edge==md_edge_pos );
-                        output( handle, 1, "}\n");
-                    }
-                    if (module->outputs)
-                    {
-                        output( handle, 1, "for (int i=0; clock_desc_%s_%s.%s_outputs[i]>=0; i++)\n", module->output_name, clk->name, edge_name[edge] );
-                        output( handle, 1, "{\n");
-                        output( handle, 2, "int output_number=clock_desc_%s_%s.%s_outputs[i];\n", module->output_name, clk->name, edge_name[edge] );
-                        output( handle, 2, "engine->register_output_generated_on_clock( engine_handle, output_desc_%s[output_number].port_name, \"%s\", %d );\n", module->output_name, clk->name, edge==md_edge_pos );
-                        output( handle, 1, "}\n");
-                    }
-                }
-            }
-        }
-        output( handle, 0, "\n");
-    }
+    output( handle, 1, "module_declaration( engine, engine_handle, (void *)this, &module_desc_%s );\n", module->output_name);
 
     /*b Instantiate submodules and get their handles
      */
