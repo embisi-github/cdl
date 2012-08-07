@@ -803,6 +803,27 @@ int c_model_descriptor::module_analyze( t_md_module *module )
      {
           module_analyze_invert_dependency_list( state->instance_iter, state );
      }
+     for (signal=module->clocks; signal; signal=signal->next_in_list) // Run through all clocks that have depenencies has they drive module instances, and those instances have signals clocked by this clock
+     {
+         for (int edge=0; edge<2; edge++)
+         {
+             t_md_reference *reference;
+             t_md_reference_iter iter;
+             reference_set_iterate_start( &signal->data.clock.dependencies[edge], &iter );
+             while ((reference = reference_set_iterate(&iter))!=NULL)
+             {
+                 if (reference->type==md_reference_type_instance)
+                 {
+                     t_md_reference_type type;
+                     type = reference->data.instance->reference.type;
+                     if ( (type == md_reference_type_signal) && (reference->data.instance->reference.data.signal->type!=md_signal_type_clock) )
+                     {
+                         reference_add( &reference->data.instance->dependents, signal, edge  );
+                     }
+                 }
+             }
+         }
+     }
 
      /*b Now run through all clocks and inputs and determine the complete list of direct and indirect dependents, and add to each such dependent this as a base dependent
       */
@@ -2912,6 +2933,8 @@ int c_model_descriptor::signal_add_clock( t_md_module *module, const char *name,
      signal->data.clock.edges_used[1] = 0;
      signal->data.clock.dependents[0] = NULL;
      signal->data.clock.dependents[1] = NULL;
+     signal->data.clock.dependencies[0] = NULL;
+     signal->data.clock.dependencies[1] = NULL;
 
      signal->data.clock.clock_ref = NULL;
      signal->data.clock.gate_signal = NULL;
@@ -5365,6 +5388,7 @@ int c_model_descriptor::module_instance_add_input( t_md_module *module, const ch
      input_port->port_lvar = port_lvar;
      input_port->expression = expression;
      input_port->module_port_instance = NULL;
+     input_port->dependencies = NULL;
 
      return 1;
 }
@@ -5497,31 +5521,38 @@ void c_model_descriptor::module_instance_analyze( t_md_module *module, t_md_modu
         if (input_port->expression)
         {
             push_possible_indices_to_subscripts(input_port->expression);
-            result &= expression_find_dependencies( module, NULL, &module_instance->dependencies, md_usage_type_rtl, input_port->expression );
+            
+            result &= expression_find_dependencies( module, NULL, &input_port->dependencies, md_usage_type_rtl, input_port->expression );
+            result &= reference_union_sets( input_port->dependencies, &module_instance->dependencies );
             if (input_port->module_port_instance)
             {
                 if (input_port->module_port_instance->reference.data.signal->data.input.used_combinatorially)
                 {
-                    result &= expression_find_dependencies( module, NULL, &module_instance->combinatorial_dependencies, md_usage_type_rtl, input_port->expression );
+                    result &= reference_union_sets( input_port->dependencies, &module_instance->combinatorial_dependencies );
+                    //result &= expression_find_dependencies( module, NULL, &module_instance->combinatorial_dependencies, md_usage_type_rtl, input_port->expression );
                 }
 
-                reference_set_iterate_start( &input_port->module_port_instance->reference.data.signal->data.input.clocks_used_on, &iter );
+                reference_set_iterate_start( &input_port->module_port_instance->reference.data.signal->data.input.clocks_used_on, &iter ); // Run through all the clock ports that this module instance port is used by
                 while ((reference = reference_set_iterate(&iter))!=NULL)
                 {
-                     for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
-                     {
-                          if (clock_port->module_port_signal==reference->data.signal)
-                          {
-                               break;
-                          }
-                     }
-                     // Mark clock edge as used, and module depends on the edge too
-                     if ((clock_port) && (clock_port->local_clock_signal))
-                     {
-                         clock_port->local_clock_signal->data.clock.edges_used[reference->edge] = 1;
-                         reference_add( &module_instance->dependencies, clock_port->local_clock_signal, reference->edge  );
-                         SL_DEBUG( sl_debug_level_info, "clock %s %d used for input %s", clock_port->local_clock_signal->name, reference->edge, input_port->port_lvar->name );
-                     }
+                    for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list) // Find the module clock that is tied to the instance clock port
+                    {
+                        if (clock_port->module_port_signal==reference->data.signal)
+                        {
+                            break;
+                        }
+                    }
+                    // Now clock_port is the module local clock connected to the module, and everything in input_port->expression is now required to be valid before the clock edge
+                    // This clock edge is also therefore used
+                    // The clock edge is dependent upon everything in input_port->expression being valid
+                    // Mark clock edge as used, and module depends on the edge too
+                    if ((clock_port) && (clock_port->local_clock_signal))
+                    {
+                        clock_port->local_clock_signal->data.clock.edges_used[reference->edge] = 1; // So the local clock within the module is used by the specified edge
+                        reference_add( &module_instance->dependencies, clock_port->local_clock_signal, reference->edge  ); // The module depends on this clock and this edge
+                        SL_DEBUG( sl_debug_level_info, "clock %s %d used for input %s", clock_port->local_clock_signal->name, reference->edge, input_port->port_lvar->name );
+                        reference_union_sets( input_port->dependencies, &clock_port->local_clock_signal->data.clock.dependencies[reference->edge] );
+                    }
                 }
             }
         }

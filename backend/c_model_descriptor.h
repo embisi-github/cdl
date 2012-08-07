@@ -384,7 +384,8 @@ typedef struct t_md_signal
         struct
         {
             int edges_used[2];
-            t_md_reference_set *dependents[2];
+            t_md_reference_set *dependencies[2]; // inputs, signals, states etc that this clock edge depends upon SOLELY because of its use as a clock to submodules
+            t_md_reference_set *dependents[2];   // states etc that depend on this clock edge, filled by inverting the dependencies of state lvars
             t_md_signal *root_clock_ref; // for gated clocks
             t_md_signal *clock_ref; // for gated clocks
             t_md_signal *gate_signal;  // for gated clocks
@@ -757,6 +758,7 @@ typedef struct t_md_module_instance_input_port
     struct t_md_port_lvar *port_lvar; // Port lvar for the port on the module; should match a single instance of an input signal on the module definition
     struct t_md_expression *expression; // expression to tie the input to
     struct t_md_type_instance *module_port_instance; // filled in at cross referencing; points to actual instance of module's input
+    t_md_reference_set *dependencies; // set of all instances that this instantiation explicitly depends on
 } t_md_module_instance_input_port;
 
 /*t t_md_module_instance_output_port

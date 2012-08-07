@@ -243,7 +243,7 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
                             instance = signal->instance_iter->children[i];
                             for (clk2=module->clocks; clk2; clk2=clk2?clk2->next_in_list:NULL)
                             {
-                                if ((clk2==clk) || (clk2->data.clock.clock_ref==clk))
+                                if ((clk2==clk) || (clk2->data.clock.root_clock_ref==clk))
                                 {
                                     if (model->reference_set_includes( &instance->dependents, clk2, edge ))
                                     {
@@ -367,6 +367,12 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
                 {
                     output_simulation_methods_code_block( model, output, handle, code_block, indent, clk, edge, NULL );
                 }
+
+                if (clk->data.clock.dependencies[edge])
+                {
+                    output_references( model, module, output, handle, indent, "dependencies_from_module_inputs", clk->data.clock.dependencies[edge] ); // All the signals/states/etc that effect the clock due to input ports on module instances the clock is used for
+                }
+
                 output( handle, --indent, "</clock>\n");
             }
         }

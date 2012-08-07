@@ -669,11 +669,16 @@ def output_model_makefile( output_file ):
     print >>output_file, """\t@echo "CDL $3 -cdlh $1" """
     print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --cdlh ${TARGET_DIR}/$3.cdlh $6 ${SRC_ROOT}/$1"""
     print >>output_file
+    print >>output_file, """${TARGET_DIR}/$3.xml : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
+    print >>output_file, """\t@echo "CDL $3 -xml $1" """
+    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --xml ${TARGET_DIR}/$3.xml $6 ${SRC_ROOT}/$1"""
+    print >>output_file
 
     print >>output_file, """MODELS += $3"""
     print >>output_file, """C_MODEL_OBJS += ${TARGET_DIR}/$4"""
     print >>output_file, """VERILOG_FILES += ${TARGET_DIR}/$5"""
     print >>output_file, """CDLH_FILES += ${TARGET_DIR}/$3.cdlh"""
+    print >>output_file, """XML_FILES += ${TARGET_DIR}/$3.xml"""
     print >>output_file
     print >>output_file, """endef"""
 
@@ -715,6 +720,7 @@ def output_model_makefile( output_file ):
         print >>output_file, """$(eval $(call cdl_template,%s,%s,%s,%s,%s,%s))""" % (cdl_filename, c_filename, model_name, object_filename, verilog_filename, options)
 
     print >>output_file, "cdlh: ${CDLH_FILES}"
+    print >>output_file, "xml: ${XML_FILES}"
 
 #a ZZZ Xilinx makefile
 #f output_xilinx_makefile
