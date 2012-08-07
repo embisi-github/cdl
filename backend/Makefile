@@ -22,6 +22,7 @@ BACKEND_SRCS = \
 		md_output_markers.cpp \
 		md_target_c.cpp \
 		md_target_xml.cpp \
+		md_target_cdl_header.cpp \
 		md_target_verilog.cpp
 #		md_target_vhdl.cpp
 

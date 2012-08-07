@@ -31,6 +31,7 @@ Add index/subscript expressions as dependencies for expressions if they are used
 #include "md_target_xml.h"
 #include "md_target_vhdl.h"
 #include "md_target_verilog.h"
+#include "md_target_cdl_header.h"
 #include "c_model_descriptor.h"
 
 /*a Defines
@@ -6019,6 +6020,24 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
           }
      }
 
+     filename = sl_option_get_string( env_options, "be_cdlhfile" );
+     if (filename)
+     {
+         t_md_cdl_header_options options;
+         f = fopen(filename, "w");
+         if (f)
+         {
+             target_cdl_header_output( this, output_indented, (void *)f, &options );
+             fclose(f);
+         }
+         else
+         {
+             error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
+                               error_arg_type_malloc_string, filename,
+                               error_arg_type_none );
+         }
+     }
+
      filename = sl_option_get_string( env_options, "be_vhdlfile" );
      if (filename)
      {
@@ -6095,6 +6114,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_xml:
           *env_options = sl_option_list( *env_options, "be_xmlfile", optarg );
+          return 1;
+     case option_be_cdlh:
+          *env_options = sl_option_list( *env_options, "be_cdlhfile", optarg );
           return 1;
      case option_be_verilog:
           *env_options = sl_option_list( *env_options, "be_verilogfile", optarg );

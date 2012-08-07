@@ -1039,7 +1039,7 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
             {
                 for (edge=0; edge<2; edge++)
                 {
-                    int used_on_clock_edge = 0;
+                    int used_on_clock_edge;
 
                     output( handle, 0, "/*v clock_desc_%s_%s_%s_inputs\n", module->output_name, edge_name[edge], clk->name );
                     output( handle, 0, "*/\n");
@@ -1049,13 +1049,14 @@ static void output_static_variables( c_model_descriptor *model, t_md_module *mod
                     signal_number=0;
                     for (signal=module->inputs; signal; signal=signal->next_in_list)
                     {
+                        used_on_clock_edge = 0;
                         for (i=0; i<signal->instance_iter->number_children; i++)
                         {
                             t_md_signal *clk2;
                             instance = signal->instance_iter->children[i];
                             for (clk2=module->clocks; clk2; clk2=clk2?clk2->next_in_list:NULL)
                             {
-                                if ((clk2==clk) || (clk2->data.clock.clock_ref==clk))
+                                if ((clk2==clk) || (clk2->data.clock.root_clock_ref==clk))
                                 {
                                     if (model->reference_set_includes( &instance->dependents, clk2, edge ))
                                     {
