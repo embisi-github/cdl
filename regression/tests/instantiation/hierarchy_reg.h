@@ -22,6 +22,7 @@ extern module hierarchy_reg( clock int_clock,
                              input bit in,
                              output bit out )
 {
-    timing to rising clock int_clock in, int_reset;
+    timing to rising clock int_clock in;
+    timing to rising clock int_clock int_reset;
     timing from rising clock int_clock out;
 }

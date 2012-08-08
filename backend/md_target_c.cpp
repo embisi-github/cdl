@@ -468,34 +468,43 @@ static void output_global_types_fns( c_model_descriptor *model, t_md_output_fn o
     //}
     //output( handle, 0, "}\n\n");
 
-    /*b Output instantiation wiring function
+    /*b Output instantiation wiring function - if any modules have instances
      */
-    output( handle, 0, "/*f instantiation_wire_ports\n");
-    output( handle, 0, "*/\n");
-    output( handle, 0, "static void instantiation_wire_ports( c_engine *engine, void*engine_handle, void *base, const char *module_name, const char *module_instance_name, void *instance_handle, t_instance_port *port_list )\n" );
-    output( handle, 0, "{\n");
-    output( handle, 1, "for (int i=0; port_list[i].port_name; i++)\n" );
-    output( handle, 1, "{\n");
-    output( handle, 2, "t_instance_port *port = &(port_list[i]);\n" );
-    output( handle, 2, "int comb, size;\n");
-    output( handle, 2, "if (port->is_input)\n");
-    output( handle, 2, "{\n");
-    output( handle, 3, "engine->submodule_input_type( instance_handle, port->port_name, &comb, &size );\n" );
-    output( handle, 3, "if (!comb && port->comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule input %%s.%%s.%%s is used for flops (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the input was used combinatorially (with 'timing comb input').\\n\",module_name,module_instance_name,port->port_name); }\n" );
-    output( handle, 3, "if (comb && !port->comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule input %%s.%%s.%%s is used combinatorially in that submodule to produce an output, but timing file used by the calling module indicated that it was not. If the input is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\",module_name,module_instance_name,port->port_name); }\n" );
-    output( handle, 3, "engine->submodule_drive_input( instance_handle, port->port_name, struct_resolve( t_sl_uint64 *, base, port->instance_port_offset), port->width );\n" );
-    output( handle, 2, "}\n");
-    output( handle, 2, "else\n");
-    output( handle, 2, "{\n");
-    output( handle, 3, "engine->submodule_output_type( instance_handle, port->port_name, &comb, &size );\n" );
-    output( handle, 3, "if (!comb && port->comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule output %%s.%%s.%%s is generated only off a clock (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the output was generated combinatorially from an input (with 'timing comb output').\\n\",module_name, module_instance_name,port->port_name); }\n" );
-    output( handle, 3, "if (comb && !port->comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule output %%s.%%s.%%s is generated combinatorially in that submodule from an input, but timing file used by the calling module indicated that it was not. If the output is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\",module_name,module_instance_name,port->port_name); }\n" );
-    output( handle, 3, "engine->submodule_output_add_receiver( instance_handle, port->port_name, struct_resolve( t_sl_uint64 **, base, port->instance_port_offset), port->width );\n" );
-    output( handle, 3, "if (port->net_port_offset>=0) {engine->submodule_output_add_receiver( instance_handle, port->port_name, struct_resolve( t_sl_uint64 **, base, port->net_port_offset), port->width );}\n");
-    output( handle, 3, "if (port->output_port_name) {engine->submodule_output_drive_module_output( instance_handle, port->port_name, engine_handle, port->output_port_name );}\n");
-    output( handle, 2, "}\n");
-    output( handle, 1, "}\n");
-    output( handle, 0, "}\n");
+    for (t_md_module *module=model->module_list; module; module=module->next_in_list)
+    {
+        if (module->external)
+            continue;
+        if (module->module_instances)
+        {
+            output( handle, 0, "/*f instantiation_wire_ports\n");
+            output( handle, 0, "*/\n");
+            output( handle, 0, "static void instantiation_wire_ports( c_engine *engine, void*engine_handle, void *base, const char *module_name, const char *module_instance_name, void *instance_handle, t_instance_port *port_list )\n" );
+            output( handle, 0, "{\n");
+            output( handle, 1, "for (int i=0; port_list[i].port_name; i++)\n" );
+            output( handle, 1, "{\n");
+            output( handle, 2, "t_instance_port *port = &(port_list[i]);\n" );
+            output( handle, 2, "int comb, size;\n");
+            output( handle, 2, "if (port->is_input)\n");
+            output( handle, 2, "{\n");
+            output( handle, 3, "engine->submodule_input_type( instance_handle, port->port_name, &comb, &size );\n" );
+            output( handle, 3, "if (!comb && port->comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule input %%s.%%s.%%s is used for flops (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the input was used combinatorially (with 'timing comb input').\\n\",module_name,module_instance_name,port->port_name); }\n" );
+            output( handle, 3, "if (comb && !port->comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule input %%s.%%s.%%s is used combinatorially in that submodule to produce an output, but timing file used by the calling module indicated that it was not. If the input is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\",module_name,module_instance_name,port->port_name); }\n" );
+            output( handle, 3, "engine->submodule_drive_input( instance_handle, port->port_name, struct_resolve( t_sl_uint64 *, base, port->instance_port_offset), port->width );\n" );
+            output( handle, 2, "}\n");
+            output( handle, 2, "else\n");
+            output( handle, 2, "{\n");
+            output( handle, 3, "engine->submodule_output_type( instance_handle, port->port_name, &comb, &size );\n" );
+            output( handle, 3, "if (!comb && port->comb) {fprintf(stderr,\"Warning, incorrect timing file (no impact to simulation): submodule output %%s.%%s.%%s is generated only off a clock (no combinatorial input-to-output path) in that submodule, but timing file used by the calling module indicated that the output was generated combinatorially from an input (with 'timing comb output').\\n\",module_name, module_instance_name,port->port_name); }\n" );
+            output( handle, 3, "if (comb && !port->comb) {fprintf(stderr,\"Serious error, potential missimulation: submodule output %%s.%%s.%%s is generated combinatorially in that submodule from an input, but timing file used by the calling module indicated that it was not. If the output is part of a structure and ANY element is combinatorial, then all elements of the structure are deemed combinatorial.\\n\",module_name,module_instance_name,port->port_name); }\n" );
+            output( handle, 3, "engine->submodule_output_add_receiver( instance_handle, port->port_name, struct_resolve( t_sl_uint64 **, base, port->instance_port_offset), port->width );\n" );
+            output( handle, 3, "if (port->net_port_offset>=0) {engine->submodule_output_add_receiver( instance_handle, port->port_name, struct_resolve( t_sl_uint64 **, base, port->net_port_offset), port->width );}\n");
+            output( handle, 3, "if (port->output_port_name) {engine->submodule_output_drive_module_output( instance_handle, port->port_name, engine_handle, port->output_port_name );}\n");
+            output( handle, 2, "}\n");
+            output( handle, 1, "}\n");
+            output( handle, 0, "}\n");
+            break;
+        }
+    }
 
     /*b All done
      */
