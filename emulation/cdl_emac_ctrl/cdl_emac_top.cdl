@@ -1,0 +1,422 @@
+module cdl_emac_top( clock clk_125mhz,
+                     clock clk_user,
+                     clock clk_reg,
+                     input bit reset_n
+                     output bit[3] speem
+
+                     input bit      rx_mac_rd,
+                     output bit     rx_mac_ra,
+                     output bit     rx_mac_pa,
+                     output bit     rx_mac_sop,
+                     output bit     rx_mac_eop,
+                     output bit[32] rx_mac_data,
+                     output bit[2]  rx_mac_be,
+
+                     input bit      tx_mac_wr,
+                     output bit     tx_mac_wa,
+                     input bit      tx_mac_sop,
+                     input bit      tx_mac_eop,
+                     input bit[32]  tx_mac_data,
+                     input bit[2]   tx_mac_be,
+
+                     input bit pkg_lgth_fifo_rd,
+                     output bit pkg_lgth_fifo_ra,
+                     output bit[16] pkg_lgth_fifo_data,
+
+                     output gmii_tx_clk "Used only in GMII mode",
+                     input rx_clk,
+                     input tx_clk "Used only in MII mode",
+                     output bit          Tx_er                   ,
+                     output bit          Tx_en                   ,
+                     output bit[8]   Txd                     ,
+                     input bit           Rx_er                   ,
+                     input bit           Rx_dv                   ,
+                     input bit[8]   Rxd                     ,
+                     input bit           Crs                     ,
+                     input bit           Col                     ,
+                     //host interface
+                     input bit           CSB                     ,
+                     input bit           WRB                     ,
+                     input bit[16]  CD_in                   ,
+                     output bit[16]  CD_out                  ,
+                     input bit[8]   CA                      ,                
+                     //mdx
+                     output bit          Mdo,                // MII Management Data Output
+                     output bit          MdoEn,              // MII Management Data Output Enable
+                     input bit           Mdi,
+                     output bit          Mdc                      // MII Management Data Clock       
+
+    )
+{
+    net    [15:0]  Rx_pkt_length_rmon      ;
+    net            Rx_apply_rmon           ;
+    net    [2:0]   Rx_pkt_err_type_rmon    ;
+    net    [2:0]   Rx_pkt_type_rmon        ;
+    net    [2:0]   Tx_pkt_type_rmon        ;
+    net    [15:0]  Tx_pkt_length_rmon      ;
+    net            Tx_apply_rmon           ;
+    net    [2:0]   Tx_pkt_err_type_rmon    ;
+    //PHY interface
+    net            MCrs_dv                 ;       
+    net    [7:0]   MRxD                    ;       
+    net            MRxErr                  ;       
+    //flow_control signals  
+    net    [15:0]  pause_quanta            ;   
+    net            pause_quanta_val        ; 
+    //PHY interface
+    net    [7:0]   MTxD                    ;
+    net            MTxEn                   ;   
+    net            MCRS                    ;
+    //interface clk signals
+    net            MAC_tx_clk              ;
+    net            MAC_rx_clk              ;
+    net            MAC_tx_clk_div          ;
+    net            MAC_rx_clk_div          ;
+    //reg signals   
+    net    [4:0]	Tx_Hwmark				;       
+    net    [4:0]	Tx_Lwmark				;       
+    net    		pause_frame_send_en		;       
+    net    [15:0]	pause_quanta_set		;       
+    net    		MAC_tx_add_en			;       
+    net    		FullDuplex         		;       
+    net    [3:0]	MaxRetry	        	;       
+    net    [5:0]	IFGset					;       
+    net    [7:0]	MAC_tx_add_prom_data	;       
+    net    [2:0]	MAC_tx_add_prom_add		;       
+    net    		MAC_tx_add_prom_wr		;       
+    net    		tx_pause_en				;       
+    net    		xoff_cpu	        	;       
+    net    		xon_cpu	            	;       
+    //Rx host interface 	 
+    net    		MAC_rx_add_chk_en		;       
+    net    [7:0]	MAC_rx_add_prom_data	;       
+    net    [2:0]	MAC_rx_add_prom_add		;       
+    net    		MAC_rx_add_prom_wr		;       
+    net    		broadcast_filter_en	    ;       
+    net    [15:0]	broadcast_MAX	        ;       
+    net    		RX_APPEND_CRC			;       
+    net    [4:0]	Rx_Hwmark			    ;           
+    net    [4:0]	Rx_Lwmark			    ;           
+    net    		CRC_chk_en				;       
+    net    [5:0]	RX_IFG_SET	  			;       
+    net    [15:0]	RX_MAX_LENGTH 			;
+    net    [6:0]	RX_MIN_LENGTH			;
+    //RMON host interface    
+    net    [5:0]	CPU_rd_addr				;
+    net    		CPU_rd_apply			;
+    net    		CPU_rd_grant			;
+    net    [31:0]	CPU_rd_dout				;
+    //Phy int host interface 
+    net    		Line_loop_en			;
+    //MII to CPU             
+    net    [7:0] 	Divider            		;
+    net    [15:0] 	CtrlData           		;
+    net    [4:0] 	Rgad               		;
+    net    [4:0] 	Fiad               		;
+    net           	NoPre              		;
+    net           	WCtrlData          		;
+    net           	RStat              		;
+    net           	ScanStat           		;
+    net         	Busy               		;
+    net         	LinkFail           		;
+    net         	Nvalid             		;
+    net    [15:0] 	Prsd               		;
+    net         	WCtrlDataStart     		;
+    net         	RStatStart         		;
+    net         	UpdateMIIRX_DATAReg		;
+    net    [15:0]  broadcast_bucket_depth              ;
+    net    [15:0]  broadcast_bucket_interval           ;
+    net                  Pkg_lgth_fifo_empty;
+
+    clocked clock MAC_rx_clk_div rx_pkg_lgth_fifo_wr_tmp=0;
+    clocked clock MAC_rx_clk_div rx_pkg_lgth_fifo_wr_tmp_pl1=0;
+    clocked clock MAC_rx_clk_div rx_pkg_lgth_fifo_wr=0;
+
+    instances "Instantiations":
+        {
+            cdl_emac_rx U_cdl_emac_rx(
+                .Reset                      (!reset_n                      ),    
+                .Clk_user                   (Clk_user                   ), 
+                .Clk                        (MAC_rx_clk_div             ), 
+                //RMII interface           (//PHY interface            ),  
+                .MCrs_dv                    (MCrs_dv                    ),        
+                .MRxD                       (MRxD                       ),
+                .MRxErr                     (MRxErr                     ),
+                //flow_control signals     (//flow_control signals     ),  
+                .pause_quanta               (pause_quanta               ),
+                .pause_quanta_val           (pause_quanta_val           ),
+                //user interface           (//user interface           ),  
+                .Rx_mac_ra                  (Rx_mac_ra                  ),
+                .Rx_mac_rd                  (Rx_mac_rd                  ),
+                .Rx_mac_data                (Rx_mac_data                ),       
+                .Rx_mac_BE                  (Rx_mac_BE                  ),
+                .Rx_mac_pa                  (Rx_mac_pa                  ),
+                .Rx_mac_sop                 (Rx_mac_sop                 ),
+                .Rx_mac_eop                 (Rx_mac_eop                 ),
+                //CPU                      (//CPU                      ),  
+                .MAC_rx_add_chk_en          (MAC_rx_add_chk_en          ),
+                .MAC_add_prom_data          (MAC_rx_add_prom_data       ),
+                .MAC_add_prom_add           (MAC_rx_add_prom_add        ),
+                .MAC_add_prom_wr            (MAC_rx_add_prom_wr         ),       
+                .broadcast_filter_en        (broadcast_filter_en        ),       
+                .broadcast_bucket_depth     (broadcast_bucket_depth     ),           
+                .broadcast_bucket_interval  (broadcast_bucket_interval  ),
+                .RX_APPEND_CRC              (RX_APPEND_CRC              ), 
+                .Rx_Hwmark                  (Rx_Hwmark                  ),
+                .Rx_Lwmark                  (Rx_Lwmark                  ),
+                .CRC_chk_en                 (CRC_chk_en                 ),  
+                .RX_IFG_SET                 (RX_IFG_SET                 ),
+                .RX_MAX_LENGTH              (RX_MAX_LENGTH              ),
+                .RX_MIN_LENGTH              (RX_MIN_LENGTH              ),
+                //RMON interface           (//RMON interface           ),  
+                .Rx_pkt_length_rmon         (Rx_pkt_length_rmon         ),
+                .Rx_apply_rmon              (Rx_apply_rmon              ),
+                .Rx_pkt_err_type_rmon       (Rx_pkt_err_type_rmon       ),
+                .Rx_pkt_type_rmon           (Rx_pkt_type_rmon           )
+                );
+
+            cdl_emac_tx U_tx(
+                .Reset                      (!reset_n                      ),
+                .Clk                        (MAC_tx_clk_div             ),
+                .Clk_user                   (Clk_user                   ),
+                //PHY interface            (//PHY interface            ),
+                .TxD                        (MTxD                       ),
+                .TxEn                       (MTxEn                      ),
+                .CRS                        (MCRS                       ),
+                //RMON                     (//RMON                     ),
+                .Tx_pkt_type_rmon           (Tx_pkt_type_rmon           ),
+                .Tx_pkt_length_rmon         (Tx_pkt_length_rmon         ),
+                .Tx_apply_rmon              (Tx_apply_rmon              ),
+                .Tx_pkt_err_type_rmon       (Tx_pkt_err_type_rmon       ),
+                //user interface           (//user interface           ),
+                .Tx_mac_wa                  (Tx_mac_wa                  ),
+                .Tx_mac_wr                  (Tx_mac_wr                  ),
+                .Tx_mac_data                (Tx_mac_data                ),
+                .Tx_mac_BE                  (Tx_mac_BE                  ),
+                .Tx_mac_sop                 (Tx_mac_sop                 ),
+                .Tx_mac_eop                 (Tx_mac_eop                 ),
+                //host interface           (//host interface           ),
+                .Tx_Hwmark                  (Tx_Hwmark                  ),
+                .Tx_Lwmark                  (Tx_Lwmark                  ),
+                .pause_frame_send_en        (pause_frame_send_en        ),
+                .pause_quanta_set           (pause_quanta_set           ),
+                .MAC_tx_add_en              (MAC_tx_add_en              ),
+                .FullDuplex                 (FullDuplex                 ),
+                .MaxRetry                   (MaxRetry                   ),
+                .IFGset                     (IFGset                     ),
+                .MAC_add_prom_data          (MAC_tx_add_prom_data       ),
+                .MAC_add_prom_add           (MAC_tx_add_prom_add        ),
+                .MAC_add_prom_wr            (MAC_tx_add_prom_wr         ),
+                .tx_pause_en                (tx_pause_en                ),
+                .xoff_cpu                   (xoff_cpu                   ),
+                .xon_cpu                    (xon_cpu                    ),
+                //MAC_rx_flow              (//MAC_rx_flow              ),
+                .pause_quanta               (pause_quanta               ),
+                .pause_quanta_val           (pause_quanta_val           )
+                );
+            Pkg_lgth_fifo_ra=!Pkg_lgth_fifo_empty;
+
+            if (Rx_apply_rmon && (Rx_pkt_err_type_rmon==3b100))
+            {
+                rx_pkg_lgth_fifo_wr_tmp <=1;
+            }
+            else
+            {
+                rx_pkg_lgth_fifo_wr_tmp <=0;  
+            }
+            rx_pkg_lgth_fifo_wr_tmp_pl1 <=rx_pkg_lgth_fifo_wr_tmp;         
+            if(rx_pkg_lgth_fifo_wr_tmp&!rx_pkg_lgth_fifo_wr_tmp_pl1)
+            {
+                rx_pkg_lgth_fifo_wr <=1; 
+            }
+            else
+            {
+                rx_pkg_lgth_fifo_wr <=0; 
+            }
+        }
+
+
+    cdl_emac_afifo U_rx_pkg_lgth_fifo (
+        .din                        (RX_APPEND_CRC?Rx_pkt_length_rmon:Rx_pkt_length_rmon-4),
+        .wr_en                      (rx_pkg_lgth_fifo_wr        ),
+        .wr_clk                     (MAC_rx_clk_div             ),
+        .rd_en                      (Pkg_lgth_fifo_rd           ),
+        .rd_clk                     (Clk_user                   ),
+        .ainit                      (!reset_n                      ),
+        .dout                       (Pkg_lgth_fifo_data         ),
+        .full                       (                           ),
+        .almost_full                (                           ),
+        .empty                      (Pkg_lgth_fifo_empty        ),
+        .wr_count                   (                           ),
+        .rd_count                   (                           ),
+        .rd_ack                     (                           ),
+        .wr_ack                     (                           ));
+
+
+    cdl_emac_RMON U_RMON(
+        .Clk                        (Clk_reg                    ),
+        .Reset                      (!reset_n                      ),
+        //Tx_RMON                  (//Tx_RMON                  ),
+        .Tx_pkt_type_rmon           (Tx_pkt_type_rmon           ),
+        .Tx_pkt_length_rmon         (Tx_pkt_length_rmon         ),
+        .Tx_apply_rmon              (Tx_apply_rmon              ),
+        .Tx_pkt_err_type_rmon       (Tx_pkt_err_type_rmon       ),
+        //Tx_RMON                  (//Tx_RMON                  ),
+        .Rx_pkt_type_rmon           (Rx_pkt_type_rmon           ),
+        .Rx_pkt_length_rmon         (Rx_pkt_length_rmon         ),
+        .Rx_apply_rmon              (Rx_apply_rmon              ),
+        .Rx_pkt_err_type_rmon       (Rx_pkt_err_type_rmon       ),
+        //CPU                      (//CPU                      ),
+        .CPU_rd_addr                (CPU_rd_addr                ),
+        .CPU_rd_apply               (CPU_rd_apply               ),
+        .CPU_rd_grant               (CPU_rd_grant               ),
+        .CPU_rd_dout                (CPU_rd_dout                )
+        );
+
+    cdl_emac_Phy_int U_Phy_int(
+        .Reset                      (!reset_n                      ),
+        .MAC_rx_clk                 (MAC_rx_clk                 ),
+        .MAC_tx_clk                 (MAC_tx_clk                 ),
+        //Rx interface             (//Rx interface             ),
+        .MCrs_dv                    (MCrs_dv                    ),
+        .MRxD                       (MRxD                       ),
+        .MRxErr                     (MRxErr                     ),
+        //Tx interface             (//Tx interface             ),
+        .MTxD                       (MTxD                       ),
+        .MTxEn                      (MTxEn                      ),
+        .MCRS                       (MCRS                       ),
+        //Phy interface            (//Phy interface            ),
+        .Tx_er                      (Tx_er                      ),
+        .Tx_en                      (Tx_en                      ),
+        .Txd                        (Txd                        ),
+        .Rx_er                      (Rx_er                      ),
+        .Rx_dv                      (Rx_dv                      ),
+        .Rxd                        (Rxd                        ),
+        .Crs                        (Crs                        ),
+        .Col                        (Col                        ),
+        //host interface           (//host interface           ),
+        .Line_loop_en               (Line_loop_en               ),
+        .Speed                      (Speed                      )
+        );
+
+    cdl_emac_Clk_ctrl U_Clk_ctrl(
+        .Reset                      (!reset_n                      ),
+        .Clk_125M                   (Clk_125M                   ),
+        //host interface           (//host interface           ),
+        .Speed                      (Speed                      ),
+        //Phy interface            (//Phy interface            ),
+        .Gtx_clk                    (Gtx_clk                    ),
+        .Rx_clk                     (Rx_clk                     ),
+        .Tx_clk                     (Tx_clk                     ),
+        //interface clk            (//interface clk            ),
+        .MAC_tx_clk                 (MAC_tx_clk                 ),
+        .MAC_rx_clk                 (MAC_rx_clk                 ),
+        .MAC_tx_clk_div             (MAC_tx_clk_div             ),
+        .MAC_rx_clk_div             (MAC_rx_clk_div             )
+        );
+
+    cdl_emac_eth_miim U_eth_miim(                                        
+        .Clk                        (Clk_reg                    ),  
+        .Reset                      (!reset_n                      ),  
+        .Divider                    (Divider                    ),  
+        .NoPre                      (NoPre                      ),  
+        .CtrlData                   (CtrlData                   ),  
+        .Rgad                       (Rgad                       ),  
+        .Fiad                       (Fiad                       ),  
+        .WCtrlData                  (WCtrlData                  ),  
+        .RStat                      (RStat                      ),  
+        .ScanStat                   (ScanStat                   ),  
+        .Mdo                        (Mdo                        ),
+        .MdoEn                      (MdoEn                      ),
+        .Mdi                        (Mdi                        ),
+        .Mdc                        (Mdc                        ),  
+        .Busy                       (Busy                       ),  
+        .Prsd                       (Prsd                       ),  
+        .LinkFail                   (LinkFail                   ),  
+        .Nvalid                     (Nvalid                     ),  
+        .WCtrlDataStart             (WCtrlDataStart             ),  
+        .RStatStart                 (RStatStart                 ),  
+        .UpdateMIIRX_DATAReg        (UpdateMIIRX_DATAReg        )); 
+
+    cdl_emac_Reg_int U_Reg_int(
+        .Reset	               		(!reset_n	                  	),    
+        .Clk_reg                  	(Clk_reg                 	), 
+        .CSB                        (CSB                        ),
+        .WRB                        (WRB                        ),
+        .CD_in                      (CD_in                      ),
+        .CD_out                     (CD_out                     ),
+        .CA                         (CA                         ),
+        //Tx host interface        (//Tx host interface        ),
+        .Tx_Hwmark				    (Tx_Hwmark				    ),
+        .Tx_Lwmark				    (Tx_Lwmark				    ),
+        .pause_frame_send_en		(pause_frame_send_en		),
+        .pause_quanta_set		    (pause_quanta_set		    ),
+        .MAC_tx_add_en			    (MAC_tx_add_en			    ),
+        .FullDuplex         		(FullDuplex         		),
+        .MaxRetry	        	    (MaxRetry	        	    ),
+        .IFGset					    (IFGset					    ),
+        .MAC_tx_add_prom_data	    (MAC_tx_add_prom_data	    ),
+        .MAC_tx_add_prom_add		(MAC_tx_add_prom_add		),
+        .MAC_tx_add_prom_wr		    (MAC_tx_add_prom_wr		    ),
+        .tx_pause_en				(tx_pause_en				),
+        .xoff_cpu	        	    (xoff_cpu	        	    ),
+        .xon_cpu	            	(xon_cpu	            	),
+        //Rx host interface 	    (//Rx host interface 	    ),
+        .MAC_rx_add_chk_en		    (MAC_rx_add_chk_en		    ),
+        .MAC_rx_add_prom_data	    (MAC_rx_add_prom_data	    ),
+        .MAC_rx_add_prom_add		(MAC_rx_add_prom_add		),
+        .MAC_rx_add_prom_wr		    (MAC_rx_add_prom_wr		    ),
+        .broadcast_filter_en	    (broadcast_filter_en	    ),
+        .broadcast_bucket_depth     (broadcast_bucket_depth     ),           
+        .broadcast_bucket_interval  (broadcast_bucket_interval  ),
+        .RX_APPEND_CRC			    (RX_APPEND_CRC			    ), 
+        .Rx_Hwmark       			(Rx_Hwmark					),
+        .Rx_Lwmark                  (Rx_Lwmark                  ),
+        .CRC_chk_en				    (CRC_chk_en				    ),
+        .RX_IFG_SET	  			    (RX_IFG_SET	  			    ),
+        .RX_MAX_LENGTH 			    (RX_MAX_LENGTH 			    ),
+        .RX_MIN_LENGTH			    (RX_MIN_LENGTH			    ),
+        //RMON host interface      (//RMON host interface      ),
+        .CPU_rd_addr				(CPU_rd_addr				),
+        .CPU_rd_apply			    (CPU_rd_apply			    ),
+        .CPU_rd_grant			    (CPU_rd_grant			    ),
+        .CPU_rd_dout				(CPU_rd_dout				),
+        //Phy int host interface   (//Phy int host interface   ),
+        .Line_loop_en			    (Line_loop_en			    ),
+        .Speed					    (Speed					    ),
+        //MII to CPU               (//MII to CPU               ),
+        .Divider            		(Divider            		),
+        .CtrlData           		(CtrlData           		),
+        .Rgad               		(Rgad               		),
+        .Fiad               		(Fiad               		),
+        .NoPre              		(NoPre              		),
+        .WCtrlData          		(WCtrlData          		),
+        .RStat              		(RStat              		),
+        .ScanStat           		(ScanStat           		),
+        .Busy               		(Busy               		),
+        .LinkFail           		(LinkFail           		),
+        .Nvalid             		(Nvalid             		),
+        .Prsd               		(Prsd               		),
+        .WCtrlDataStart     		(WCtrlDataStart     		),
+        .RStatStart         		(RStatStart         		),
+        .UpdateMIIRX_DATAReg		(UpdateMIIRX_DATAReg		)
+        );
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

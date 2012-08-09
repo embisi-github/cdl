@@ -1,0 +1,307 @@
+/*a Types
+ */
+/*t t_crc_op
+ */
+typedef enum[2]
+{
+    crc_op_init,
+    crc_op_idle,
+    crc_op_data,
+    crc_op_read
+} t_crc_op;
+
+/*t t_rx_fsm
+ */
+typedef fsm
+{
+    state_idle;
+    state_preamble;
+    state_sfd;
+    state_data;
+    state_check_crc;
+    state_ok_end;
+    state_drop;
+    state_err_end;
+    state_crc_err_end;
+    state_ff_full_drop;
+    state_ff_full_err_end;
+    state_interframe_gap;
+} t_rx_fsm;
+
+/*t t_pause_fsm
+ */
+typedef fsm
+{
+
+    pause_idle;
+    pause_pre_syn;
+    pause_quanta_hi;
+    pause_quanta_lo;
+    pause_syn;
+} t_pause_fsm;
+
+/*t t_rx_mii
+ */
+typedef struct
+{
+    bit    crs;
+    bit[8] data;
+    bit    err;
+} t_rx_mii;
+
+/*t t_eth_pause
+ */
+typedef struct
+{
+    bit valid;
+    bit[16] quanta;
+} t_eth_pause;
+
+/*a Module
+ */
+/*m cdl_emac_rx
+ */
+module cdl_emac_rx ( clock clk,
+                     input bit reset_n,
+                     input t_rx_mii rx_mii_in,
+
+                     output t_eth_pause eth_pause,
+
+                     output bit rx_fifo_commit,
+                     output bit rx_fifo_push,
+                     output bit rx_fifo_err,
+                     output bit[8] rx_fifo_data,
+                     input bit rx_fifo_full )
+    """
+"""
+{
+                                                  
+    /*b Default clock and reset
+     */
+    default clock clk;
+    default reset reset_n;
+    clocked bit             MAC_add_en=0;
+    clocked t_eth_pause eth_pause={*=0};
+    clocked bit             pause_quanta_val_tmp=0;
+
+    comb t_crc_op crc_op;
+
+    clocked t_rx_mii rx_mii_r={*=0};
+    clocked bit [8]  last_rx_mii_r=0;
+    clocked t_rx_fsm      current_state = state_idle;
+    clocked bit [6]       IFG_counter=0;   
+    clocked bit [16]      Frame_length_counter=0;
+    clocked t_pause_fsm   pause_fsm=pause_idle;
+
+    comb t_rx_fsm       next_state; 
+    comb t_pause_fsm       Pause_next;                             
+
+    rx_mac_ctl "Rx Mac control logic":
+        {
+            rx_mii_r           <= rx_mii_in;
+            last_rx_mii_r.data <= rx_mii_r.data;
+            MAC_add_en  <= 0;
+
+            rx_fifo_push   = 0;
+            rx_fifo_commit = 0;
+            rx_fifo_err    = 0;     
+                                   
+            current_state   <=next_state;                   
+                                                        
+            full_switch (current_state)                            
+            {
+            case state_idle:
+            {
+                if (rx_mii_r.crs&&rx_mii_r.data==8h55)                
+                {
+                    next_state  = state_preamble;    
+                }
+            }
+            case state_preamble:
+            {                             
+                if (!rx_mii_r.crs)                        
+                {
+                    next_state  =state_err_end;      
+                }
+                elsif (rx_mii_r.err)                     
+                {
+                    next_state  = state_drop;        
+                }
+                elsif (rx_mii_r.data==8hd5)                 
+                {
+                    next_state  =state_sfd;                 
+                }
+                elsif (rx_mii_r.data!=8h55)                
+                {
+                    next_state  = state_drop;        
+                }
+            }
+            case state_sfd:
+            {                                  
+                crc_op = crc_op_init;
+                Frame_length_counter        <=1;
+                if (!rx_mii_r.crs)                        
+                {
+                    next_state  =state_err_end;      
+                }
+                elsif (rx_mii_r.err)                     
+                {
+                    next_state  = state_drop;        
+                }
+                else                                
+                {
+                    next_state  = state_data;       
+                }
+            }
+            case state_data:
+            {                
+                crc_op = crc_op_data;
+                Frame_length_counter        <=Frame_length_counter+ 1b1;
+                if ((Frame_length_counter>=1) && (Frame_length_counter<=6))
+                {
+                    MAC_add_en  <= 1;
+                }
+                rx_fifo_push = 1;
+                if (!rx_mii_r.crs&&!Too_short&&!Too_long)                        
+                {
+                    next_state  = state_check_crc;   
+                }
+                elsif (!rx_mii_r.crs&&(Too_short||Too_long))
+                {
+                    next_state  =state_err_end;
+                }
+                elsif (Fifo_full)
+                {
+                    next_state  = state_ff_full_err_end;
+                }
+                elsif (rx_mii_r.err||MAC_rx_add_chk_err||Too_long||broadcast_drop)                     
+                {
+                    next_state  = state_drop;        
+                }
+            }
+            case state_check_crc:
+            {
+                if (CRC_err)
+                {
+                    next_state  = state_crc_err_end;
+                }
+                else
+                {
+                    next_state  = state_ok_end; 
+                }
+            }
+            case state_drop:
+            {                                 
+                if (!rx_mii_r.crs)                        
+                {
+                    next_state  =state_err_end;      
+                }
+            }
+            case state_ok_end:
+            {                                
+                rx_fifo_commit       =1;
+                next_state  =state_interframe_gap;         
+            }
+            case state_err_end:
+            {                               
+                rx_fifo_commit       =1;
+                rx_fifo_err       =1;
+                next_state  =state_interframe_gap;       
+            }
+            case state_crc_err_end:
+            {                               
+                next_state  =state_interframe_gap;   
+                rx_fifo_commit       =1;
+                rx_fifo_err       =1;
+            }
+            case state_ff_full_drop:
+            {
+                if (!rx_mii_r.crs)                        
+                {
+                    next_state  =state_interframe_gap;     
+                }
+            }
+            case state_ff_full_err_end:
+            {
+                rx_fifo_commit   =1;
+                rx_fifo_err       =1;
+                next_state  = state_ff_full_drop;
+            }
+            case state_interframe_gap:
+            {                                  
+                IFG_counter     <=IFG_counter + 1;
+                if (IFG_counter==RX_IFG_SET-4)   //remove some additional time     
+                {
+                    next_state  =state_idle;        
+                }
+            }
+            default:
+            {                                    
+                next_state  =state_idle;        
+            }
+            }
+
+            Fifo_data   =last_rx_mii_r.data;       
+        }        
+
+pause_fsm:
+    {
+        pause_fsm   <= Pause_next;
+        pause_quanta_val_tmp    <=0;
+        eth_pause.valid <= pause_quanta_val_tmp;
+        
+        Pause_next  =pause_fsm;
+        full_switch (pause_fsm)
+        {
+        case pause_idle  :
+        { 
+            if(current_state==state_sfd)
+            {
+                Pause_next  = pause_pre_syn;
+            }
+        }
+        case  pause_pre_syn:
+        {
+            Pause_next = pause_idle;
+            full_switch (Frame_length_counter)
+            {
+            case 1:  { if (last_rx_mii_r.data==8h01) { Pause_next = pause_fsm; } }
+            case 2:  { if (last_rx_mii_r.data==8h80) { Pause_next = pause_fsm; } }
+            case 3:  { if (last_rx_mii_r.data==8hc2) { Pause_next = pause_fsm; } }
+            case 4:  { if (last_rx_mii_r.data==8h00) { Pause_next = pause_fsm; } }
+            case 5:  { if (last_rx_mii_r.data==8h00) { Pause_next = pause_fsm; } }
+            case 6:  { if (last_rx_mii_r.data==8h01) { Pause_next = pause_fsm; } }
+            case 13: { if (last_rx_mii_r.data==8h88) { Pause_next = pause_fsm; } }
+            case 14: { if (last_rx_mii_r.data==8h08) { Pause_next = pause_fsm; } }
+            case 15: { if (last_rx_mii_r.data==8h00) { Pause_next = pause_fsm; } }
+            case 16: { if (last_rx_mii_r.data==8h01) { Pause_next = pause_quanta_hi; } }
+            default: { Pause_next = pause_fsm; }
+            }
+        }
+        case pause_quanta_hi:
+        {
+            Pause_next  = pause_quanta_lo;
+            eth_pause.quanta[8;8] <=last_rx_mii_r.data;
+        }
+        case pause_quanta_lo:
+        {
+            Pause_next  =pause_syn; 
+            eth_pause.quanta[8;0] <= last_rx_mii_r.data;
+        }
+        case pause_syn:
+        {
+            pause_quanta_val_tmp  <= (current_state==state_ok_end);
+            eth_pause.valid      <= 1;
+            if (current_state==state_interframe_gap)
+            {
+                Pause_next  =pause_idle;
+            }
+        }
+        }
+
+        
+
+                
+    }                
+                                                
+}

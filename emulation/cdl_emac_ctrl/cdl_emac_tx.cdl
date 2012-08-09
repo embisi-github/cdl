@@ -1,0 +1,481 @@
+/*a Types
+ */
+/*t t_tx_fsm
+ */
+typedef fsm
+{
+    state_pause    "Stay here for 64 cycles then back to defer";
+    state_defer    "Acknowledge XON/XOFF; transition to IFG unless there is a carrier";
+    state_ifg      "Provide inter-frame gap; reside for IFG-4 cycles, unless there is a carrier when it is back to 'defer'";
+    state_idle     "Ready to send a packet: if carrier, then back to defer; if TX packet or pause request, then to preamble";
+    state_preamble "Seven cycles of '0x55' on the wire - on collision, jam, but when done go to 'sfd'";
+    state_sfd      "Single cycle of '0xd5' on the wire - on collision, jam, but otherwise start packet or pause frame";
+    state_data     "Send the whole data frame while generating a CRC; if collision then jam, if out of FIFO data then drop, if done than pad or FCS";
+    state_pad      "Reside until 60 bytes have been sent, while generating CRC on '0' data; if collision them jam, if done then FCS";
+    state_fcs      "Four cycles presenting the CRC; if collision then jam, if done then packet transmitted";
+    state_packet_transmitted "Clear status and commit the TX FIFO, then defer";
+    state_jam      "Jam the wire with '01' for 16 cycles to ensure the other side sees a collision; then backoff or drop if maximum retries reached";
+    state_backoff  "Backoff for a random period, increasing in size depending on retry count; then defer";
+    state_drop     "Drop the packet from the Tx FIFO - keep reading the TX FIFO until valid eop is seen; then packet transmitted";
+    state_send_pause_frame "Similar to data except do not read FIFO, but use hard-coded data plus SMAC; when hard data is done, pad";
+} t_tx_fsm;
+
+/*t t_cdl_emac_tx
+ */
+typedef struct
+{
+    bit    valid;
+    bit    sop;
+    bit    eop;
+    bit[32] data;
+    bit[2]  bytes_valid;
+} t_cdl_emac_tx;
+
+/*t t_crc_op
+ */
+typedef enum[2]
+{
+    crc_op_init,
+    crc_op_idle,
+    crc_op_data,
+    crc_op_read
+} t_crc_op;
+
+/*t t_tx_mii
+ */
+typedef struct
+{
+    bit en;
+    bit[8] data;
+} t_tx_mii;
+
+/*t t_tx_pause
+ */
+typedef struct
+{
+    bit     pause      "Assert to add a 64-cycle delay in transmission; this should be deasserted when it is acknowledged";
+    bit     xoff       "Assert to request that XOFF is sent when next possible; this should be deasserted when it is acknowledged";
+    bit     xon        "Assert to request that XON is sent when next possible; this should be deasserted when it is acknowledged";
+    bit[16] xoff_size  "Amount of pause to advertise in an XOFF frame";
+} t_tx_pause_req;
+
+/*t t_tx_pause_resp
+ */
+typedef struct
+{
+    bit     pause_ack "Asserted to acknowledge a pause request";
+    bit     xon_ack   "Asserted to acknowledge XON in the request - requester must deassert XON";
+    bit     xoff_ack  "Asserted to acknowledge XOFF in the request - requester must deassert XON";
+} t_tx_pause_resp;
+
+/*t t_tx_config
+ */
+typedef struct
+{
+    bit    full_duplex     "Assert to run the MAC as full duplex - collisions are not detected";
+    bit[6] interframe_gap  "Interframe gap minus 4";
+    bit[4] max_retries     "Maximum number of retries for a packet due to collisions";
+} t_tx_config;
+
+/*a Module
+ */
+/*m cdl_emac_tx
+ */
+module cdl_emac_tx( clock clk,
+                    input bit reset_n,
+                    input bit[48] smac_address,
+                    input t_cdl_emac_tx tx_fifo,
+                    output t_tx_mii tx_mii,
+                    input bit tx_mii_carrier_sense "Asserted by the PHY if a carrier is sensed",
+                    input t_tx_pause_req pause_request "Pause request from receive logic",
+                    input t_tx_config tx_config
+    )
+r"""
+Simple ethernet MAC for 10/100/1000Mbps
+
+Automatically pads packets to 64 bytes
+Always adds FCS
+Supports pause frame generation
+Credit-based transmit data fifo interface
+
+Fully synchronous to the transmit clock
+
+No TX FIFO included - 
+
+"""
+{
+
+    /*b Default clock and reset
+     */
+    default clock clk;
+    default reset reset_n;
+    
+    /*b Signals for CRC generator
+     */
+    comb t_crc_op crc_op;
+    comb bit[8] crc_out;
+    clocked bit[32] crc_reg=32hffffffff;
+
+    /*b Signals for random backoff
+     */
+    clocked bit[10] random_lfsr=0;
+    comb bit[10] random_backoff;
+
+    /*b Signals for MAC controller
+     */
+    comb bit carrier_detected   "Asserted if a carrier is detected by the PHY - deasserted if full_duplex";
+    comb bit collision_detected "Asserted if a collision is detected (i.e. carrier_detected AND trying to transmit) - deasserted if full_duplex";
+    clocked t_tx_fsm current_state = state_defer;
+    comb t_tx_fsm    next_state;
+    clocked bit[18]   state_residence_counter=0 "Counts cycles resident in state (or state set - so it counts total bytes sent, for example) - large enough for backoff of 2^18 cycles";
+
+    clocked t_tx_pause_req      pause_request_pending = {*=0} "Pause request pending transmission";
+    clocked t_tx_pause_resp  pause_response = {*=0} "Response to pause";
+
+    clocked t_tx_mii tx_mii={*=0} "MII Tx output";
+
+    comb t_tx_mii next_tx_mii;
+    clocked bit[4] retry_count=0;
+    comb bit       tx_fifo_commit;
+    comb bit       tx_fifo_revert;
+    comb bit       tx_fifo_pop;
+    clocked bit[2] crc_counter=0;
+
+    /*b CRC logic
+     */
+    crc_logic "CRC logic":
+        {
+            full_switch (crc_op)
+            {
+            case crc_op_idle:
+            {
+                crc_reg <= 32hffffffff;
+            }
+            case crc_op_data:
+            {
+                crc_reg[0]   <= crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[1]   <= crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ^ crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[2]   <= crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ^ crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[3]   <= crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ; 
+                crc_reg[4]   <= crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[5]   <= crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ^ crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[6]   <= crc_reg[30] ^ next_tx_mii.data[1] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ; 
+                crc_reg[7]   <= crc_reg[31] ^ next_tx_mii.data[0] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[24] ^ next_tx_mii.data[7] ; 
+                crc_reg[8]   <= crc_reg[0] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[25] ^ next_tx_mii.data[6] ^ crc_reg[24] ^ next_tx_mii.data[7] ; 
+                crc_reg[9]   <= crc_reg[1] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[25] ^ next_tx_mii.data[6] ; 
+                crc_reg[10]  <= crc_reg[2] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[24] ^ next_tx_mii.data[7] ; 
+                crc_reg[11]  <= crc_reg[3] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[25] ^ next_tx_mii.data[6] ^ crc_reg[24] ^ next_tx_mii.data[7] ; 
+                crc_reg[12]  <= crc_reg[4] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[25] ^ next_tx_mii.data[6] ^ crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[13]  <= crc_reg[5] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ; 
+                crc_reg[14]  <= crc_reg[6] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[26] ^ next_tx_mii.data[5] ; 
+                crc_reg[15]  <= crc_reg[7] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[27] ^ next_tx_mii.data[4] ; 
+                crc_reg[16]  <= crc_reg[8] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[24] ^ next_tx_mii.data[7] ; 
+                crc_reg[17]  <= crc_reg[9] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[25] ^ next_tx_mii.data[6] ; 
+                crc_reg[18]  <= crc_reg[10] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ crc_reg[26] ^ next_tx_mii.data[5] ; 
+                crc_reg[19]  <= crc_reg[11] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ crc_reg[27] ^ next_tx_mii.data[4] ; 
+                crc_reg[20]  <= crc_reg[12] ^ crc_reg[28] ^ next_tx_mii.data[3] ; 
+                crc_reg[21]  <= crc_reg[13] ^ crc_reg[29] ^ next_tx_mii.data[2] ; 
+                crc_reg[22]  <= crc_reg[14] ^ crc_reg[24] ^ next_tx_mii.data[7] ; 
+                crc_reg[23]  <= crc_reg[15] ^ crc_reg[25] ^ next_tx_mii.data[6] ^ crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[24]  <= crc_reg[16] ^ crc_reg[26] ^ next_tx_mii.data[5] ^ crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ; 
+                crc_reg[25]  <= crc_reg[17] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[26] ^ next_tx_mii.data[5] ; 
+                crc_reg[26]  <= crc_reg[18] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[27] ^ next_tx_mii.data[4] ^ crc_reg[24] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ next_tx_mii.data[7] ; 
+                crc_reg[27]  <= crc_reg[19] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[28] ^ next_tx_mii.data[3] ^ crc_reg[25] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ next_tx_mii.data[6] ; 
+                crc_reg[28]  <= crc_reg[20] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ crc_reg[29] ^ next_tx_mii.data[2] ^ crc_reg[26] ^ next_tx_mii.data[5] ; 
+                crc_reg[29]  <= crc_reg[21] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ crc_reg[30] ^ next_tx_mii.data[1] ^ crc_reg[27] ^ next_tx_mii.data[4] ; 
+                crc_reg[30]  <= crc_reg[22] ^ crc_reg[31] ^ next_tx_mii.data[0] ^ crc_reg[28] ^ next_tx_mii.data[3] ; 
+                crc_reg[31]  <= crc_reg[23] ^ crc_reg[29] ^ next_tx_mii.data[2] ; 
+
+            }
+            case crc_op_read:
+            {
+                crc_reg <= bundle( crc_reg[24;0], 8hff );
+            }
+            }
+
+            crc_out = ~bundle( crc_reg[24],
+                               crc_reg[25],
+                               crc_reg[26],
+                               crc_reg[27],
+                               crc_reg[28],
+                               crc_reg[29],
+                               crc_reg[30],
+                               crc_reg[31] );
+        }
+    
+
+
+    /*b Random backoff logic
+     */
+    random_backoff_logic "Random backoff LFSR":
+        {
+            random_lfsr     <= bundle( random_lfsr[9;0], ~(random_lfsr[2]^random_lfsr[9]) );
+        
+            random_backoff = random_lfsr;
+            part_switch (retry_count)
+            {
+            case 0: { random_backoff[9;1] = 0; }
+            case 1: { random_backoff[8;2] = 0; }
+            case 2: { random_backoff[7;3] = 0; }
+            case 3: { random_backoff[6;4] = 0; }
+            case 4: { random_backoff[5;5] = 0; }
+            case 5: { random_backoff[4;6] = 0; }
+            case 6: { random_backoff[3;7] = 0; }
+            case 7: { random_backoff[2;8] = 0; }
+            case 8: { random_backoff[1;9] = 0; }
+            }
+
+        }
+
+    /*b Mac transmit logic
+     */
+    tx_mac_ctl "Transmit MAC control code":
+        {
+            /*b Determine collision and carrier detection
+             */
+            carrier_detected   = !tx_config.full_duplex && tx_mii_carrier_sense;
+            collision_detected = carrier_detected && tx_mii.en;
+
+            /*b Default values for decode
+             */
+            pause_request_pending <= pause_request   ; // register the input
+            pause_response <= {*=0};
+
+            crc_counter <= 0;
+
+            crc_op = crc_op_idle;
+            tx_fifo_pop = 0;
+            tx_fifo_commit = 0;
+            tx_fifo_revert = 0;     
+
+            next_tx_mii = {*=0};
+
+            next_state = current_state;
+
+            /*b Decode current state
+             */
+            full_switch (current_state)
+            {
+            case state_pause: // Reside for 64 clock ticks then back to 'state_defer'
+            {
+                state_residence_counter <= state_residence_counter+1;
+                if (state_residence_counter==64) // Always pause for 64 cycles
+                {
+                    pause_response.pause_ack <= 1; // Encourage RX to reduce pause counter
+                    next_state = state_defer;
+                }
+            }
+            case state_defer:
+            {
+                state_residence_counter <= 0;
+                next_state = state_ifg;
+                if (carrier_detected)
+                {
+                    next_state = state_defer;
+                }
+            }
+            case state_ifg:
+            {
+                state_residence_counter <= state_residence_counter+1;
+                if (carrier_detected)
+                {
+                    next_state = state_defer;
+                }
+                elsif (state_residence_counter[6;0] == (tx_config.interframe_gap))
+                {
+                    next_state = state_idle;
+                }
+            }
+            case state_idle:
+            {
+                state_residence_counter <= 0;
+                if (carrier_detected)
+                {
+                    next_state = state_defer;
+                }
+                elsif (pause_request_pending.pause)
+                {
+                    next_state = state_pause;
+                }
+                elsif (pause_request_pending.xoff||pause_request_pending.xon)
+                {
+                    next_state = state_preamble;
+                }
+                elsif (tx_fifo.valid)
+                {
+                    next_state = state_preamble;
+                }
+            }
+            case state_preamble:
+            {
+                state_residence_counter <= state_residence_counter+1;
+                next_tx_mii.en = 1;
+                next_tx_mii.data  = 8h55;
+                if (collision_detected)
+                {
+                    state_residence_counter <= 0;
+                    next_state = state_jam;
+                }
+                elsif (state_residence_counter==6)
+                {
+                    state_residence_counter <= 0;
+                    next_state = state_sfd;
+                }
+            }
+            case state_sfd:
+            {
+                state_residence_counter <= 0;
+                crc_op = crc_op_init;
+                next_tx_mii.en = 1;
+                next_tx_mii.data  = 0xd5;
+                if (collision_detected)
+                {
+                    next_state = state_jam;
+                }
+                elsif (pause_request_pending.xoff||pause_request_pending.xon)
+                {
+                    next_state = state_send_pause_frame;
+                }
+                else
+                {
+                    next_state = state_data;
+                }    
+            }
+            case state_send_pause_frame:
+            {
+                crc_op = crc_op_data;
+                next_tx_mii.en    = 1;
+                state_residence_counter <= state_residence_counter+1;
+                full_switch (state_residence_counter)
+                {
+                case 0 : { next_tx_mii.data = 8h01; }
+                case 1 : { next_tx_mii.data = 8h80; }
+                case 2 : { next_tx_mii.data = 8hc2; }
+                case 3 : { next_tx_mii.data = 8h00; }
+                case 4 : { next_tx_mii.data = 8h00; }
+                case 5 : { next_tx_mii.data = 8h01; }
+                case 6 : { next_tx_mii.data = smac_address[8;40]; }
+                case 7 : { next_tx_mii.data = smac_address[8;32]; }
+                case 8 : { next_tx_mii.data = smac_address[8;24]; }
+                case 9 : { next_tx_mii.data = smac_address[8;16]; }
+                case 10: { next_tx_mii.data = smac_address[8; 8]; }
+                case 11: { next_tx_mii.data = smac_address[8; 0]; }
+                case 12: { next_tx_mii.data = 8h88; }
+                case 13: { next_tx_mii.data = 8h08; }
+                case 14: { next_tx_mii.data = 8h00; }
+                case 15: { next_tx_mii.data = 8h01; }
+                case 16: { next_tx_mii.data = pause_request_pending.xon?8b0:pause_request_pending.xoff_size[8;8]; }
+                case 17:
+                {
+                    pause_response.xoff_ack <= pause_request_pending.xoff; // If we get a collision in the PAD or FCS, then this is incorrect
+                    pause_response.xon_ack  <= pause_request_pending.xon;  // If we get a collision in the PAD or FCS, then this is incorrect
+                    next_tx_mii.data = pause_request_pending.xon?8b0:pause_request_pending.xoff_size[8;0];
+                    next_state = state_pad;
+                }
+                default: { next_tx_mii.data =0; }
+                }
+            }
+            case state_data:
+            {
+                tx_fifo_pop = 1;
+                state_residence_counter <= state_residence_counter+1;
+                crc_op = crc_op_data;
+                next_tx_mii.en = 1;
+                next_tx_mii.data  = tx_fifo.data;
+                if (collision_detected)
+                {
+                    state_residence_counter <= 0;
+                    next_state = state_jam;
+                }
+                elsif (!tx_fifo.valid)
+                {
+                    next_state = state_drop;
+                }
+                elsif (tx_fifo.eop)
+                {
+                    next_state = state_fcs;
+                    if (state_residence_counter<59)
+                    {
+                        next_state = state_pad;
+                    }
+                }
+            }
+            case state_pad:
+            {
+                state_residence_counter <= state_residence_counter+1;
+                crc_op = crc_op_data;
+                next_tx_mii.en    =1;
+                next_tx_mii.data =8h00; 
+                if (collision_detected)
+                {
+                    state_residence_counter <= 0;
+                    next_state = state_jam;
+                }
+                elsif (state_residence_counter>=59)
+                {
+                    next_state = state_fcs;
+                }
+            }
+            case state_fcs:
+            {
+                crc_op = crc_op_read;
+                next_tx_mii.en = 1;
+                next_tx_mii.data  = crc_out;
+                crc_counter <= crc_counter+1;
+                if (collision_detected)
+                {
+                    next_state = state_jam;
+                }
+                elsif (crc_counter==3)
+                {
+                    next_state = state_packet_transmitted;
+                }
+            }
+            case state_packet_transmitted:
+            {
+                tx_fifo_commit = 1;
+                retry_count <= 0;
+                next_state = state_defer;
+            }
+            case state_jam:
+            {
+                state_residence_counter <= state_residence_counter+1;
+                next_tx_mii.en      = 1;
+                next_tx_mii.data = 8h01; //jam sequence
+                if (state_residence_counter==16)
+                {
+                    state_residence_counter <= 0;
+                    next_state = state_drop;
+                    if (retry_count <= tx_config.max_retries)
+                    {
+                        retry_count <= retry_count + 1;
+                        next_state = state_backoff;
+                        tx_fifo_revert = 1;
+                        state_residence_counter <= ~bundle(random_backoff,8b0);
+                    }
+                }
+            }
+            case state_backoff:
+            {
+                state_residence_counter <= state_residence_counter+1;
+                if (state_residence_counter==0)
+                {
+                    next_state = state_defer;
+                }
+            }
+            case state_drop:
+            {
+                if (tx_fifo.eop && tx_fifo.valid)
+                {
+                    next_state = state_packet_transmitted;
+                }
+            }
+            }
+            tx_mii            <= next_tx_mii;
+            current_state  <= next_state;    
+
+ 
+        }
+}
+
+
