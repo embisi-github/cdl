@@ -803,15 +803,20 @@ int c_model_descriptor::module_analyze( t_md_module *module )
      {
           module_analyze_invert_dependency_list( state->instance_iter, state );
      }
-     for (signal=module->clocks; signal; signal=signal->next_in_list) // Run through all clocks that have depenencies has they drive module instances, and those instances have signals clocked by this clock
+
+     /*b Invert clock edge dependencies - module instance input expression dpendencies where the module input is required prior to the clock input of the module
+      */
+     for (signal=module->clocks; signal; signal=signal->next_in_list) // Run through all clock edges
      {
          for (int edge=0; edge<2; edge++)
          {
+             // Iterate through dependencies of the edge, which are input expression dependencies of inputs that are required prior to this clock edge by this module
              t_md_reference *reference;
              t_md_reference_iter iter;
              reference_set_iterate_start( &signal->data.clock.dependencies[edge], &iter );
              while ((reference = reference_set_iterate(&iter))!=NULL)
              {
+                 // If an input expression dependency instance is a not a state bit, then this clock edge should be a dependent of it
                  if (reference->type==md_reference_type_instance)
                  {
                      t_md_reference_type type;

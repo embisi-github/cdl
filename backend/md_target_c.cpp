@@ -447,27 +447,6 @@ static void output_global_types_fns( c_model_descriptor *model, t_md_output_fn o
     output( handle, 1, "}\n");
     output( handle, 0, "}\n\n");
 
-    /*b Output clock desc declaration function
-     */
-    //output( handle, 0, "/*f clock_desc_declaration\n");
-    //output( handle, 0, "*/\n");
-    //output( handle, 0, "static void clock_desc_declaration( c_engine *engine, void*engine_handle, void *base, t_clock_desc *clock_desc, t_module_desc *module_desc )\n" );
-    //output( handle, 0, "{\n");
-    //for (int edge=0; edge<2; edge++)
-    //{
-    //    output( handle, 1, "for (int i=0; clock_desc->%s_inputs && clock_desc->%s_inputs[i]>=0; i++)\n", edge_name[edge], edge_name[edge] );
-    //    output( handle, 1, "{\n");
-    //    output( handle, 2, "int input_number=clock_desc->%s_inputs[i];\n", edge_name[edge] );
-    //    output( handle, 2, "engine->register_input_used_on_clock( engine_handle, module_desc->input_descs[input_number].port_name, clock_desc->name, %d );\n", edge==md_edge_pos );
-    //    output( handle, 1, "}\n");
-    //    output( handle, 1, "for (int i=0; clock_desc->%s_outputs && clock_desc->%s_outputs[i]>=0; i++)\n", edge_name[edge], edge_name[edge] );
-    //    output( handle, 1, "{\n");
-    //    output( handle, 2, "int output_number=clock_desc->%s_outputs[i];\n", edge_name[edge] );
-    //    output( handle, 2, "engine->register_output_generated_on_clock( engine_handle, module_desc->output_descs[output_number].port_name, clock_desc->name, %d );\n", edge==md_edge_pos );
-    //    output( handle, 1, "}\n");
-    //}
-    //output( handle, 0, "}\n\n");
-
     /*b Output instantiation wiring function - if any modules have instances
      */
     for (t_md_module *module=model->module_list; module; module=module->next_in_list)
