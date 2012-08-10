@@ -408,6 +408,8 @@ void c_model_descriptor::module_analyze_dependents( t_md_reference_set **depende
      reference_set_iterate_start( dependents_ptr, &iter );
      while ((reference = reference_set_iterate(&iter))!=NULL)
      {
+         if (reference->type != md_reference_type_instance)
+             continue;
           type = reference->data.instance->reference.type;
           signal = reference->data.instance->reference.data.signal; // Only one of the two will be correct - it depends on the type
           state = reference->data.instance->reference.data.state;
@@ -438,7 +440,7 @@ void c_model_descriptor::module_analyze_dependents( t_md_reference_set **depende
           }
           else
           {
-              fprintf(stderr, "%s:SHOULD WE BE HERE?****************************************************************************\n", __func__ );
+              //fprintf(stderr, "%s:SHOULD WE BE HERE?****************************************************************************\n", __func__ );               // This may happen if an input has a clock edge dependent - but add_dependents and add_to_base_dependencies should both be zero
           }
           if (add_to_base_dependencies)
           {
