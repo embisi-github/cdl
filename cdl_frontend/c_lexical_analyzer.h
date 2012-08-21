@@ -11,6 +11,12 @@
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
   for more details.
 */
+/*a Wrapper
+ */
+#ifdef __INC_C_LEXICAL_ANALYZER
+#else
+#define __INC_C_LEXICAL_ANALYZER
+
 /*a Includes
  */
 #include "lexical_types.h"
@@ -85,6 +91,10 @@ extern void lex_bound_file_posn( t_lex_file_posn *file_posn, t_lex_file_posn *te
 extern int lex_char_relative_to_posn( t_lex_file_posn *file_posn, int end_not_start, struct t_lex_file *lex_file, int file_char_position );
 extern int get_symbol_type( struct t_lex_symbol *lex_symbol );
 
+
+/*a Wrapper
+ */
+#endif
 
 /*a Editor preferences and notes
 mode: c ***

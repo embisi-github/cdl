@@ -3006,7 +3006,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         output( handle, 3, "t_sl_uint64 **net_receiver_ptr=(t_sl_uint64 **)((((char *)(&nets))+j));\n");
         output( handle, 3, "if ((j>=0) && (net_receiver_ptr[0]==NULL))\n");
         output( handle, 3, "{\n");
-        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Undriven internal net '%%s' in module '%%s' (of type %s) at initial reset (did its driver module instantiate okay?)\\n\", input_desc_%s[i].port_name, engine->get_instance_name(engine_handle));\n", module->output_name, module->output_name );
+        output( handle, 4, "fprintf( stderr,\"POSSIBLY FATAL: Undriven internal net '%%s' in module '%%s' (of type %s) at initial reset (did its driver module instantiate okay?)\\n\", net_desc_%s[i].port_name, engine->get_instance_name(engine_handle));\n", module->output_name, module->output_name );
         output( handle, 4, "unconnected_nets++;\n");
         output( handle, 4, "net_receiver_ptr[0]=&dummy_input[0];\n");
         output( handle, 3, "}\n");

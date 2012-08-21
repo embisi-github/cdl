@@ -2264,7 +2264,7 @@ extern void cyclicity_grammar_init( c_cyclicity *cyc )
 }
 extern int cyclicity_parse( c_cyclicity *grammar )
 {
-#ifdef YYDEBUG
+#if YYDEBUG
 	yydebug = 0;
 #endif
 	cyc = grammar;

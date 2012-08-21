@@ -11,6 +11,12 @@
   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
   for more details.
 */
+/*a Wrapper
+ */
+#ifdef __INC_C_CO_SIZED_INT_PAIR
+#else
+#define __INC_C_CO_SIZED_INT_PAIR
+
 /*a Includes
  */
 #include "lexical_types.h"
@@ -33,6 +39,10 @@ public:
 
 
 
+
+/*a Wrapper
+ */
+#endif
 
 /*a Editor preferences and notes
 mode: c ***

@@ -408,7 +408,7 @@ void c_model_descriptor::module_analyze_dependents( t_md_reference_set **depende
      reference_set_iterate_start( dependents_ptr, &iter );
      while ((reference = reference_set_iterate(&iter))!=NULL)
      {
-         if (reference->type != md_reference_type_instance)
+         if (reference->type != md_reference_type_instance) // If the signal has a clock edge that is a dependent, as the signal is used by an input to a submodule clocked on this clock edge
              continue;
           type = reference->data.instance->reference.type;
           signal = reference->data.instance->reference.data.signal; // Only one of the two will be correct - it depends on the type

@@ -785,7 +785,7 @@ class hw(_clockable):
                     return False
         return True
 
-    def display_all_errors( self, max=100 ):
+    def display_all_errors( self, max=10000 ):
         for i in range(max):
             x = self._engine.get_error(i)
             if x==None:

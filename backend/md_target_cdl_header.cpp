@@ -211,9 +211,9 @@ static const char *string_type_name( t_md_type_instance *instance, const char *n
     }
     else
     {
-        if (instance->size>=2)
+        if (instance->type_def.data.width>=2)
         {
-            sprintf(buffer, "bit [%2d] %s", instance->size, name);
+            sprintf(buffer, "bit [%2d] %s", instance->type_def.data.width, name);
         }
         else
         {
