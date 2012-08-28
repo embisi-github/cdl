@@ -790,7 +790,7 @@ class hw(_clockable):
             x = self._engine.get_error(i)
             if x==None:
                 break
-            print "CDL SIM ERROR %2d %s"%(i+1,x)
+            print >>sys.stderr, "CDL SIM ERROR %2d %s"%(i+1,x)
         self._engine.reset_errors()
 
     class _waves(object):
