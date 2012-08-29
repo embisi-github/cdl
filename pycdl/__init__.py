@@ -801,6 +801,7 @@ class hw(_clockable):
         def __init__(self, hw):
             self._cdl_obj = None
             self._hw = hw
+	    self.once = 0
             if hw._hwex and hw._hwex._running:
                 self._connect_waves()
                 
@@ -818,10 +819,14 @@ class hw(_clockable):
             self._cdl_obj.close()
 
         def enable(self):
-            self._cdl_obj.enable()
+            if not self.once:
+                self.once = 1
+                self._cdl_obj.enable()
+            else:
+                self._cdl_obj.restart()
 
         def disable(self):
-            self._cdl_obj.disable()
+            self._cdl_obj.pause()
 
         def file_size(self):
             return self._cdl_obj.file_size()
