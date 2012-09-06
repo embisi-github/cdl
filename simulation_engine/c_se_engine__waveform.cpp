@@ -558,6 +558,7 @@ void c_engine::waveform_vcd_file_enable( t_waveform_vcd_file *wvf )
 void c_engine::waveform_vcd_file_pause( t_waveform_vcd_file *wvf, int pause )
 {
     wvf->paused = pause;
+    if (wvf->file) { fflush(wvf->file); }
 }
 
 /*a Exec file evaluation functions

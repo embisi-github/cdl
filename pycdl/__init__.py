@@ -801,7 +801,7 @@ class hw(_clockable):
         def __init__(self, hw):
             self._cdl_obj = None
             self._hw = hw
-	    self.once = 0
+	    self._waves_enabled = 0
             if hw._hwex and hw._hwex._running:
                 self._connect_waves()
                 
@@ -819,8 +819,8 @@ class hw(_clockable):
             self._cdl_obj.close()
 
         def enable(self):
-            if not self.once:
-                self.once = 1
+            if not self._waves_enabled:
+                self._waves_enabled = 1
                 self._cdl_obj.enable()
             else:
                 self._cdl_obj.restart()
