@@ -103,6 +103,7 @@ void c_engine::submodule_call_reset( void *submodule_handle, int pass )
 {
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
+    if (!emi) return;
     SL_DEBUG( sl_debug_level_info,
               "c_se_engine::submodule_call_reset",
               "calling reset of %s", emi->name); 
@@ -118,6 +119,7 @@ void c_engine::submodule_call_prepreclock( void *submodule_handle )
 {
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
+    if (!emi) return;
     if (emi->prepreclock_fn_list)
     {
         (emi->prepreclock_fn_list->data.prepreclock.prepreclock_fn)( emi->prepreclock_fn_list->handle );
@@ -167,6 +169,7 @@ void c_engine::submodule_call_propagate( void *submodule_handle )
 {
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
+    if (!emi) return;
     if (emi->propagate_fn_list)
     {
         (emi->propagate_fn_list->data.propagate.propagate_fn)( emi->propagate_fn_list->handle );
@@ -180,6 +183,7 @@ void c_engine::submodule_call_comb( void *submodule_handle )
 {
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
+    if (!emi) return;
     if (emi->comb_fn_list)
     {
         (emi->comb_fn_list->data.comb.comb_fn)( emi->comb_fn_list->handle );
