@@ -171,6 +171,7 @@ ifeq (${BUILD_ARCH},osx)
           FRAMEWORK_PATH = /opt/local/Library/Frameworks
         endif
 	BISON_TAIL := .h
+	BISON_VERSION := 2.5
 	ifeq (${BUILD_SUBARCH},tiger)
 	  PYTHON_INCLUDES := /opt/local/include/python2.5
 	else

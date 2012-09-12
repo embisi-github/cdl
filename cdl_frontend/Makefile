@@ -74,10 +74,15 @@ ${CMDLINE_PROG}: $(CMD_OBJS) $(CYCLICITY_OBJS)
 ${PY_LIB}: $(PY_OBJS)
 	${LINKDYNLIB} ${PY_LIB} ${PY_OBJS} ${CYCLICITY_OBJS} ${LD_LIBS}
 
+
 cyclicity_grammar.h: cyclicity_grammar.y
+ifeq (${BISON_VERSION},2.5)
+	bison -v --defines=$@ cyclicity_grammar.y
+else
 	bison -v -d -o ignore.me$(BISON_TAIL) cyclicity_grammar.y
 	mv ignore.me.h cyclicity_grammar.h
 	rm -f ignore.me ignore.me.output
+endif
 
 cyclicity_grammar.o: cyclicity_grammar.cpp cyclicity_grammar.h
 
