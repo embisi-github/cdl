@@ -6128,7 +6128,7 @@ extern void be_getopt_usage( void )
      printf( "\t--include-stmt-coverage\tInclude code coverage for statements statistics generation in C++ model\n");
      printf( "\t--coverage-desc-file <file>\tOutput coverage descriptor file\n");
      printf( "\t--remap-module-name <name=new_name>\tRemap module type 'name' to be another type 'new_name'\n");
-     printf( "\t--remap-instance_type <module_name.instance_type=new_instance_type>\tRemap module instance types matching given type in given module to be another type 'new_name'\n");
+     printf( "\t--remap-instance-type <module_name.instance_type=new_instance_type>\tRemap module instance types matching given type in given module to be another type 'new_name'\n");
      printf( "\t--vmod-mode\t\tOption for verilog which hacks things that VMOD cannot cope with\n");
      printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
      printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
