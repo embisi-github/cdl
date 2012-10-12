@@ -3,8 +3,6 @@ Overall to do
  typedef t_fred t_jim, and instance of t_jim don't have the relevant fields if t_fred is a structure
  Need to support signals generated on both edges of the clocks (or possibly many clocks)
  Need to add verilog support for cover statements
- Need simulation memory read/writes from test harness
- Need to add support for 'include's in sl_exec_file.cpp
  Type structure including the type itself (recursive types) are illegal but not errored anywhere
 
  Reset values (!) are of 32-bit width??? - not that I can see

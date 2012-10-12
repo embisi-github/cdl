@@ -21,6 +21,8 @@
 /*a Includes
  */
 #include "sl_general.h"
+#include "c_se_engine.h"
+
 /*a Defines
  */
 #define se_cmodel_assist_stmt_coverage_register(se,se_handle,data) se->coverage_stmt_register(se_handle,(void *)(&data),sizeof(data))
@@ -29,11 +31,83 @@
 #define se_cmodel_assist_code_coverage_case_already_reached(coverage,c,b) (!((coverage.bitmap[c]>>(b))&1))
 #define se_cmodel_assist_code_coverage_case_now_reached(coverage,c,b) {coverage.bitmap[c]|=(1<<(b));}
 
+/*a Types
+ */
+/*a Global types
+*/
+/*t t_se_cma_clock_desc
+*/
+typedef struct t_se_cma_clock_desc
+{
+    const char *name;
+    int *posedge_inputs;
+    int *negedge_inputs;
+    int *posedge_outputs;
+    int *negedge_outputs;
+} t_se_cma_clock_desc;
+
+/*t t_se_cma_input_desc
+*/
+typedef struct t_se_cma_input_desc
+{
+    const char *port_name;
+    int driver_ofs;
+    int input_state_ofs;
+    char width;
+    char is_comb;
+} t_se_cma_input_desc;
+
+/*t t_se_cma_output_desc
+*/
+typedef struct t_se_cma_output_desc
+{
+    const char *port_name;
+    int value_ofs;
+    char width;
+    char is_comb;
+} t_se_cma_output_desc;
+
+/*t t_se_cma_net_desc
+*/
+typedef struct t_se_cma_net_desc
+{
+    const char *port_name;
+    int net_driver_offset;
+    char width;
+    char vector_driven_in_parts;
+} t_se_cma_net_desc;
+
+/*t t_se_cma_instance_port
+*/
+typedef struct t_se_cma_instance_port
+{
+    const char *port_name;
+    const char *output_port_name;
+    int instance_port_offset;
+    int net_port_offset;
+    char width;
+    char is_input;
+    char comb;
+} t_se_cma_instance_port;
+
+/*t t_se_cma_module_desc
+*/
+typedef struct t_se_cma_module_desc
+{
+    t_se_cma_input_desc  *input_descs;
+    t_se_cma_output_desc *output_descs;
+    t_se_cma_clock_desc  **clock_descs_list;
+} t_se_cma_module_desc;
+
 /*a Function declarations
  */
 extern void se_cmodel_assist_assign_to_bit( t_sl_uint64 *vector, int size, int bit, unsigned int value);
 extern void se_cmodel_assist_assign_to_bit_range( t_sl_uint64 *vector, int size, int bit, int length, t_sl_uint64 value);
 extern char *se_cmodel_assist_vsnprintf( char *buffer, int buffer_size, const char *format, int num_args, ... );
+extern void se_cmodel_assist_module_declaration( c_engine *engine, void*engine_handle, void *base, t_se_cma_module_desc *module_desc );
+extern void se_cmodel_assist_instantiation_wire_ports( c_engine *engine, void*engine_handle, void *base, const char *module_name, const char *module_instance_name, void *instance_handle, t_se_cma_instance_port *port_list );
+extern void se_cmodel_assist_check_unconnected_inputs( c_engine *engine, void*engine_handle, void *base, t_se_cma_input_desc *input_descs, const char *module_type );
+extern void se_cmodel_assist_check_unconnected_nets( c_engine *engine, void*engine_handle, void *base, t_se_cma_net_desc *net_descs, const char *module_type );
 
 /*a Wrapper
  */

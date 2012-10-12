@@ -22,6 +22,7 @@
 
 /*a Defines
  */
+#define BITS_TO_INT64S(size) (((size-1)/32)+1)
 #define BITS_TO_INTS(size) (((size-1)/32)+1)
 #define BITS_TO_BYTES(size) (((size-1)/8)+1)
 

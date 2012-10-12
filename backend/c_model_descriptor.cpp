@@ -5523,6 +5523,19 @@ void c_model_descriptor::module_instance_analyze( t_md_module *module, t_md_modu
     SL_DEBUG( sl_debug_level_info, "Type '%s' name '%s'", module_instance->type, module_instance->name );
     result = 1;
 
+    /*b Assume the posedge of all clocks on the module instance are required by the module instance GJS Oct 2012
+     */
+    if (1) // FIXME THIS NEEDS A CORRECT TIMING FILE THING REALLY
+    {
+        for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list) // Find the module clock that is tied to the instance clock port
+        {
+            reference_add( &module_instance->dependencies, clock_port->local_clock_signal, md_edge_pos  ); // The module depends on this clock and this edge
+            clock_port->local_clock_signal->data.clock.edges_used[md_edge_pos] = 1; // So the local clock within the module is used by the specified edge
+        }
+    }
+
+    /*b Inputs
+    */
     for (input_port=module_instance->inputs; input_port; input_port=input_port->next_in_list)
     {
         if (input_port->expression)
@@ -6120,19 +6133,21 @@ extern void be_getopt_usage( void )
 {
      printf( "\t--model \t\tRequired for C++ - model name that is used for naming the initialization functions\n");
      printf( "\t--cpp <file>\t\tGenerate C++ model output file\n");
-     printf( "\t--verilog <file>\t\tGenerate verilog model output file\n");
      printf( "\t--xml <file>\t\tGenerate XML tree of 'compiled' model into a file\n");
+     printf( "\t--cdlh <file>\t\tGenerate CDL external header timing file\n");
+     printf( "\t--verilog <file>\t\tGenerate verilog model output file\n");
      printf( "\t--multithread\t\tMake a C++ model capable of having its submodules use a worker thread pool\n");
      printf( "\t--include-assertions\tInclude assertions in C++ model\n");
+     printf( "\t--sv-assertions\tUse SV assertions in verilog\n");
      printf( "\t--include-coverage\tInclude code coverage statistics generation in C++ model\n");
      printf( "\t--include-stmt-coverage\tInclude code coverage for statements statistics generation in C++ model\n");
      printf( "\t--coverage-desc-file <file>\tOutput coverage descriptor file\n");
      printf( "\t--remap-module-name <name=new_name>\tRemap module type 'name' to be another type 'new_name'\n");
      printf( "\t--remap-instance-type <module_name.instance_type=new_instance_type>\tRemap module instance types matching given type in given module to be another type 'new_name'\n");
      printf( "\t--vmod-mode\t\tOption for verilog which hacks things that VMOD cannot cope with\n");
+     printf( "\t--v_assert_delay\t\tTextual string inserted to verilog prior to testing for an assertion - this might be '#1', for example\n");
      printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
      printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
-     printf( "\t--v_assert_delay\t\tTextual string inserted to verilog prior to testing for an assertion - this might be '#1', for example\n");
      printf( "\t--v_comb_suffix\t\tTextual suffix for verilog 'reg' signals for combinatorials\n");
      printf( "\t--v_displays\t\tIf included, then add $displays to verilog; else do not\n");
 }

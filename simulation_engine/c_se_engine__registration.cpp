@@ -78,6 +78,10 @@ typedef struct t_sim_reg_ef_message_object
 /*a Function declarations
  */
 static t_sl_error_level ef_method_eval_message_send_int( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
+static t_sl_error_level ef_method_eval_message_send_value( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
+static t_sl_error_level ef_method_eval_message_get_int( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
+static t_sl_error_level ef_method_eval_message_get_value( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
+static t_sl_error_level ef_method_eval_message_get_string( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
 static t_sl_error_level ef_method_eval_message_response( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
 static t_sl_error_level ef_method_eval_message_text( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method );
 
@@ -95,7 +99,11 @@ static t_sl_exec_file_cmd sim_file_cmds[] =
  */
 static t_sl_exec_file_method sl_message_object_methods[] =
 {
-    {"send_int", 'i',  2, "siiiiiiii",  "send_int(<module instance>,<message number>,<args>*) - send message to instance given by name, keep results in the message object", ef_method_eval_message_send_int },
+    {"send_int",   'i',  2, "siiiiiiii",  "send_int(<module instance>,<message number>,<args>*) - send message with data of ints to instance given by name, keep results in the message object", ef_method_eval_message_send_int },
+    {"send_value", 'i',  2, "siiiiiiii",  "send_values(<module instance>,<message number>,<args>*) - send message with data of int64s to instance given by name, keep results in the message object", ef_method_eval_message_send_value },
+    {"get_int",    'i',  1, "i",  "get_int(offset)    - gets n'th int in the message", ef_method_eval_message_get_int },
+    {"get_value",  'i',  1, "i",  "get_value(offset)  - gets n'th value in the message", ef_method_eval_message_get_value },
+    {"get_string", 's',  1, "i",  "get_string(offset) - gets n'th string in the message", ef_method_eval_message_get_string },
     {"response", 'i',  1, "i",   "response(dummy)   - get response value from last message", ef_method_eval_message_response },
     {"text",     's',  1, "i",   "text(dummy)       - get message text", ef_method_eval_message_text },
     SL_EXEC_FILE_METHOD_NONE
@@ -340,7 +348,7 @@ void c_engine::register_output_generated_on_clock( void *engine_handle, const ch
                             error_arg_type_malloc_string, clock_name,
                             error_arg_type_none );
      }
-     if (efn_sig->data.output.generated_by_clock)
+     if (0 && efn_sig->data.output.generated_by_clock) // GJS Oct 2012 - we do not care about this unless we have toplevel combs, which we should disallow
      {
           error->add_error( (void *)emi->name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_register_output_generated_on_clock,
                             error_arg_type_malloc_string, name,
@@ -404,6 +412,7 @@ void c_engine::register_message_function( void *engine_handle, void *handle, t_e
   desc_type is 1 for static (no need to copy), no indirect ptrs
   desc_type is 2 for mallocked (must copy), all ptrs indirect
   desc_type is 3 for static (no need to copy), all ptrs indirect
+  desc_type +4 if it is state that is off 'registers'; i.e. recovering this in checkpoints and then propagating should bring other state up to date
  */
 void c_engine::register_state_desc( void *engine_handle, int desc_type, t_engine_state_desc *state_desc, void *data, const char *prefix )
 {
@@ -442,6 +451,7 @@ void c_engine::register_state_desc( void *engine_handle, int desc_type, t_engine
      sdl->num_state = i;
      sdl->prefix = sl_str_alloc_copy( prefix );
      sdl->data_indirected = ((desc_type&2)!=0);
+     sdl->data_clocked = ((desc_type&4)!=0);
      WHERE_I_AM;
 }
 
@@ -451,57 +461,57 @@ void c_engine::register_state_desc( void *engine_handle, int desc_type, t_engine
  */
 static void se_engine_register_sl_exec_file_register_state( void *handle, const char *instance, const char *state_name, int type, int *data_ptr, int width, ... )
 {
-     t_register_sl_exec_file_data *rsefd;
-     t_engine_state_desc_chain *sdc;
+    t_register_sl_exec_file_data *rsefd;
+    t_engine_state_desc_chain *sdc;
 
-     WHERE_I_AM;
-     va_list ap;
-     va_start( ap, width );
+    WHERE_I_AM;
+    va_list ap;
+    va_start( ap, width );
 
-     WHERE_I_AM;
-     rsefd = (t_register_sl_exec_file_data *)handle;
-     if (!rsefd->name)
-     {
-          rsefd->name = instance;
-     }
+    WHERE_I_AM;
+    rsefd = (t_register_sl_exec_file_data *)handle;
+    if (!rsefd->name)
+    {
+        rsefd->name = instance;
+    }
 
-     sdc = (t_engine_state_desc_chain *)malloc( sizeof(t_engine_state_desc_chain) );
-     if (rsefd->last_state_desc_chain)
-     {
-          rsefd->last_state_desc_chain->next_in_list=sdc;
-     }
-     else
-     {
-          rsefd->state_desc_chain=sdc;
-     }
-     WHERE_I_AM;
-     sdc->next_in_list = NULL;
-     rsefd->last_state_desc_chain=sdc;
-     rsefd->number_state_desc++;
-     sdc->data.name = (char *)state_name;
-     WHERE_I_AM;
-     switch (type)
-     {
-     case 0:
-          sdc->data.type = engine_state_desc_type_bits;
-          sdc->data.offset = 0;
-          sdc->data.args[0] = width;
-          sdc->data.ptr = data_ptr;
-          break;
-     case 1:
-          sdc->data.type = engine_state_desc_type_memory;
-          sdc->data.offset = 0;
-          sdc->data.args[0] = width;
-          sdc->data.args[1] = va_arg(ap,int);
-          sdc->data.ptr = data_ptr;
-          break;
-     default:
-          break;
-     }
-     WHERE_I_AM;
-     //fprintf(stderr, "Registered state %s:%s\n", rsefd->name, sdc->data.name );
-     va_end(ap);
-     WHERE_I_AM;
+    sdc = (t_engine_state_desc_chain *)malloc( sizeof(t_engine_state_desc_chain) );
+    if (rsefd->last_state_desc_chain)
+    {
+        rsefd->last_state_desc_chain->next_in_list=sdc;
+    }
+    else
+    {
+        rsefd->state_desc_chain=sdc;
+    }
+    WHERE_I_AM;
+    sdc->next_in_list = NULL;
+    rsefd->last_state_desc_chain=sdc;
+    rsefd->number_state_desc++;
+    sdc->data.name = (char *)state_name;
+    WHERE_I_AM;
+    switch (type)
+    {
+    case 0:
+        sdc->data.type = engine_state_desc_type_bits;
+        sdc->data.offset = 0;
+        sdc->data.args[0] = width;
+        sdc->data.ptr = data_ptr;
+        break;
+    case 1:
+        sdc->data.type = engine_state_desc_type_array;
+        sdc->data.offset = 0;
+        sdc->data.args[0] = width;
+        sdc->data.args[1] = va_arg(ap,int);
+        sdc->data.ptr = data_ptr;
+        break;
+    default:
+        break;
+    }
+    WHERE_I_AM;
+    //fprintf(stderr, "Registered state %s:%s\n", rsefd->name, sdc->data.name );
+    va_end(ap);
+    WHERE_I_AM;
 }
 
 /*f se_engine_register_sl_exec_file_register_state_complete
@@ -632,9 +642,44 @@ static t_sl_error_level ef_method_eval_message_send_int( t_sl_exec_file_cmd_cb *
 
     instance_name = sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 );
     reason        = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
-    for (i=0; (i<cmd_cb->num_args-2) && (i<sizeof(msg->message.data.ints)/sizeof(int)); i++)
+    for (i=0; ((int)i<cmd_cb->num_args-2) && (i<sizeof(msg->message.data.ints)/sizeof(int)); i++)
     {
         msg->message.data.ints[i] = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, i+2 );
+    }
+
+    handle = msg->ef_lib->engine->find_module_instance( instance_name );
+    if (!handle)
+    {
+        fprintf(stderr,"Could not find module '%s'\n",instance_name);
+        return error_level_fatal;
+    }
+    msg->message.reason = reason;
+    msg->message.response_type = se_message_response_type_none;
+    result = msg->ef_lib->engine->module_instance_send_message( handle, &(msg->message) );
+
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64) (result) ))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_message_send_value
+ */
+static t_sl_error_level ef_method_eval_message_send_value( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_reg_ef_message_object *msg;
+    void *handle;
+    const char *instance_name;
+    int reason;
+    int result;
+    unsigned int i;
+
+    msg = (t_sim_reg_ef_message_object *)object_desc->handle;
+
+    instance_name = sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 );
+    reason        = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 1 );
+    for (i=0; ((int)i<cmd_cb->num_args-2) && (i<sizeof(msg->message.data.values)/sizeof(t_se_signal_value)); i++)
+    {
+        msg->message.data.values[i] = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, i+2 );
     }
 
     handle = msg->ef_lib->engine->find_module_instance( instance_name );
@@ -682,6 +727,57 @@ static t_sl_error_level ef_method_eval_message_text( t_sl_exec_file_cmd_cb *cmd_
     else
         result = "<Bad or no response>";
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, result, 1))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_message_get_int
+ */
+static t_sl_error_level ef_method_eval_message_get_int( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_reg_ef_message_object *msg;
+    int offset;
+
+    msg = (t_sim_reg_ef_message_object *)object_desc->handle;
+
+    offset = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
+    if (offset<0) offset=0;
+    if (offset>7) offset=7;
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64) (msg->message.data.ints[offset]) ))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_message_get_value
+ */
+static t_sl_error_level ef_method_eval_message_get_value( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_reg_ef_message_object *msg;
+    int offset;
+
+    msg = (t_sim_reg_ef_message_object *)object_desc->handle;
+
+    offset = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
+    if (offset<0) offset=0;
+    if (offset>3) offset=3;
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64) (msg->message.data.values[offset]) ))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_message_get_string
+ */
+static t_sl_error_level ef_method_eval_message_get_string( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_reg_ef_message_object *msg;
+    int offset;
+
+    msg = (t_sim_reg_ef_message_object *)object_desc->handle;
+
+    offset = sl_exec_file_eval_fn_get_argument_integer( cmd_cb->file_data, cmd_cb->args, 0 );
+    if (offset<0) offset=0;
+    if (offset>3) offset=3;
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (const char *)(msg->message.data.ptrs[offset]), 1 ))
         return error_level_fatal;
     return error_level_okay;
 }

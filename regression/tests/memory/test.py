@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 import sys, os, unittest
+
+cwd = os.getcwd()
+print >>sys.stderr,"Using CDL from", os.environ["CYCLICITY_ROOT"]
+sys.path.insert( 0, os.environ["CYCLICITY_ROOT"] )
+sys.path.insert( 0, cwd+"/../../build/osx" )
+
 import pycdl
 
 class single_port_memory_th(pycdl.th):
@@ -64,6 +70,10 @@ class dual_port_memory_th(pycdl.th):
         self.write_data_1 = outputs["write_data_1"]
         self.test_vector_mif = test_vector_mif
 
+    def read_sram_location( self, address ):
+        self._thfile.sim_msg.send_value("sram",8,0,address)
+        return self._thfile.sim_msg.get_value(0)
+
     def run(self):
         last_rnw_0 = 0
         last_rnw_1 = 0
@@ -71,7 +81,14 @@ class dual_port_memory_th(pycdl.th):
         self.test_vectors = pycdl.load_mif(self.test_vector_mif)
         self.read_not_write_0.reset(1)
         self.byte_enables_0.reset(0)
+        self.read_not_write_1.reset(1)
+        self.byte_enables_1.reset(0)
         self.bfm_wait(1)
+        self._thfile.cdlsim_reg.sim_message("sim_msg")
+        #self._thfile.cdlsim_chkpnt.checkpoint_init("blob")
+        #self._thfile.cdlsim_chkpnt.checkpoint_add("fred","joe")
+        #print dir(self)
+        #print dir(self._thfile)
         tv_addr = 0
         while True:
             rnw_0 = self.test_vectors[tv_addr]
@@ -99,10 +116,10 @@ class dual_port_memory_th(pycdl.th):
                 self.write_data_1.drive(data_1)
             self.bfm_wait(1)
             if last_rnw_0 != 0 and last_data_0 != self.sram_rd_0.value():
-                print "Got %x expected %x on read port 0 vector %d" % (self.sram_rd_0.value(), last_data_0, tv_addr/8)
+                print >>sys.stderr, self.global_cycle(),"Got %x expected %x on read port 0 vector %d" % (self.sram_rd_0.value(), last_data_0, tv_addr/8)
                 failure = 1
             if last_rnw_1 != 0 and last_data_1 != self.sram_rd_1.value():
-                print "Got %x expected %x on read port 1 vector %d" % (self.sram_rd_1.value(), last_data_1, tv_addr/8)
+                print >>sys.stderr, self.global_cycle(),"Got %x expected %x on read port 1 vector %d" % (self.sram_rd_1.value(), last_data_1, tv_addr/8)
                 failure = 1
             last_rnw_0 = rnw_0
             last_data_0 = data_0
@@ -117,6 +134,8 @@ class dual_port_memory_th(pycdl.th):
             self.failtest(self.global_cycle(), "**************************************************************************** Test failed")
         else:
             self.passtest(self.global_cycle(), "Test succeeded")
+        for i in range(64):
+            print "%3d %016x"%(i,self.read_sram_location(i))
 
 
 class single_port_memory_srw_hw(pycdl.hw):
@@ -251,7 +270,8 @@ class dual_port_memory_hw(pycdl.hw):
                                            "width": 16,
                                            "bits_per_enable": bits_per_enable,
                                            "verbose": 0 },
-                                 clocks={ "sram_clock_0": self.system_clock },
+                                 clocks={ "sram_clock_0": self.system_clock,
+                                          "sram_clock_1": self.system_clock },
                                  inputs=sram_inputs,
                                  outputs={ "data_out_0": self.sram_rd_0,
                                            "data_out_1": self.sram_rd_1 })
@@ -276,9 +296,10 @@ class TestMemory(unittest.TestCase):
         hw = memory_type(bits_per_enable, mif_filename, tv_filename)
         hw.reset()
         hw.step(1000)
+        hw.step(1000)
         self.assertTrue(hw.passed())
 
-    def test_simple(self):
+    def xtest_simple(self):
         hw = simple_memory_hw()
         hw.reset()
         hw.step(50)
@@ -299,27 +320,27 @@ class TestMemory(unittest.TestCase):
         self.do_memory_test(single_port_memory_srw_hw, 8, "single_port_memory_in.mif", "single_port_memory_2_be.tv")
 
     # This is the first  single multi-port test: 1024x16, rnw, no additional enables
-    def test_1024x16_rnw_byte_write_enable(self):
+    def test_1024x16_srnw_byte_write_enable(self):
         self.do_memory_test(single_port_memory_hw, 0, "single_port_memory_in.mif", "single_port_memory.tv")
 
     # This is the second single multi-port test: 1024x16, rnw, with write enable
-    def test_1024x16_rnw_write_enable(self):
+    def test_1024x16_srnw_write_enable(self):
         self.do_memory_test(single_port_memory_hw, 16, "single_port_memory_in.mif", "single_port_memory_1_be.tv")
 
     # This is the third single multi-port test: 1024x16, rnw, with individaul byte write enables
-    def test_1024x16_rnw_byte_write_enable(self):
+    def test_1024x16_srnw_byte_write_enable(self):
         self.do_memory_test(single_port_memory_hw, 8, "single_port_memory_in.mif", "single_port_memory_2_be.tv")
 
     # This is the first  dual-port test: 1024x16, rnw, no additional enables
-    def test_1024x16_rnw_byte_write_enable(self):
+    def test_1024x16_drnw_byte_write_enable(self):
         self.do_memory_test(dual_port_memory_hw, 0, "dual_port_memory_in.mif", "dual_port_memory.tv")
 
     # This is the second dual-port test: 1024x16, rnw, with write enable
-    def test_1024x16_rnw_write_enable(self):
+    def test_1024x16_drnw_write_enable(self):
         self.do_memory_test(dual_port_memory_hw, 16, "dual_port_memory_in.mif", "dual_port_memory_1_be.tv")
 
     # This is the third dual-port test: 1024x16, rnw, with individaul byte write enables
-    def test_1024x16_rnw_byte_write_enable(self):
+    def test_1024x16_drnw_byte_write_enable2(self):
         self.do_memory_test(dual_port_memory_hw, 8, "dual_port_memory_in.mif", "dual_port_memory_2_be.tv")
 
 

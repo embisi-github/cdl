@@ -53,7 +53,9 @@ typedef enum
     se_message_reason_interrogate_state = 5,    // ptrs[0] = const char *name (interpreted by module)
     se_message_reason_read = 8,                 // interpreted by module
     se_message_reason_write = 9,                // interpreted by module
-    se_message_reason_action_one = 16,           // interpreted by module
+    se_message_reason_checkpoint  = 10,         // to be specified by checkpoint/recover
+    se_message_reason_checkpoint2 = 11,         // to be specified by checkpoint/recover
+    se_message_reason_action_one = 16,          // interpreted by module
 } t_se_message_reason;
 
 /*t t_se_message_response_type
@@ -159,7 +161,7 @@ typedef enum
 {
      engine_state_desc_type_none, // used as a terminator in lists
      engine_state_desc_type_bits, // args[0] is size, ptr is int *data
-     engine_state_desc_type_memory, // args[0] is size of each entry in bits, args[1] is size of array, ptr is int *data (for old int **, use indirected type for all the memory)
+     engine_state_desc_type_array, // args[0] is size of each entry in bits, args[1] is size of array, ptr is int *data (for old int **, use indirected type for all the memory)
      engine_state_desc_type_fsm, // args[0] is the number of bits in the descriptor, arg[1] is the number of states, arg[2] is the encoding (0=>plain, 1=>one-hot, 2=>one-cold), arg_ptr[0] points to a list of char * state names
      engine_state_desc_type_exec_file, // ptr/offset points to an exec_file_data structure, arg_ptr[0] points to a filename
 } t_engine_state_desc_type;
@@ -170,7 +172,7 @@ typedef enum
 {
      engine_state_desc_type_mask_none = 1<<engine_state_desc_type_none,
      engine_state_desc_type_mask_bits = 1<<engine_state_desc_type_bits,
-     engine_state_desc_type_mask_memory = 1<<engine_state_desc_type_memory,
+     engine_state_desc_type_mask_array = 1<<engine_state_desc_type_array,
      engine_state_desc_type_mask_fsm = 1<<engine_state_desc_type_fsm,
      engine_state_desc_type_mask_exec_file = 1<<engine_state_desc_type_exec_file,
 } t_engine_state_desc_type_mask;
@@ -323,6 +325,8 @@ public:
 
      /*b Checkpoint/restore methods
       */
+     int checkpoint_add_exec_file_enhancements( struct t_sl_exec_file_data *file_data, void *engine_handle );
+     int checkpoint_handle_exec_file_command( struct t_checkpoint_ef_lib *lib, struct t_sl_exec_file_data *exec_file_data, int cmd, int num_args, struct t_sl_exec_file_value *args );
      t_sl_error_level initialize_checkpointing( void );
      struct t_engine_checkpoint_entry *checkpoint_create_descriptor_entry( struct t_engine_module_instance *emi, int num_mem_blocks, int num_state_entries );
      t_sl_error_level checkpoint_initialize_instance_declared_state( struct t_engine_module_instance *emi );
@@ -349,6 +353,7 @@ public:
      t_engine_state_desc_type interrogate_get_internal_fn( t_se_interrogation_handle entity, void **fn );
      int get_state_value_data_and_sizes( void *engine_handle, int **data, int *sizes );
      const char *get_instance_name( void *engine_handle );
+     const char *get_instance_full_name( void *engine_handle );
      const char *get_instance_name( void );
      c_engine *get_next_instance( void );
      void *find_module_instance( void *parent, const char *name ); // Find module instance from parent (NULL for global) and name

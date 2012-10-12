@@ -325,6 +325,7 @@ void c_engine::bfm_add_exec_file_enhancements( struct t_sl_exec_file_data *file_
     coverage_add_exec_file_enhancements( file_data );
     log_add_exec_file_enhancements( file_data, engine_handle );
     register_add_exec_file_enhancements( file_data, engine_handle );
+    checkpoint_add_exec_file_enhancements( file_data, engine_handle );
 }
 
 /*f c_engine::bfm_add_exec_file_enhancements

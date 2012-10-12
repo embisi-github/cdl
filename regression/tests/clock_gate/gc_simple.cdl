@@ -4,11 +4,29 @@ typedef struct
     // bit valid;
 } t_blob;
 
+module gc_simple__sub( clock clk,
+                       input bit reset_in,
+                       input bit clock_enable,
+                       input bit data_in,
+                       output bit data_out )
+{
+    default reset active_high reset_in;
+    default clock clk;
+    gated_clock active_high clock_enable clk_enabled "Gate the clock";
+    clocked clock clk_enabled bit data_out = 0;
+    data_reg "":
+        {
+            data_out <= data_in;
+        }
+    
+}
+
 module gc_simple( clock clk,
                   input bit reset_in,
                   input bit data_in,
                   output bit[8] clock_divider,
-                  output bit data_out )
+                  output bit data_out,
+    output bit data_sub_out)
 """
 This is the module documentation
 
@@ -37,6 +55,8 @@ default clock clk;// "Default clock signal - handy!";
     clocked clock clk_div8  bit data_in_8=0;
     clocked clock clk_div16 bit data_in_16=0;
 
+    net bit data_sub_out;
+
     clocked clock clk bit data_out=1;
 
     assert clocked bit asrt_data=0;
@@ -61,6 +81,7 @@ default clock clk;// "Default clock signal - handy!";
             data_in_8  <= data_in """On every third cycle of eight
                                    This is tricky""";
             data_in_16 <= data_in "On every fourth cycle of sixteen";
+            gc_simple__sub gc_sub( clk<-clk, reset_in<=reset_in, clock_enable<=div16, data_in<=data_in, data_out=>data_sub_out );
 
             if (div2) "Only do this if div2 is asserted"
             {
