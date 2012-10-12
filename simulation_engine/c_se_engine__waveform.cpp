@@ -274,7 +274,7 @@ int c_engine::waveform_vcd_file_count_and_fill_signals( t_waveform_vcd_file_enti
           {
                if (interrogate_enumerate_hierarchy( wvfel->ih,
                                                     i,
-                                                    (t_engine_state_desc_type_mask) (engine_state_desc_type_mask_bits | engine_state_desc_type_mask_memory),
+                                                    (t_engine_state_desc_type_mask) (engine_state_desc_type_mask_bits | engine_state_desc_type_mask_array),
                                                     (t_engine_interrogate_include_mask)(engine_interrogate_include_mask_state | engine_interrogate_include_mask_inputs | engine_interrogate_include_mask_outputs),
                                                     &local_ih ))
                {
@@ -282,7 +282,7 @@ int c_engine::waveform_vcd_file_count_and_fill_signals( t_waveform_vcd_file_enti
                    int breakout_to;
                    type = interrogate_get_data_sizes_and_type( local_ih, datas, sizes );
                    breakout_to = 0;
-                   if (type==engine_state_desc_type_memory)
+                   if (type==engine_state_desc_type_array)
                    {
                        breakout_to = sizes[1];
                        if (breakout_to<0) breakout_to=0;

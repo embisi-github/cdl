@@ -196,7 +196,7 @@ int c_engine::get_state_value_string( void *engine_handle, char *buffer, int buf
           sl_print_bits_hex( buffer, buffer_size, (int *)ptr, desc->args[0] );
           n = strlen(buffer);
           break;
-     case engine_state_desc_type_memory:
+     case engine_state_desc_type_array:
           n = snprintf( buffer, buffer_size, "%d %d", desc->args[0], desc->args[1] );
           break;
      case engine_state_desc_type_fsm:
@@ -258,8 +258,8 @@ int c_engine::get_state_value_data_and_sizes( void *engine_handle, int **data, i
           sizes[0] = desc->args[0];
           sizes[1] = 0;
           break;
-     case engine_state_desc_type_memory:
-         //printf("Warning - desc_type_memory used to expect int **, now expects int *\n");
+     case engine_state_desc_type_array:
+         //printf("Warning - desc_type_array used to expect int **, now expects int *\n");
           data[0] = (int *)ptr;
           sizes[0] = desc->args[0];
           sizes[1] = desc->args[1];
@@ -288,6 +288,17 @@ const char *c_engine::get_instance_name( void *engine_handle )
      if (!emi)
           return "<none>";
      return emi->name;
+}
+
+/*f c_engine::get_instance_full_name
+ */
+const char *c_engine::get_instance_full_name( void *engine_handle )
+{
+     t_engine_module_instance *emi;
+     emi = (t_engine_module_instance *)engine_handle;
+     if (!emi)
+          return "<none>";
+     return emi->full_name;
 }
 
 /*f c_engine::get_instance_name
@@ -961,7 +972,7 @@ t_engine_state_desc_type c_engine::interrogate_get_data_sizes_and_type( t_se_int
                sizes[0] = desc->args[0];
                sizes[1] = 0;
                break;
-          case engine_state_desc_type_memory:
+          case engine_state_desc_type_array:
                data[0] = (t_se_signal_value *)ptr;
                sizes[0] = desc->args[0];
                sizes[1] = desc->args[1];
@@ -1211,7 +1222,7 @@ int c_engine::interrogate_get_entity_value_string( t_se_interrogation_handle ent
          }
           n = strlen(buffer);
           break;
-     case engine_state_desc_type_memory:
+     case engine_state_desc_type_array:
           n = snprintf( buffer, buffer_size, "%d %d", sizes[0], sizes[1] );
           break;
      case engine_state_desc_type_fsm:

@@ -20,6 +20,12 @@ waves.add_hierarchy gc th
 waves.enable
 reset
 step 300
+checkpoint_init blob
+checkpoint_display
+checkpoint_add ckpt300
+printf "Checkpoint size %d0%" 3
+printf "Checkpoint size %d0%" checkpoint_size("ckpt300")
+step 1
 waves.close
 
 end

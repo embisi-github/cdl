@@ -19,6 +19,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include "sl_debug.h"
+#include "sl_exec_file.h"
 #include "c_se_engine.h"
 #include "c_se_engine__internal_types.h"
 
@@ -100,6 +101,58 @@ typedef struct t_growing_array
     int used;
     int size_of_entry;
 } t_growing_array;
+
+/*t t_checkpoint_ef_lib
+ */
+typedef struct t_checkpoint_ef_lib
+{
+    struct t_sl_exec_file_data *file_data;
+    c_engine *engine;
+    void *engine_handle;
+    struct t_checkpoint_ef_object *checkpoints;
+} t_checkpoint_ef_lib;
+
+/*t t_checkpoint_ef_object
+ */
+typedef struct t_checkpoint_ef_object
+{
+    struct t_checkpoint_ef_object *next_in_list;
+    t_checkpoint_ef_lib *ef_lib;
+} t_checkpoint_ef_object;
+
+/*a Static function declarations
+ */
+static t_sl_exec_file_eval_fn ef_fn_eval_checkpoint_size;
+
+/*a Statics
+ */
+/*v checkpoint_file_cmds
+ */
+enum
+{
+    checkpoint_cmd_init,
+    checkpoint_cmd_display,
+    checkpoint_cmd_add
+};
+
+/*v checkpoint_file_fns
+ */
+enum
+{
+    fn_checkpoint_size,
+};
+static t_sl_exec_file_fn checkpoint_file_fns[] =
+{
+    {fn_checkpoint_size,                       "checkpoint_size",            'i', "s", "checkpoint_size(checkpoint)", ef_fn_eval_checkpoint_size },
+    {sl_exec_file_fn_none, NULL,     0,   NULL, NULL },
+};
+static t_sl_exec_file_cmd checkpoint_file_cmds[] =
+{
+     {checkpoint_cmd_init,           1, "checkpoint_init",   "s",  "init <object name>"},
+     {checkpoint_cmd_display,        0, "checkpoint_display","",   "display - show details of initialized checkpoint"},
+     {checkpoint_cmd_add,            1, "checkpoint_add",    "ss", "add <checkpoint> [<previous>]"},
+     SL_EXEC_FILE_CMD_NONE
+};
 
 /*a Growing array functions
  */
@@ -194,6 +247,10 @@ t_sl_error_level c_engine::checkpoint_initialize_instance_declared_state( t_engi
         int i;
         void *ptr;
 
+        /*b If not for checkpointing (i.e. not clocked, then continue)
+         */
+        if (!sdl->data_clocked) continue;
+
         /*b Handle each state entry
          */
         ptr = sdl->data_base_ptr;
@@ -223,10 +280,10 @@ t_sl_error_level c_engine::checkpoint_initialize_instance_declared_state( t_engi
                 break;
             case engine_state_desc_type_bits:
             case engine_state_desc_type_fsm:
-                size = sizeof(int)*BITS_TO_INTS(desc->args[0]);
+                size = sizeof(t_se_signal_value)*BITS_TO_INT64S(desc->args[0]);
                 break;
-            case engine_state_desc_type_memory:
-                size = sizeof(int)*desc->args[1]*BITS_TO_INTS(desc->args[0]);
+            case engine_state_desc_type_array:
+                size = sizeof(t_se_signal_value)*desc->args[1]*BITS_TO_INT64S(desc->args[0]);
                 break;
             default:
                 printf("Cannot checkpoint type %d\n", desc->type);
@@ -287,7 +344,7 @@ t_sl_error_level c_engine::checkpoint_initialize_instance_declared_state( t_engi
         }
     }
 
-    /*b Sort mem_blocks, amlgamate adjacent blocks, and create actual final list
+    /*b Sort mem_blocks, amalgamate adjacent blocks, and create actual final list
      */
     if (mem_block_array.used==0)
     {
@@ -812,6 +869,85 @@ t_sl_error_level c_engine::checkpoint_restore( const char *name )
     /*b Return okay
      */
     return error_level_okay;
+}
+
+/*a Exec file functions
+ */
+/*f static exec_file_cmd_handler
+ */
+static t_sl_error_level exec_file_cmd_handler( struct t_sl_exec_file_cmd_cb *cmd_cb, void *handle )
+{
+    t_checkpoint_ef_lib *checkpoint_ef_lib;
+    checkpoint_ef_lib = (t_checkpoint_ef_lib *)handle;
+    if (!checkpoint_ef_lib->engine->checkpoint_handle_exec_file_command( checkpoint_ef_lib, cmd_cb->file_data, cmd_cb->cmd, cmd_cb->num_args, cmd_cb->args ))
+        return error_level_serious;
+    return error_level_okay;
+}
+
+/*f c_engine::checkpoint_add_exec_file_enhancements
+ */
+int c_engine::checkpoint_add_exec_file_enhancements( struct t_sl_exec_file_data *file_data, void *engine_handle )
+{
+    t_sl_exec_file_lib_desc lib_desc;
+    t_checkpoint_ef_lib *checkpoint_ef_lib;
+    checkpoint_ef_lib = (t_checkpoint_ef_lib *)malloc(sizeof(t_checkpoint_ef_lib));
+    checkpoint_ef_lib->file_data = file_data;
+    checkpoint_ef_lib->engine = this;
+    checkpoint_ef_lib->engine_handle = engine_handle;
+    checkpoint_ef_lib->checkpoints = NULL;
+    lib_desc.version = sl_ef_lib_version_cmdcb;
+    lib_desc.library_name = "cdlsim_chkpnt";
+    lib_desc.handle = (void *) checkpoint_ef_lib;
+    lib_desc.cmd_handler = exec_file_cmd_handler;
+    lib_desc.file_cmds = checkpoint_file_cmds;
+    lib_desc.file_fns = checkpoint_file_fns;
+    return sl_exec_file_add_library( file_data, &lib_desc );
+}
+
+/*f c_engine::checkpoint_handle_exec_file_command
+ */
+int c_engine::checkpoint_handle_exec_file_command( t_checkpoint_ef_lib *checkpoint_ef_lib, struct t_sl_exec_file_data *exec_file_data, int cmd, int num_args, struct t_sl_exec_file_value *args )
+{
+    switch (cmd)
+    {
+    case checkpoint_cmd_init:
+    {
+        checkpoint_ef_lib->engine->initialize_checkpointing();
+        return 1;
+    }
+    case checkpoint_cmd_display:
+    {
+        checkpoint_ef_lib->engine->checkpointing_display_information(0);
+        return 1;
+    }
+    case checkpoint_cmd_add:
+    {
+        const char *name, *previous;
+        int err;
+        name     = sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 0 );
+        previous = NULL;
+        if (num_args>1)
+            previous = sl_exec_file_eval_fn_get_argument_string( exec_file_data, args, 1 );
+        err = checkpoint_ef_lib->engine->checkpoint_add( name, previous );
+        sl_exec_file_eval_fn_set_result( exec_file_data, (t_sl_uint64) err );
+        return 1;
+    }
+    }
+    return 0;
+}
+
+/*a Exec file evaluation functions
+ */
+/*f ef_fn_eval_checkpoint_size
+ */
+static int ef_fn_eval_checkpoint_size( void *handle, t_sl_exec_file_data *file_data, t_sl_exec_file_value *args )
+{
+    t_checkpoint_ef_lib *checkpoint_ef_lib = (t_checkpoint_ef_lib *)(handle);
+
+    const char *name = sl_exec_file_eval_fn_get_argument_string( file_data, args, 0 );
+    int size = checkpoint_ef_lib->engine->checkpoint_size( name, NULL );
+    sl_exec_file_eval_fn_set_result( file_data, (t_sl_uint64) size );
+    return 1;
 }
 
 /*a Editor preferences and notes

@@ -27,6 +27,7 @@ ENGINE_SRCS = \
 		se_cmodel_assist.cpp \
 		se_internal_module.cpp \
 		se_internal_module__ddr.cpp \
+		se_internal_module__sram.cpp \
 		se_internal_module__sram_srw.cpp \
 		se_internal_module__sram_mrw.cpp \
 		se_internal_module__logger.cpp \

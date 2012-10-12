@@ -135,6 +135,7 @@ typedef struct t_engine_state_desc_list
     t_engine_state_desc *state_desc;
     void *data_base_ptr;
     int data_indirected; // 0 if (data+desc.offset) is a ptr to the approrpriate data (e.g. int* for bit vector), 1 if data+desc.offset is a ptr to that ptr (e.g. int** for bit vector)
+    int data_clocked;    // 0 if data is input/output/combinatorial; 1 if data is clocked. Only clocked data is stored in a checkpoint, for example
     char *prefix;
 } t_engine_state_desc_list;
 

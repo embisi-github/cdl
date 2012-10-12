@@ -15,11 +15,13 @@
 /*a Includes
  */
 include "hierarchy_reg.h"
+include "hierarchy_reg2.h"
 include "hierarchy_and.h"
 
 /*a Module prototypes
  */
 module hierarchy( clock int_clock,
+                  clock int_bclock,
                   input bit int_reset,
                   input bit clear,
                   input bit store,
@@ -42,7 +44,7 @@ module hierarchy( clock int_clock,
             hierarchy_and and2( in_a<=!store, in_b<=value, out=>old_data );
             hierarchy_and and3( in_a<=!clear, in_b<=next_value_if_not_cleared, out=>next_value );
             hierarchy_reg reg1( int_clock<-int_clock, int_reset<=int_reset, in<=next_value, out=>value );
-            hierarchy_reg reg2( int_clock<-int_clock, int_reset<=int_reset, in<=value, out=>last_value );
+            hierarchy_reg2 reg2( int_clock<-int_clock, int_bclock <- int_bclock, int_reset<=int_reset, in<=value, out=>last_value ); // NOTE do not use int_bclock
 //            hierarchy_reg reg3( int_clock<=int_clock, int_reset<=int_reset, in<=value, out=>last_value );
         }
     main_code "Main code":
