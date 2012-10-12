@@ -79,6 +79,8 @@ cyclicity_grammar.h: cyclicity_grammar.y
 ifeq (${BISON_VERSION},2.5)
 	bison -v --defines=$@ cyclicity_grammar.y
 else
+	#mv ignore.me.h cyclicity_grammar.h
+	#rm -f ignore.me ignore.me.output
 	bison -v -d -o ignore.me$(BISON_TAIL) cyclicity_grammar.y
 	mv ignore.me.h cyclicity_grammar.h
 	rm -f ignore.me ignore.me.output
