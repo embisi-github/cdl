@@ -241,10 +241,10 @@ static void output_header( c_model_descriptor *model, t_md_output_fn output, voi
      output( handle, 0, "\n");
      output( handle, 0, "/*a Includes\n");
      output( handle, 0, " */\n");
+     output( handle, 0, "#include \"be_model_includes.h\"\n");
      output( handle, 0, "#include <stdio.h>\n");
      output( handle, 0, "#include <stdlib.h>\n");
      output( handle, 0, "#include <string.h>\n");
-     output( handle, 0, "#include \"be_model_includes.h\"\n");
      output( handle, 0, "\n");
 
 }
@@ -2836,7 +2836,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     }
     if (module->nets)
     {
-        output( handle, 2, "se_cmodel_assist_check_unconnected_nets( engine, engine_handle, (void *)this, net_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
+        output( handle, 2, "se_cmodel_assist_check_unconnected_nets( engine, engine_handle, (void *)&nets, net_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
     }
     output( handle, 1, "}\n" );
     output( handle, 1, "if (pass>0) {capture_inputs(); propagate_all();} // Dont call capture_inputs on first pass as they may be invalid; wait for second pass\n");
