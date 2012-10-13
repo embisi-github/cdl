@@ -20,13 +20,13 @@
 
 /*a Includes
  */
+#include "se_cmodel_assist.h"
 #include "sl_debug.h"
 #include "c_sl_error.h"
 #include "c_se_engine.h"
 #include "eh_scripting.h"
 #include "se_errors.h"
 #include "se_external_module.h"
-#include "se_cmodel_assist.h"
 #include "se_external_module.h"
 
 /*a Wrapper

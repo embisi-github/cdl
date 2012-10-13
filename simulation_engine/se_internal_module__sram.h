@@ -69,16 +69,6 @@ typedef struct t_sram_clock_domain
     struct t_engine_log_event_array *log_event_array;
 } t_sram_clock_domain;
 
-/*t t_sram_port_data
- */
-typedef struct t_sram_port_data
-{
-    t_se_signal_value address;
-    t_se_signal_value data_out;
-    t_se_signal_value write_data;
-    t_se_signal_value write_enables;
-} t_sram_port_data;
-
 /*t c_se_internal_module__sram
 */
 class c_se_internal_module__sram
