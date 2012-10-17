@@ -45,16 +45,16 @@ Add error messages if reads are of an unwritten location
 */
 /*v log_event_descriptor
  */
-static t_sram_port_data *___sram_port_data_log;
+static t_sram_posedge_clock_state *___sram_posedge_clock_state_log;
 static t_engine_text_value_pair log_event_descriptor[] = 
 {
     {"read", 2 },
-    {"address",  (t_se_signal_value *)&(___sram_port_data_log->address)       - (t_se_signal_value *)___sram_port_data_log },
-    {"data_out", (t_se_signal_value *)&(___sram_port_data_log->data_out)      - (t_se_signal_value *)___sram_port_data_log },
+    {"address",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->address)       - (t_se_signal_value *)___sram_posedge_clock_state_log },
+    {"data_out", (t_se_signal_value *)&(___sram_posedge_clock_state_log->data_out[0])      - (t_se_signal_value *)___sram_posedge_clock_state_log },
     {"write", 3 },
-    {"address",  (t_se_signal_value *)&(___sram_port_data_log->address)       - (t_se_signal_value *)___sram_port_data_log },
-    {"data",     (t_se_signal_value *)&(___sram_port_data_log->write_data)    - (t_se_signal_value *)___sram_port_data_log },
-    {"enables",  (t_se_signal_value *)&(___sram_port_data_log->write_enables) - (t_se_signal_value *)___sram_port_data_log },
+    {"address",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->address)       - (t_se_signal_value *)___sram_posedge_clock_state_log },
+    {"data",     (t_se_signal_value *)&(___sram_posedge_clock_state_log->write_data[0])    - (t_se_signal_value *)___sram_posedge_clock_state_log },
+    {"enables",  (t_se_signal_value *)&(___sram_posedge_clock_state_log->write_enable[0]) - (t_se_signal_value *)___sram_posedge_clock_state_log },
     {NULL, 0}
 };
 
