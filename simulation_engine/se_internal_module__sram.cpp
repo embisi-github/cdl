@@ -375,13 +375,17 @@ t_sl_error_level c_se_internal_module__sram::message( t_se_message *message )
     case se_message_reason_interrogate_state:
         message->response_type = se_message_response_type_ptrs;
         message->response = 1;
-        message->data.ptrs[0] = memory;
+        message->data.ptrs[0] = NULL;
+        message->data.values[1] = data_width;
+        message->data.values[2] = data_size;
         break;
     case se_message_reason_read:
-        if (message->data.values[0] == 0) // subreason of 0 -> read single value
+        if (message->data.values[0] == 0) // subreason of 0 -> read single value - put result in values[2]
         {
             message->response_type = se_message_response_type_values;
-            read( (unsigned int)message->data.values[1], message->data.values, -1, 0 );
+            message->data.values[2] = 0;
+            message->data.values[3] = 0;
+            read( (unsigned int)message->data.values[1], &(message->data.values[2]), -1, 0 );
         }
         else // read to a block of memory; values[0] == number of values, values[1]=address, values[2]=byte size of buffer, ptrs[3] -> data buffer
         {
@@ -392,10 +396,10 @@ t_sl_error_level c_se_internal_module__sram::message( t_se_message *message )
             address = message->data.values[1];
             if ((num_to_read*data_word_width*sizeof(t_se_signal_value))>message->data.values[1])
             {
-                num_to_read = message->data.values[1] / (data_word_width*sizeof(t_se_signal_value));
+                num_to_read = message->data.values[2] / (data_word_width*sizeof(t_se_signal_value));
             }
             message->data.values[0] = num_to_read;
-            ptr = (t_se_signal_value *)message->data.ptrs[2];
+            ptr = (t_se_signal_value *)message->data.ptrs[3];
             for (int i=0; i<num_to_read; i++, ptr+=data_word_width, address++)
             {
                 read( address, ptr, -1, 0 );
@@ -407,7 +411,7 @@ t_sl_error_level c_se_internal_module__sram::message( t_se_message *message )
         if (message->data.values[0] == 0) // subreason of 0 -> write single value
         {
             message->response_type = se_message_response_type_values;
-            write( (unsigned int)message->data.values[1], message->data.values, NULL, -1, 0 );
+            write( (unsigned int)message->data.values[1], &(message->data.values[2]), NULL, -1, 0 );
         }
         else // write from a block of memory; values[0] == number of values, values[1]=address, values[2]=byte size of buffer, ptrs[3] -> data buffer
         {
@@ -418,10 +422,10 @@ t_sl_error_level c_se_internal_module__sram::message( t_se_message *message )
             address = message->data.values[1];
             if ((num_to_write*data_word_width*sizeof(t_se_signal_value))>message->data.values[1])
             {
-                num_to_write = message->data.values[1] / (data_word_width*sizeof(t_se_signal_value));
+                num_to_write = message->data.values[2] / (data_word_width*sizeof(t_se_signal_value));
             }
             message->data.values[0] = num_to_write;
-            ptr = (t_se_signal_value *)message->data.ptrs[2];
+            ptr = (t_se_signal_value *)message->data.ptrs[3];
             for (int i=0; i<num_to_write; i++, ptr+=data_word_width, address++)
             {
                 write( address, ptr, NULL, -1, 0 );

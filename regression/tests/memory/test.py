@@ -72,6 +72,10 @@ class dual_port_memory_th(pycdl.th):
 
     def read_sram_location( self, address ):
         self._thfile.sim_msg.send_value("sram",8,0,address)
+        return self._thfile.sim_msg.get_value(2)
+
+    def write_sram_location( self, address, data ):
+        self._thfile.sim_msg.send_value("sram",9,0,address,data)
         return self._thfile.sim_msg.get_value(0)
 
     def run(self):
@@ -134,8 +138,18 @@ class dual_port_memory_th(pycdl.th):
             self.failtest(self.global_cycle(), "**************************************************************************** Test failed")
         else:
             self.passtest(self.global_cycle(), "Test succeeded")
+        if False:
+            for i in range(64):
+                print "%3d %016x"%(i,self.read_sram_location(i))
+        expected_data = []
         for i in range(64):
-            print "%3d %016x"%(i,self.read_sram_location(i))
+            d = (i*0x73261fc)>>12
+            d = d & 0xffff
+            expected_data.append(d)
+            self.write_sram_location(i,d)
+        for i in range(64):
+            if self.read_sram_location(i)!=expected_data[i]:
+                self.failtest(self.global_cycle(), "Misread of sram written by message got %016x expected %016x"%(self.read_sram_location(i),expected_data[i]))
 
 
 class single_port_memory_srw_hw(pycdl.hw):
