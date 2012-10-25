@@ -1001,9 +1001,9 @@ static void output_simulation_methods_statement_print_assert_cover( c_model_desc
             output_simulation_methods_expression( model, output, handle, code_block, statement->data.print_assert_cover.expression, indent+2 );
             if (expr)
             {
-                output( handle, -1, "==" );
+                output( handle, -1, "==(" );
                 output_simulation_methods_expression( model, output, handle, code_block, expr, indent+2 );
-                output( handle, -1, "\n" );
+                output( handle, -1, ")\n" );
                 expr = expr->next_in_chain;
             }
             output( handle, indent+2, "COVER_CASE_MESSAGE(%d,%d)\n", statement->data.print_assert_cover.cover_case_entry, i );
