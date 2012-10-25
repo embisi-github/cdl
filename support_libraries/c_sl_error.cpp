@@ -177,14 +177,22 @@ int c_sl_error::add_text_list( int errors, t_sl_error_text *messages )
  */
 t_sl_error_level c_sl_error::add_error( void *location, t_sl_error_level error_level, int error_number, int function_id, ... )
 {
-     t_error *error;
      va_list ap;
+     va_start( ap, function_id );
+     t_sl_error_level r = add_error( location, error_level, error_number, function_id, ap );
+     va_end( ap );
+     return r;
+}
+
+/*f c_sl_error::add_error
+ */
+t_sl_error_level c_sl_error::add_error( void *location, t_sl_error_level error_level, int error_number, int function_id, va_list ap )
+{
+     t_error *error;
      int i;
      t_sl_error_arg_type arg_type;
 
      //fprintf(stderr,"c_sl_error::add error %p (location %p) level %d number %d function %d\n", this, location, error_level, error_number, function_id );
-
-     va_start( ap, function_id );
 
      if ((int)error_level > (int)worst_error)
      {
@@ -289,7 +297,6 @@ t_sl_error_level c_sl_error::add_error( void *location, t_sl_error_level error_l
           }
      }
 
-     va_end( ap );
      return error_level;
 }
 

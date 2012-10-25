@@ -296,7 +296,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
             for (i=0; (names[0][i]!='.') && (names[0][i]!=0); i++);
             if (names[0][i]==0)
             {
-                error->add_error( (void *)"hw_exec_file", error_level_serious, error_number_se_expected_canonical_signal_name, error_id_se_c_engine_read_and_interpret_hw_file,
+                add_error( (void *)"hw_exec_file", error_level_serious, error_number_se_expected_canonical_signal_name, error_id_se_c_engine_read_and_interpret_hw_file,
                                   error_arg_type_malloc_filename, sl_exec_file_filename(cmd_cb->file_data),
                                   error_arg_type_line_number, sl_exec_file_line_number( cmd_cb->file_data ),
                                   error_arg_type_malloc_string, names[0],
@@ -313,7 +313,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
             for (i=0; (names[0][i]!='.') && (names[0][i]!=0); i++);
             if (names[0][i]==0)
             {
-                error->add_error( (void *)"hw_exec_file", error_level_serious, error_number_se_expected_canonical_signal_name, error_id_se_c_engine_read_and_interpret_hw_file,
+                add_error( (void *)"hw_exec_file", error_level_serious, error_number_se_expected_canonical_signal_name, error_id_se_c_engine_read_and_interpret_hw_file,
                                   error_arg_type_malloc_filename, sl_exec_file_filename(cmd_cb->file_data),
                                   error_arg_type_line_number, sl_exec_file_line_number( cmd_cb->file_data ),
                                   error_arg_type_malloc_string, names[0],
@@ -324,7 +324,7 @@ t_sl_error_level c_engine::instantiation_exec_file_cmd_handler( struct t_sl_exec
             bind_clock( sl_exec_file_filename(cmd_cb->file_data), sl_exec_file_line_number( cmd_cb->file_data ), names[0], names[0]+i+1, names[1] );
             break;
         }
-        error->add_error( (void *)"hw_exec_file", error_level_serious, error_number_se_bind_needs_global, error_id_se_c_engine_read_and_interpret_hw_file,
+        add_error( (void *)"hw_exec_file", error_level_serious, error_number_se_bind_needs_global, error_id_se_c_engine_read_and_interpret_hw_file,
                           error_arg_type_malloc_string, names[0],
                           error_arg_type_malloc_string, names[1],
                           error_arg_type_malloc_filename, sl_exec_file_filename(cmd_cb->file_data),
@@ -429,7 +429,7 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      em = se_external_module_find(type);
      if (!em)
      {
-          return error->add_error( (void *)"instantiate", error_level_serious, error_number_se_unknown_module_type, error_id_se_c_engine_instantiate,
+          return add_error( (void *)"instantiate", error_level_serious, error_number_se_unknown_module_type, error_id_se_c_engine_instantiate,
                                    error_arg_type_malloc_string, type,
                                    error_arg_type_malloc_string, name,
                                    error_arg_type_none );
@@ -440,7 +440,7 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      emi = (t_engine_module_instance *)find_module_instance( pemi, name );
      if (emi)
      {
-          return error->add_error( (void *)"instantiate", error_level_serious, error_number_se_duplicate_name, error_id_se_c_engine_instantiate,
+          return add_error( (void *)"instantiate", error_level_serious, error_number_se_duplicate_name, error_id_se_c_engine_instantiate,
                                    error_arg_type_malloc_string, name,
                                    error_arg_type_none );
      }
@@ -547,7 +547,7 @@ t_sl_error_level c_engine::add_global_signal( const char *global_name, int size 
      global = (t_engine_signal *)find_global( global_name );
      if (global)
      {
-          return error->add_error( (void *)"global_signal", error_level_serious, error_number_se_duplicate_name, error_id_se_c_engine_global_signal,
+          return add_error( (void *)"global_signal", error_level_serious, error_number_se_duplicate_name, error_id_se_c_engine_global_signal,
                                    error_arg_type_malloc_string, global_name,
                                    error_arg_type_none );
      }
@@ -566,7 +566,7 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
      emi = (t_engine_module_instance *)find_module_instance( NULL, driver_module_name );
      if (!emi)
      {
-          return error->add_error( (void *)driver_module_name, error_level_serious, error_number_se_duplicate_name, error_id_se_c_engine_name,
+          return add_error( (void *)driver_module_name, error_level_serious, error_number_se_duplicate_name, error_id_se_c_engine_name,
                                    error_arg_type_malloc_string, driver_module_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -576,7 +576,7 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
      output = se_engine_function_find_function( emi->output_list, driver_signal_name );
      if (!output)
      {
-          return error->add_error( (void *)driver_module_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_name,
+          return add_error( (void *)driver_module_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_name,
                                    error_arg_type_malloc_string, driver_signal_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -585,7 +585,7 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
 
      if ( (find_clock(global_name)) )
      {
-          return error->add_error( (void *)driver_module_name, error_level_serious, error_number_se_clock_needs_clock_driver, error_id_se_c_engine_name,
+          return add_error( (void *)driver_module_name, error_level_serious, error_number_se_clock_needs_clock_driver, error_id_se_c_engine_name,
                                    error_arg_type_malloc_string, driver_signal_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -595,7 +595,7 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
      global = (t_engine_signal *)find_global( global_name );
      if (!global)
      {
-          return error->add_error( (void *)driver_module_name, error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_name,
+          return add_error( (void *)driver_module_name, error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_name,
                                    error_arg_type_malloc_string, global_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -603,7 +603,7 @@ t_sl_error_level c_engine::name( const char *filename, int line_number, const ch
      }
      if (global->driven_by)
      {
-          return error->add_error( (void *)driver_module_name, error_level_serious, error_number_se_multiple_global_drivers, error_id_se_c_engine_name,
+          return add_error( (void *)driver_module_name, error_level_serious, error_number_se_multiple_global_drivers, error_id_se_c_engine_name,
                                    error_arg_type_malloc_string, driver_signal_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -626,7 +626,7 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
      emi = (t_engine_module_instance *)find_module_instance( NULL, driven_module_name );
      if (!emi)
      {
-          return error->add_error( (void *)driven_module_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_drive,
+          return add_error( (void *)driven_module_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, driven_module_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -636,7 +636,7 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
      input = se_engine_function_find_function( emi->input_list, driven_signal_name );
      if (!input)
      {
-          return error->add_error( (void *)driven_module_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
+          return add_error( (void *)driven_module_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, driven_signal_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -645,7 +645,7 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
 
      if (input->data.input.driven_by)
      {
-          return error->add_error( (void *)driven_module_name, error_level_serious, error_number_se_multiple_port_drivers, error_id_se_c_engine_drive,
+          return add_error( (void *)driven_module_name, error_level_serious, error_number_se_multiple_port_drivers, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, driven_signal_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -654,7 +654,7 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
 
      if ( (find_clock(global_name)) )
      {
-          return error->add_error( (void *)driven_module_name, error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_drive,
+          return add_error( (void *)driven_module_name, error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, global_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -664,7 +664,7 @@ t_sl_error_level c_engine::drive( const char *filename, int line_number, const c
      global = (t_engine_signal *)find_global( global_name );
      if (!global)
      {
-          return error->add_error( (void *)driven_module_name, error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_drive,
+          return add_error( (void *)driven_module_name, error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, global_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -687,7 +687,7 @@ t_sl_error_level c_engine::bind_clock( const char *filename, int line_number, co
      emi = (t_engine_module_instance *)find_module_instance( NULL, module_instance_name );
      if (!emi)
      {
-          return error->add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_bind_clock,
+          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_module, error_id_se_c_engine_bind_clock,
                                    error_arg_type_malloc_string, module_instance_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -697,7 +697,7 @@ t_sl_error_level c_engine::bind_clock( const char *filename, int line_number, co
      clk = se_engine_function_find_function( emi->clock_fn_list, module_signal_name );
      if (!clk)
      {
-          return error->add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
                                    error_arg_type_malloc_string, module_signal_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -706,7 +706,7 @@ t_sl_error_level c_engine::bind_clock( const char *filename, int line_number, co
 
      if (clk->data.clock.driven_by)
      {
-          return error->add_error( (void *)module_instance_name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_c_engine_bind_clock,
+          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_c_engine_bind_clock,
                                    error_arg_type_malloc_string, module_signal_name,
                                    error_arg_type_malloc_string, clk->data.clock.driven_by->global_name,
                                    error_arg_type_malloc_filename, filename,
@@ -717,7 +717,7 @@ t_sl_error_level c_engine::bind_clock( const char *filename, int line_number, co
      global_clock = find_clock( global_clock_name );
      if (!global_clock)
      {
-          return error->add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+          return add_error( (void *)module_instance_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
                                    error_arg_type_malloc_string, global_clock_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -741,7 +741,7 @@ t_sl_error_level c_engine::bit_extract( const char *filename, int line_number, c
 
      if ( find_clock(global_name) )
      {
-          return error->add_error( (void *)"bit_extract", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_bit_extract,
+          return add_error( (void *)"bit_extract", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_bit_extract,
                                    error_arg_type_malloc_string, global_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -749,7 +749,7 @@ t_sl_error_level c_engine::bit_extract( const char *filename, int line_number, c
      }
      if ( find_clock(global_bus_name) )
      {
-          return error->add_error( (void *)"bit_extract", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_bit_extract,
+          return add_error( (void *)"bit_extract", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_bit_extract,
                                    error_arg_type_malloc_string, global_bus_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -759,7 +759,7 @@ t_sl_error_level c_engine::bit_extract( const char *filename, int line_number, c
      bus = (t_engine_signal *)find_global( global_bus_name );
      if (!bus)
      {
-          return error->add_error( (void *)"bit_extract", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_bit_extract,
+          return add_error( (void *)"bit_extract", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_bit_extract,
                                    error_arg_type_malloc_string, global_bus_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -769,7 +769,7 @@ t_sl_error_level c_engine::bit_extract( const char *filename, int line_number, c
      signal = (t_engine_signal *)find_global( global_name );
      if (!signal)
      {
-          return error->add_error( (void *)"bit_extract", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_bit_extract,
+          return add_error( (void *)"bit_extract", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_bit_extract,
                                    error_arg_type_malloc_string, global_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -777,7 +777,7 @@ t_sl_error_level c_engine::bit_extract( const char *filename, int line_number, c
      }
      if (signal->size != size)
      {
-          return error->add_error( (void *)"bit_extract", error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_bit_extract,
+          return add_error( (void *)"bit_extract", error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_bit_extract,
                                    error_arg_type_integer, size,
                                    error_arg_type_integer, signal->size,
                                    error_arg_type_malloc_filename, filename,
@@ -810,7 +810,7 @@ t_sl_error_level c_engine::assign( const char *filename, int line_number, const 
 
      if ( find_clock(output_bus) )          
      {
-          return error->add_error( (void *)"assign", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
+          return add_error( (void *)"assign", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, output_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -820,7 +820,7 @@ t_sl_error_level c_engine::assign( const char *filename, int line_number, const 
      bus_out = (t_engine_signal *)find_global( output_bus );
      if (!bus_out)
      {
-          return error->add_error( (void *)"assign", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
+          return add_error( (void *)"assign", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, output_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -856,7 +856,7 @@ t_sl_error_level c_engine::create_clock_phase( const char *filename, int line_nu
 
     if ( !find_clock(global_clock_name) )          
     {
-        return error->add_error( (void *)"clock_phase", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
+        return add_error( (void *)"clock_phase", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                  error_arg_type_malloc_string, global_clock_name,
                                  error_arg_type_malloc_filename, filename,
                                  error_arg_type_line_number, line_number,
@@ -865,7 +865,7 @@ t_sl_error_level c_engine::create_clock_phase( const char *filename, int line_nu
 
     if ( find_clock(output_signal) )          
     {
-        return error->add_error( (void *)"clock_phase", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
+        return add_error( (void *)"clock_phase", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                  error_arg_type_malloc_string, output_signal,
                                  error_arg_type_malloc_filename, filename,
                                  error_arg_type_line_number, line_number,
@@ -875,7 +875,7 @@ t_sl_error_level c_engine::create_clock_phase( const char *filename, int line_nu
     signal = (t_engine_signal *)find_global( output_signal );
     if (!signal)
     {
-        return error->add_error( (void *)"clock_phase", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
+        return add_error( (void *)"clock_phase", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
                                  error_arg_type_malloc_string, output_signal,
                                  error_arg_type_malloc_filename, filename,
                                  error_arg_type_line_number, line_number,
@@ -906,7 +906,7 @@ t_sl_error_level c_engine::compare( const char *filename, int line_number, const
 
      if ( find_clock(input_bus) )
      {
-          return error->add_error( (void *)"compare", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
+          return add_error( (void *)"compare", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, input_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -914,7 +914,7 @@ t_sl_error_level c_engine::compare( const char *filename, int line_number, const
      }
      if ( find_clock(output_signal) )          
      {
-          return error->add_error( (void *)"compare", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
+          return add_error( (void *)"compare", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, output_signal,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -924,7 +924,7 @@ t_sl_error_level c_engine::compare( const char *filename, int line_number, const
      bus_in = (t_engine_signal *)find_global( input_bus );
      if (!bus_in)
      {
-          return error->add_error( (void *)"compare", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
+          return add_error( (void *)"compare", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, input_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -934,7 +934,7 @@ t_sl_error_level c_engine::compare( const char *filename, int line_number, const
      signal_out = (t_engine_signal *)find_global( output_signal );
      if (!signal_out)
      {
-          return error->add_error( (void *)"compare", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
+          return add_error( (void *)"compare", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_compare,
                                    error_arg_type_malloc_string, output_signal,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -966,7 +966,7 @@ t_sl_error_level c_engine::data_mux( const char *filename, int line_number, int 
 
      if ( find_clock(global_select_name) )
      {
-          return error->add_error( (void *)"data_mux", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_data_mux,
+          return add_error( (void *)"data_mux", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_data_mux,
                                    error_arg_type_malloc_string, global_select_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -974,7 +974,7 @@ t_sl_error_level c_engine::data_mux( const char *filename, int line_number, int 
      }
      if ( find_clock(global_output_bus_name) )
      {
-          return error->add_error( (void *)"data_mux", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_data_mux,
+          return add_error( (void *)"data_mux", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_data_mux,
                                    error_arg_type_malloc_string, global_output_bus_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -985,7 +985,7 @@ t_sl_error_level c_engine::data_mux( const char *filename, int line_number, int 
      {
           if ( (find_clock(global_input_bus_names[i])) )
           {
-               return error->add_error( (void *)"data_mux", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_data_mux,
+               return add_error( (void *)"data_mux", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_data_mux,
                                         error_arg_type_malloc_string, global_input_bus_names[i],
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -995,7 +995,7 @@ t_sl_error_level c_engine::data_mux( const char *filename, int line_number, int 
      bus_out = (t_engine_signal *)find_global( global_output_bus_name );
      if (!bus_out)
      {
-          return error->add_error( (void *)"data_mux", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_data_mux,
+          return add_error( (void *)"data_mux", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_data_mux,
                                    error_arg_type_malloc_string, bus_out,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1004,7 +1004,7 @@ t_sl_error_level c_engine::data_mux( const char *filename, int line_number, int 
      select_in = (t_engine_signal *)find_global( global_select_name );
      if (!select_in)
      {
-          return error->add_error( (void *)"data_mux", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_data_mux,
+          return add_error( (void *)"data_mux", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_data_mux,
                                    error_arg_type_malloc_string, select_in,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1040,7 +1040,7 @@ t_sl_error_level c_engine::decode( const char *filename, int line_number, const 
 
      if ( find_clock(input_bus) )
      {
-          return error->add_error( (void *)"decode", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_decode,
+          return add_error( (void *)"decode", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_decode,
                                    error_arg_type_malloc_string, input_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1048,7 +1048,7 @@ t_sl_error_level c_engine::decode( const char *filename, int line_number, const 
      }
      if ( find_clock(output_bus) )          
      {
-          return error->add_error( (void *)"decode", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_decode,
+          return add_error( (void *)"decode", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_decode,
                                    error_arg_type_malloc_string, output_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1056,7 +1056,7 @@ t_sl_error_level c_engine::decode( const char *filename, int line_number, const 
      }
      if ( (enable) && find_clock(enable) )
      {
-          return error->add_error( (void *)"decode", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_decode,
+          return add_error( (void *)"decode", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_decode,
                                    error_arg_type_malloc_string, enable,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1066,7 +1066,7 @@ t_sl_error_level c_engine::decode( const char *filename, int line_number, const 
      bus_in = (t_engine_signal *)find_global( input_bus );
      if (!bus_in)
      {
-          return error->add_error( (void *)"decode", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_decode,
+          return add_error( (void *)"decode", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_decode,
                                    error_arg_type_malloc_string, input_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1076,7 +1076,7 @@ t_sl_error_level c_engine::decode( const char *filename, int line_number, const 
      bus_out = (t_engine_signal *)find_global( output_bus );
      if (!bus_out)
      {
-          return error->add_error( (void *)"decode", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_decode,
+          return add_error( (void *)"decode", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_decode,
                                    error_arg_type_malloc_string, output_bus,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1088,7 +1088,7 @@ t_sl_error_level c_engine::decode( const char *filename, int line_number, const 
           enable_in = (t_engine_signal *)find_global( enable );
           if (!enable_in)
           {
-               return error->add_error( (void *)"decode", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_decode,
+               return add_error( (void *)"decode", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_decode,
                                         error_arg_type_malloc_string, enable,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1129,7 +1129,7 @@ t_sl_error_level c_engine::bundle( const char *filename, int line_number, int nu
 
      if ( (find_clock(global_output_bus_name)) )
      {
-          return error->add_error( (void *)"bundle", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
+          return add_error( (void *)"bundle", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
                                    error_arg_type_malloc_string, global_output_bus_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1140,7 +1140,7 @@ t_sl_error_level c_engine::bundle( const char *filename, int line_number, int nu
      {
           if ( (find_clock(global_input_bus_names[i])) )
           {
-               return error->add_error( (void *)"bundle", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
+               return add_error( (void *)"bundle", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
                                         error_arg_type_malloc_string, global_input_bus_names[i],
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1150,7 +1150,7 @@ t_sl_error_level c_engine::bundle( const char *filename, int line_number, int nu
      bus_out = (t_engine_signal *)find_global( global_output_bus_name );
      if (!bus_out)
      {
-               return error->add_error( (void *)"bundle", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_generic_logic,
+               return add_error( (void *)"bundle", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_generic_logic,
                                         error_arg_type_malloc_string, bus_out,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1198,7 +1198,7 @@ t_sl_error_level c_engine::generic_logic( const char *filename, int line_number,
 
      if ( (find_clock(global_output_bus_name)) )
      {
-          return error->add_error( (void *)"generic_logic", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
+          return add_error( (void *)"generic_logic", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
                                    error_arg_type_malloc_string, global_output_bus_name,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1209,7 +1209,7 @@ t_sl_error_level c_engine::generic_logic( const char *filename, int line_number,
      {
           if ( (find_clock(global_input_bus_names[i])) )
           {
-               return error->add_error( (void *)"generic_logic", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
+               return add_error( (void *)"generic_logic", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
                                         error_arg_type_malloc_string, global_input_bus_names[i],
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1219,7 +1219,7 @@ t_sl_error_level c_engine::generic_logic( const char *filename, int line_number,
      bus_out = (t_engine_signal *)find_global( global_output_bus_name );
      if (!bus_out)
      {
-               return error->add_error( (void *)"generic_logic", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_generic_logic,
+               return add_error( (void *)"generic_logic", error_level_serious, error_number_se_unknown_global, error_id_se_c_engine_generic_logic,
                                         error_arg_type_malloc_string, bus_out,
                                    error_arg_type_malloc_filename, filename,
                                    error_arg_type_line_number, line_number,
@@ -1253,7 +1253,7 @@ t_sl_error_level c_engine::create_clock( const char *filename, int line_number, 
      if ( (find_global(global_clock_name)) ||
           (find_clock(global_clock_name)) )
      {
-        return error->add_error( (void *)"clock", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
+        return add_error( (void *)"clock", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
                                  error_arg_type_malloc_string, global_clock_name,
                                  error_arg_type_malloc_filename, filename,
                                  error_arg_type_line_number, line_number,
@@ -1275,7 +1275,7 @@ t_sl_error_level c_engine::create_clock_divide( const char *filename, int line_n
     if ( (find_global(global_clock_name)) ||
          (find_clock(global_clock_name)) )
     {
-        return error->add_error( (void *)"clock_divide", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
+        return add_error( (void *)"clock_divide", error_level_serious, error_number_se_misuse_of_clock, error_id_se_c_engine_generic_logic,
                                  error_arg_type_malloc_string, global_clock_name,
                                  error_arg_type_malloc_filename, filename,
                                  error_arg_type_line_number, line_number,
@@ -1284,7 +1284,7 @@ t_sl_error_level c_engine::create_clock_divide( const char *filename, int line_n
     source_clock = find_clock( source_clock_name );
     if (!source_clock)
     {
-        return error->add_error( (void *)"clock_divide", error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+        return add_error( (void *)"clock_divide", error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
                                  error_arg_type_malloc_string, global_clock_name,
                                  error_arg_type_malloc_filename, filename,
                                  error_arg_type_line_number, line_number,
@@ -1331,7 +1331,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  if ((!*emi_sig->data.input.value_ptr_ptr) && (!emi_sig->data.input.may_be_unconnected))
                  {
                      SL_DEBUG(sl_debug_level_info, "c_engine::check_connectivity", "Module %s undriven input %s", emi->full_name, emi_sig->name );
-                     error->add_error( (void *)"generic_logic", error_level_serious, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
+                     add_error( (void *)"generic_logic", error_level_serious, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
                                        error_arg_type_malloc_string, emi_sig->name, 
                                        error_arg_type_none );
@@ -1348,7 +1348,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  {
                      if (sig->size != emi_sig->data.input.size)
                      {
-                         error->add_error( (void *)"generic_logic", error_level_warning, error_number_se_bus_width_mismatch_check, error_id_se_c_engine_check_connectivity,
+                         add_error( (void *)"generic_logic", error_level_warning, error_number_se_bus_width_mismatch_check, error_id_se_c_engine_check_connectivity,
                                            error_arg_type_malloc_string, emi->full_name,
                                            error_arg_type_malloc_string, emi_sig->name, 
                                            error_arg_type_integer, emi_sig->data.input.size,
@@ -1363,7 +1363,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  }
                  else if (!emi_sig->data.input.may_be_unconnected)
                  {
-                     error->add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
+                     add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
                                        error_arg_type_malloc_string, emi_sig->name, 
                                        error_arg_type_none );
@@ -1371,7 +1371,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  else
                  {
                      (*emi_sig->data.input.value_ptr_ptr) = NULL;
-                     //error->add_error( (void *)"generic_logic", error_level_info, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
+                     //add_error( (void *)"generic_logic", error_level_info, error_number_se_undriven_input, error_id_se_c_engine_check_connectivity,
                      //                  error_arg_type_malloc_string, emi->full_name,
                      //                  error_arg_type_malloc_string, emi_sig->name, 
                      //                  error_arg_type_none );
@@ -1387,7 +1387,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                          sig = sig_ref->signal;
                          if (sig->size != emi_sig->data.output.size)
                          {
-                             error->add_error( (void *)"generic_logic", error_level_warning, error_number_se_bus_width_mismatch_check, error_id_se_c_engine_check_connectivity,
+                             add_error( (void *)"generic_logic", error_level_warning, error_number_se_bus_width_mismatch_check, error_id_se_c_engine_check_connectivity,
                                                error_arg_type_malloc_string, emi->full_name,
                                                error_arg_type_malloc_string, emi_sig->name, 
                                                error_arg_type_integer, emi_sig->data.output.size,
@@ -1399,7 +1399,7 @@ t_sl_error_level c_engine::check_connectivity( void )
                  }
                  else
                  {
-                     error->add_error( (void *)"generic_logic", error_level_warning, error_number_se_unloaded_output, error_id_se_c_engine_check_connectivity,
+                     add_error( (void *)"generic_logic", error_level_warning, error_number_se_unloaded_output, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
                                        error_arg_type_malloc_string, emi_sig->name, 
                                        error_arg_type_none );
@@ -1409,7 +1409,7 @@ t_sl_error_level c_engine::check_connectivity( void )
              {
                  if (!emi_sig->data.clock.driven_by)
                  {
-                     error->add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_clock, error_id_se_c_engine_check_connectivity,
+                     add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_clock, error_id_se_c_engine_check_connectivity,
                                        error_arg_type_malloc_string, emi->full_name,
                                        error_arg_type_malloc_string, emi_sig->name, 
                                        error_arg_type_none );
@@ -1422,13 +1422,13 @@ t_sl_error_level c_engine::check_connectivity( void )
      {
           if (!sig->drives_list)
           {
-               error->add_error( (void *)"generic_logic", error_level_warning, error_number_se_unloaded_global, error_id_se_c_engine_check_connectivity,
+               add_error( (void *)"generic_logic", error_level_warning, error_number_se_unloaded_global, error_id_se_c_engine_check_connectivity,
                                  error_arg_type_malloc_string, sig->global_name,
                                  error_arg_type_none );
           }
           if (!sig->driven_by)
           {
-               error->add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_global, error_id_se_c_engine_check_connectivity,
+               add_error( (void *)"generic_logic", error_level_warning, error_number_se_undriven_global, error_id_se_c_engine_check_connectivity,
                                  error_arg_type_malloc_string, sig->global_name,
                                  error_arg_type_none );
           }

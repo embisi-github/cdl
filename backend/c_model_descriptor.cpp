@@ -6106,6 +6106,8 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
          options.clock_gate_module_instance_extra_ports  = sl_option_get_string( env_options, "be_v_clkgate_ports" );
          options.assert_delay_string                     = sl_option_get_string( env_options, "be_v_assert_delay" );
          options.verilog_comb_reg_suffix                 = sl_option_get_string( env_options, "be_v_comb_suffix" );
+         options.additional_port_include                 = sl_option_get_string( env_options, "be_v_additional_port_include" );
+         options.additional_body_include                 = sl_option_get_string( env_options, "be_v_additional_body_include" );
          options.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
          options.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
          options.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
@@ -6150,6 +6152,8 @@ extern void be_getopt_usage( void )
      printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
      printf( "\t--v_comb_suffix\t\tTextual suffix for verilog 'reg' signals for combinatorials\n");
      printf( "\t--v_displays\t\tIf included, then add $displays to verilog; else do not\n");
+     printf( "\t--v_additional_port_include <filename>\t\tForces insertion of 'include \"filename\" before the ');' of every verilog module header\n");
+     printf( "\t--v_additional_body_include <filename>\t\tForces insertion of 'include \"filename\" before the 'endmodule' of every verilog module body\n");
 }
 
 /*f be_handle_getopt
@@ -6191,6 +6195,12 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
          return 1;
      case option_be_v_comb_suffix:
          *env_options = sl_option_list( *env_options, "be_v_comb_suffix", optarg );
+         return 1;
+     case option_be_v_additional_port_include:
+         *env_options = sl_option_list( *env_options, "be_v_additional_port_include", optarg );
+         return 1;
+     case option_be_v_additional_body_include:
+         *env_options = sl_option_list( *env_options, "be_v_additional_body_include", optarg );
          return 1;
      case option_be_vhdl:
           *env_options = sl_option_list( *env_options, "be_vhdlfile", optarg );

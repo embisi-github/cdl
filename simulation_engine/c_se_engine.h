@@ -50,8 +50,8 @@ typedef enum
     se_message_reason_force_reset = 2,          // ints[0] = pass
     se_message_reason_add_callback = 3,
     se_message_reason_remove_callback = 4,
-    se_message_reason_interrogate_state = 5,    // ptrs[0] = const char *name (interpreted by module)
-    se_message_reason_read = 8,                 // interpreted by module
+    se_message_reason_interrogate_state = 5,    // ptrs[0] = const char *name (interpreted by module); standard return ptrs[0] = ptr to data (if array/vector); values[1] = data_width (width of vector/array), values[2] = 0 or size of array
+    se_message_reason_read = 8,                 // interpreted by module - standard is values[0]=n, values[1]=address, values[2]=byte size of buffer, ptrs[3]=data buffer; values[0]==0 => values[2..] on return is the data read
     se_message_reason_write = 9,                // interpreted by module
     se_message_reason_checkpoint  = 10,         // to be specified by checkpoint/recover
     se_message_reason_checkpoint2 = 11,         // to be specified by checkpoint/recover
@@ -122,6 +122,16 @@ typedef enum
     se_wl_item_clock,
     se_wl_item_count // Must be last - indicates the number of elements
 } t_se_worklist_call;
+
+/*t t_engine_mutex
+ */
+typedef enum
+{
+    engine_mutex_message,
+    engine_mutex_log_callback,
+    engine_mutex_call_worklist,
+    engine_mutex_last_mutex // Must be last...
+} t_engine_mutex;
 
 /*t t_engine_callback_fn
  */
@@ -322,6 +332,16 @@ public:
      void simulation_assist_preclock_instance( void *engine_handle, int posedge );
      void simulation_assist_clock_instance( void *engine_handle, int posedge );
      void simulation_assist_reset_instance( void *engine_handle, int pass );
+     t_sl_error_level add_message( void *location,
+                                 t_sl_error_level error_level,
+                                 int error_number,
+                                 int function_id,
+                                 ... );
+     t_sl_error_level add_error( void *location,
+                                 t_sl_error_level error_level,
+                                 int error_number,
+                                 int function_id,
+                                 ... );
 
      /*b Checkpoint/restore methods
       */
@@ -466,6 +486,11 @@ private:
      struct t_engine_signal *create_global( const char *name, int size );
      struct t_engine_clock *create_clock( const char *name );
      struct t_engine_clock *find_clock( const char *clock_name );
+
+     /*b Mutex functions - in the submodule side as it is used by worklists
+      */
+     void mutex_claim( t_engine_mutex mutex );
+     void mutex_release( t_engine_mutex mutex );
 
      /*b Private state
       */

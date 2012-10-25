@@ -131,21 +131,21 @@ c_se_internal_module__sram::c_se_internal_module__sram( class c_engine *eng, voi
 
     if ((data_width<1) || (data_width>(int)(sizeof(int)*MAX_WIDTH*8)))
     {
-        engine->error->add_error( (void *)"se_internal_module__sram_srw_instantiate", error_level_serious, error_number_general_error_sd, 0,
+        engine->add_error( (void *)"se_internal_module__sram_srw_instantiate", error_level_serious, error_number_general_error_sd, 0,
                                   error_arg_type_malloc_string, "Data width out of range (1 to max)",
                                   error_arg_type_integer, data_width,
                                   error_arg_type_none );
     }
     if ((bits_per_enable<0) || (data_width<bits_per_enable))
     {
-        engine->error->add_error( (void *)"se_internal_module__sram_srw_instantiate", error_level_serious, error_number_general_error_sd, 0,
+        engine->add_error( (void *)"se_internal_module__sram_srw_instantiate", error_level_serious, error_number_general_error_sd, 0,
                                   error_arg_type_malloc_string, "Bits per enable should be zero to data width",
                                   error_arg_type_integer, bits_per_enable,
                                   error_arg_type_none );
     }
     if (address_width<1)
     {
-        engine->error->add_error( (void *)"se_internal_module__sram_srw_instantiate", error_level_serious, error_number_general_error_sd, 0,
+        engine->add_error( (void *)"se_internal_module__sram_srw_instantiate", error_level_serious, error_number_general_error_sd, 0,
                                   error_arg_type_malloc_string, "Address width out of range (1 to max)",
                                   error_arg_type_integer, address_width,
                                   error_arg_type_none );
@@ -274,7 +274,7 @@ t_sl_error_level c_se_internal_module__sram::read( unsigned int address, t_sl_ui
     {
         if (error_on_out_of_range)
         {
-            engine->error->add_error( (void *)"se_internal_module__sram_srw_clock", error_level_warning, error_number_se_dated_assertion, 0,
+            engine->add_error( (void *)"se_internal_module__sram_srw_clock", error_level_warning, error_number_se_dated_assertion, 0,
                                       error_arg_type_integer, engine->cycle(),
                                       error_arg_type_const_string, "SRAM srw",
                                       error_arg_type_const_string, "Attempt to read a memory location outside the memory",
@@ -316,7 +316,7 @@ t_sl_error_level c_se_internal_module__sram::write( unsigned int address, t_sl_u
     {
         if (error_on_out_of_range)
         {
-            engine->error->add_error( (void *)"se_internal_module__sram_srw_clock", error_level_warning, error_number_se_dated_assertion, 0,
+            engine->add_error( (void *)"se_internal_module__sram_srw_clock", error_level_warning, error_number_se_dated_assertion, 0,
                                       error_arg_type_integer, engine->cycle(),
                                       error_arg_type_const_string, "SRAM srw",
                                       error_arg_type_const_string, "Attempt to write a memory location outside the memory",

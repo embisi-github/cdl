@@ -81,6 +81,10 @@ static void output_header( c_model_descriptor *model, t_md_output_fn output, voi
     output( handle, 0, "// Verilog option include_coverage %d\n", options.include_coverage );
     output( handle, 0, "// Verilog option clock_gate_module_instance_type '%s'\n", options.clock_gate_module_instance_type );
     output( handle, 0, "// Verilog option clock_gate_module_instance_extra_ports '%s'\n", options.clock_gate_module_instance_extra_ports );
+    if (options.additional_port_include)
+        output( handle, 0, "// Verilog option additional_port_include '%s'\n", options.additional_port_include );
+    if (options.additional_body_include)
+        output( handle, 0, "// Verilog option additional_port_include '%s'\n", options.additional_body_include );
     output( handle, 0, "\n");
 
 }
@@ -205,6 +209,13 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
             instance = signal->instance_iter->children[i];
             output( handle, 1, "%s%s", instance->output_name, last?"\n":",\n" );
         }
+    }
+
+    /*b Output additional include if required
+     */
+    if (options.additional_port_include)
+    {
+        output( handle, 0, "`include \"%s\"\n", options.additional_port_include );
     }
 
     output( handle, 0, ");\n" );
@@ -1964,6 +1975,12 @@ static void output_module_rtl_architecture( c_model_descriptor *model, t_md_outp
         output_module_rtl_architecture_code_block( model, output, handle, module, code_block );
     }
 
+    /*b Output additional include and endmodule
+     */
+    if (options.additional_body_include)
+    {
+        output( handle, 0, "`include \"%s\"\n", options.additional_body_include );
+    }
 
     output( handle, 0, "endmodule // %s\n", module->output_name );
 }
@@ -1995,6 +2012,8 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
     options.clock_gate_module_instance_extra_ports = "";
     options.assert_delay_string = NULL;
     options.verilog_comb_reg_suffix = "__var";
+    options.additional_port_include = NULL;
+    options.additional_body_include = NULL;
 
     if (options_in)
     {
@@ -2007,6 +2026,8 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
         if (options_in->clock_gate_module_instance_type)        { options.clock_gate_module_instance_type = options_in->clock_gate_module_instance_type; }
         if (options_in->assert_delay_string)                    { options.assert_delay_string = options_in->assert_delay_string; }
         if (options_in->verilog_comb_reg_suffix)                { options.verilog_comb_reg_suffix = options_in->verilog_comb_reg_suffix; }
+        if (options_in->additional_port_include)                { options.additional_port_include = options_in->additional_port_include; }
+        if (options_in->additional_body_include)                { options.additional_body_include = options_in->additional_body_include; }
     }
 
     current_output_depth = 0;

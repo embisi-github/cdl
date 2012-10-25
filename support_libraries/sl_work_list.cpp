@@ -21,6 +21,13 @@
 
 /*a Types
  */
+/*t t_sl_wl_mutex
+ */
+typedef struct t_sl_wl_mutex
+{
+    pthread_mutex_t mutex;
+} t_sl_wl_mutex;
+
 /*t t_sl_wl_thread
  */
 typedef struct t_sl_wl_thread
@@ -48,6 +55,7 @@ typedef struct t_sl_wl_thread_pool
 {
     t_sl_wl_thread *threads;
     t_sl_wl_worklist *worklists;
+    t_sl_wl_mutex  *mutexes;
 } t_sl_wl_thread_pool;
 
 /*a Thread functions
@@ -204,18 +212,48 @@ static t_sl_error_level thread_kill( t_sl_wl_thread *thread )
 
 /*a Thread pool creation/deletion functions, add/find/delete thread from pool
  */
-/*f sl_wl_create_thread_pool
+/*f sl_wl_create_thread_pool(void)
  */
 extern t_sl_wl_thread_pool_ptr sl_wl_create_thread_pool( void )
 {
+    return sl_wl_create_thread_pool( 0 );
+}
+
+/*f sl_wl_create_thread_pool(int mutexes)
+ */
+extern t_sl_wl_thread_pool_ptr sl_wl_create_thread_pool( int mutexes )
+{
     t_sl_wl_thread_pool_ptr thread_pool;
 
-    thread_pool = (t_sl_wl_thread_pool_ptr) malloc(sizeof(t_sl_wl_thread_pool));
+    thread_pool = (t_sl_wl_thread_pool_ptr) malloc(sizeof(t_sl_wl_thread_pool) + mutexes*sizeof(t_sl_wl_mutex) );
     if (!thread_pool)
         return NULL;
 
     thread_pool->threads = NULL;
+    thread_pool->mutexes = NULL;
+    if (mutexes>0)
+    {
+        thread_pool->mutexes = (t_sl_wl_mutex *)&(thread_pool[1]);
+        for (int i=0; i<mutexes; i++)
+        {
+            pthread_mutex_init( &thread_pool->mutexes[i].mutex, NULL );
+        }
+    }
     return thread_pool;
+}
+
+/*f sl_wl_mutex_claim
+ */
+extern void sl_wl_mutex_claim( t_sl_wl_thread_pool_ptr thread_pool, int mutex )
+{
+    pthread_mutex_lock( &thread_pool->mutexes[mutex].mutex );
+}
+
+/*f sl_wl_mutex_release
+ */
+extern void sl_wl_mutex_release( t_sl_wl_thread_pool_ptr thread_pool, int mutex )
+{
+    pthread_mutex_unlock( &thread_pool->mutexes[mutex].mutex );
 }
 
 /*f sl_wl_delete_thread_pool

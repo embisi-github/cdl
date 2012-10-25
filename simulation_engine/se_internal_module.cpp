@@ -248,7 +248,7 @@ static t_sl_error_level internal_module_generic_logic_instantiate( c_engine *eng
      }
      if (!generic_logic_fns[i].type)
      {
-          return engine->error->add_error( (void *)"generic logic", error_level_serious, error_number_se_internal_module_unknown, error_id_se_internal_module_generic_logic_instantitate,
+          return engine->add_error( (void *)"generic logic", error_level_serious, error_number_se_internal_module_unknown, error_id_se_internal_module_generic_logic_instantitate,
                                            error_arg_type_malloc_string, type,
                                            error_arg_type_none );
      }
@@ -304,7 +304,7 @@ static t_sl_error_level internal_module_bit_extract_instantiate( c_engine *engin
           (start_out<0) ||
           (width_out<=0) )
      {
-          return engine->error->add_error( (void *)"bit extract", error_level_serious, error_number_se_bad_bus_width_or_start, error_id_se_internal_module_generic_logic_instantitate,
+          return engine->add_error( (void *)"bit extract", error_level_serious, error_number_se_bad_bus_width_or_start, error_id_se_internal_module_generic_logic_instantitate,
                                            error_arg_type_integer, width_in,
                                            error_arg_type_integer, width_out,
                                            error_arg_type_integer, start_out,
@@ -366,7 +366,7 @@ static t_sl_error_level internal_module_bundle_instantiate( c_engine *engine, vo
     }
     if (width_check!=width)
     {
-        return engine->error->add_error( (void *)"bundle", error_level_serious, error_number_se_bad_bus_width_or_start, error_id_se_internal_module_generic_logic_instantitate,
+        return engine->add_error( (void *)"bundle", error_level_serious, error_number_se_bad_bus_width_or_start, error_id_se_internal_module_generic_logic_instantitate,
                                          error_arg_type_integer, width,
                                          error_arg_type_integer, width_check,
                                          error_arg_type_integer, 0,

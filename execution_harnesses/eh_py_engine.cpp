@@ -65,6 +65,10 @@ static PyObject *py_engine_method_get_error( t_py_engine_PyObject *py_cyc, PyObj
 static PyObject *py_engine_method_step( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_reset( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_cycle( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_thread_pool_init( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_thread_pool_delete( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_thread_pool_add( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_thread_pool_map_module( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_list_instances( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_find_state( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
@@ -113,8 +117,12 @@ static PyMethodDef engine_methods[] =
      {"get_error_level",           (PyCFunction)py_engine_method_get_error_level,         METH_VARARGS|METH_KEYWORDS, "Gets the worst case error level." },
      {"get_error",                 (PyCFunction)py_engine_method_get_error,               METH_VARARGS|METH_KEYWORDS, "Gets the n'th error." },
      {"reset",                     (PyCFunction)py_engine_method_reset,                   METH_VARARGS|METH_KEYWORDS, "Reset the simulation engine."},
-     {"cycle",                     (PyCFunction)py_engine_method_cycle,                   METH_VARARGS|METH_KEYWORDS, "Reset the simulation engine."},
+     {"cycle",                     (PyCFunction)py_engine_method_cycle,                   METH_VARARGS|METH_KEYWORDS, "Get the global cycle number of the simulation engine."},
      {"step",                      (PyCFunction)py_engine_method_step,                    METH_VARARGS|METH_KEYWORDS, "Step the simulation engine a number of cycles."},
+     {"thread_pool_init",          (PyCFunction)py_engine_method_thread_pool_init,        METH_VARARGS|METH_KEYWORDS, "Initialize the thread pool."},
+     {"thread_pool_delete",        (PyCFunction)py_engine_method_thread_pool_delete,      METH_VARARGS|METH_KEYWORDS, "Delete the thread pool, killing all threads."},
+     {"thread_pool_add",           (PyCFunction)py_engine_method_thread_pool_add,         METH_VARARGS|METH_KEYWORDS, "Add a named thread the thread pool."},
+     {"thread_pool_map_module",    (PyCFunction)py_engine_method_thread_pool_map_module,  METH_VARARGS|METH_KEYWORDS, "Map a module to a named thread."},
      {"list_instances",            (PyCFunction)py_engine_method_list_instances,          METH_VARARGS|METH_KEYWORDS, "List toplevel instances."},
      {"find_state",                (PyCFunction)py_engine_method_find_state,              METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
      {"get_state_info",            (PyCFunction)py_engine_method_get_state_info,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
@@ -581,6 +589,82 @@ static PyObject *py_engine_method_step( t_py_engine_PyObject *py_eng, PyObject *
           return py_engine_method_return( py_eng, NULL );
      }
      return NULL;
+}
+
+/*f py_engine_method_thread_pool_init
+ */
+static PyObject *py_engine_method_thread_pool_init( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char *kwdlist[] = { NULL };
+
+    py_engine_method_enter( py_eng, "thread_pool", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "", kwdlist ))
+    {
+        py_eng->engine->thread_pool_init();
+        return py_engine_method_return( py_eng, NULL );
+    }
+    return NULL;
+}
+
+/*f py_engine_method_thread_pool_add
+ */
+static PyObject *py_engine_method_thread_pool_add( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char nm[] = "name";
+    char *kwdlist[] = { nm, NULL };
+    char *name;
+
+    py_engine_method_enter( py_eng, "thread_pool_add", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "s", kwdlist, &name ))
+    {
+        t_sl_error_level result = py_eng->engine->thread_pool_add_thread( name );
+        if (result!=error_level_okay)
+        {
+            py_engine_method_result_add_int( NULL, 0 );
+        }
+        py_engine_method_result_add_int( NULL, 1 );
+        return py_engine_method_return( py_eng, NULL );
+    }
+    return NULL;
+}
+
+/*f py_engine_method_thread_pool_map_module
+ */
+static PyObject *py_engine_method_thread_pool_map_module( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char tnm[] = "thread_name";
+    char mnm[] = "module_name";
+    char *kwdlist[] = { tnm, mnm, NULL };
+    char *thread_name, *module_name;
+
+    py_engine_method_enter( py_eng, "thread_pool_add", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "ss", kwdlist, &thread_name, &module_name ))
+    {
+        t_sl_error_level result = py_eng->engine->thread_pool_map_thread_to_module( thread_name, module_name );
+        if (result!=error_level_okay)
+        {
+            py_engine_method_result_add_int( NULL, 0 );
+            return py_engine_method_return( py_eng, NULL );
+        }
+        py_engine_method_result_add_int( NULL, 1 );
+        return py_engine_method_return( py_eng, NULL );
+    }
+    return NULL;
+}
+
+/*f py_engine_method_thread_pool_delete
+ */
+static PyObject *py_engine_method_thread_pool_delete( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char *kwdlist[] = { NULL };
+
+    py_engine_method_enter( py_eng, "thread_pool", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "", kwdlist ))
+    {
+        py_eng->engine->thread_pool_delete();
+        return py_engine_method_return( py_eng, NULL );
+    }
+    return NULL;
 }
 
 /*f py_engine_method_list_instances

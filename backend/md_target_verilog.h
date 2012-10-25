@@ -24,6 +24,8 @@ typedef struct
     const char *clock_gate_module_instance_extra_ports;
     const char *assert_delay_string;
     const char *verilog_comb_reg_suffix;
+    const char *additional_port_include;
+    const char *additional_body_include;
     int include_displays;
     int include_assertions;
     int sv_assertions;

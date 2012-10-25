@@ -716,7 +716,7 @@ static void monitor_display_callback( void *handle, void *handle_b )
      sl_exec_file_evaluate_arguments( data->exec_file_data, "monitor_display", data->line_number, data->args+1, SL_EXEC_FILE_MAX_CMD_ARGS-1 );
      text = sl_exec_file_vprintf( data->exec_file_data, data->args+1, SL_EXEC_FILE_MAX_CMD_ARGS-1 );
 
-     data->engine->message->add_error( (void *)"simulation",
+     data->engine->add_message( (void *)"simulation",
                                                  error_level_info,
                                                  error_number_sl_message, error_id_sl_exec_file_get_next_cmd,
                                                  error_arg_type_malloc_string, text,
@@ -1344,7 +1344,7 @@ t_sl_error_level c_engine::step_cycles( int cycles )
      /*b Loop through all the cycles
       */
      abort=0;
-     for ( ; cycles>0; cycles-- )
+     for ( ; (cycles>0) && !abort; cycles-- )
      {
 
           /*b Debug
@@ -1639,6 +1639,40 @@ void c_engine::simulation_assist_reset_instance( void *engine_handle, int pass )
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)engine_handle;
     se_engine_function_call_invoke_all_arg( emi->reset_fn_list, pass ); // First pass for each is purely internal state, second allows for inputs to be used
+}
+
+/*f c_engine::add_message
+ */
+t_sl_error_level c_engine::add_message( void *location,
+                                        t_sl_error_level error_level,
+                                        int error_number,
+                                        int function_id,
+                                        ... )
+{
+    va_list ap;
+    va_start( ap, function_id );
+    mutex_claim( engine_mutex_message );
+    t_sl_error_level r = message->add_error( location, error_level, error_number, function_id, ap );
+    mutex_release( engine_mutex_message );
+    va_end(ap);
+    return r;
+}
+
+/*f c_engine::add_error
+ */
+t_sl_error_level c_engine::add_error( void *location,
+                                        t_sl_error_level error_level,
+                                        int error_number,
+                                        int function_id,
+                                        ... )
+{
+    va_list ap;
+    va_start( ap, function_id );
+    mutex_claim( engine_mutex_message );
+    t_sl_error_level r = error->add_error( location, error_level, error_number, function_id, ap );
+    mutex_release( engine_mutex_message );
+    va_end(ap);
+    return r;
 }
 
 /*a Editor preferences and notes

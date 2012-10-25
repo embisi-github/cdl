@@ -255,6 +255,12 @@ def parse_cdl( model_object, cdl_options ):
         if o=="dc":
             options.append("--constant")
             options.append(v)
+        if o=="vapi":
+            options.append("--v_additional_port_include")
+            options.append(v)
+        if o=="vabi":
+            options.append("--v_additional_body_include")
+            options.append(v)
 
     options.append("--coverage-desc-file")
     options.append("${TARGET_DIR}/"+model_name+".map")

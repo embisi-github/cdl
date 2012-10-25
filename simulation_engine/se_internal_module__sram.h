@@ -38,7 +38,7 @@ Add error messages if reads are of an unwritten location
 */
 typedef struct t_sram_posedge_clock_state
 {
-    int selected;
+    t_se_signal_value selected;
     t_se_signal_value address;
     t_se_signal_value read_not_write;
     t_se_signal_value write_data[MAX_WIDTH];

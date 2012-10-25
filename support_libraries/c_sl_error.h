@@ -122,6 +122,7 @@ public:
 
      /*b Error adding
       */
+     t_sl_error_level add_error( void *location, t_sl_error_level error_level, int error_number, int function_id, va_list ap );
      t_sl_error_level add_error( void *location,
                                  t_sl_error_level error_level,
                                  int error_number,

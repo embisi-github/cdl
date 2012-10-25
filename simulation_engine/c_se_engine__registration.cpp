@@ -320,7 +320,7 @@ void c_engine::register_input_used_on_clock( void *engine_handle, const char *na
      efn_clk = se_engine_function_find_function( emi->clock_fn_list, clock_name );
      if ( (!efn_sig) || (!efn_clk) )
      {
-          error->add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_clock_or_signal, error_id_se_register_input_used_on_clock,
+          add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_clock_or_signal, error_id_se_register_input_used_on_clock,
                             error_arg_type_malloc_string, emi->name,
                             error_arg_type_malloc_string, name,
                             error_arg_type_malloc_string, clock_name,
@@ -342,7 +342,7 @@ void c_engine::register_output_generated_on_clock( void *engine_handle, const ch
      efn_clk = se_engine_function_find_function( emi->clock_fn_list, clock_name );
      if ( (!efn_sig) || (!efn_clk) )
      {
-          error->add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_clock_or_signal, error_id_se_register_output_generated_on_clock,
+          add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_clock_or_signal, error_id_se_register_output_generated_on_clock,
                             error_arg_type_malloc_string, emi->name,
                             error_arg_type_malloc_string, name,
                             error_arg_type_malloc_string, clock_name,
@@ -350,7 +350,7 @@ void c_engine::register_output_generated_on_clock( void *engine_handle, const ch
      }
      if (0 && efn_sig->data.output.generated_by_clock) // GJS Oct 2012 - we do not care about this unless we have toplevel combs, which we should disallow
      {
-          error->add_error( (void *)emi->name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_register_output_generated_on_clock,
+          add_error( (void *)emi->name, error_level_serious, error_number_se_multiple_source_clocks, error_id_se_register_output_generated_on_clock,
                             error_arg_type_malloc_string, name,
                             error_arg_type_malloc_string, efn_clk->name,
                             error_arg_type_malloc_string, efn_sig->data.output.generated_by_clock->name,
@@ -371,7 +371,7 @@ void c_engine::register_comb_input( void *engine_handle, const char *name )
      efn_sig = se_engine_function_find_function( emi->input_list, name );
      if (!efn_sig)
      {
-          error->add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_input, error_id_se_register_comb_input,
+          add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_input, error_id_se_register_comb_input,
                             error_arg_type_malloc_string, name,
                             error_arg_type_none );
      }
@@ -390,7 +390,7 @@ void c_engine::register_comb_output( void *engine_handle, const char *name )
      efn_sig = se_engine_function_find_function( emi->output_list, name );
      if (!efn_sig)
      {
-          error->add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_output, error_id_se_register_comb_output,
+          add_error( (void *)emi->name, error_level_serious, error_number_se_unknown_output, error_id_se_register_comb_output,
                             error_arg_type_malloc_string, name,
                             error_arg_type_none );
      }

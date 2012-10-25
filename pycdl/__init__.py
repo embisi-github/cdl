@@ -751,12 +751,13 @@ class _hwexfile(py_engine.exec_file):
         # Say we're in business.
         self._running = True
 
+print "*"*160
 class hw(_clockable):
     """
     The object that represents a piece of hardware.
     """
     hw_class_data = {"engine":None,"id":0}
-    def __init__(self, *children):
+    def __init__(self, thread_mapping=None, children=None, *children_list):
         if self.hw_class_data["engine"]==None:
             self.hw_class_data["engine"] = py_engine.py_engine()
         self.hw_class_data["id"] = self.hw_class_data["id"]+1
@@ -764,6 +765,8 @@ class hw(_clockable):
 
         self._wavesinst = None
         self._wave_hook = _wave_hook()
+        if children is None:
+            children = children_list
         children_unpacked = []
         for child in children:
             if (isinstance(child,list)):
@@ -773,6 +776,16 @@ class hw(_clockable):
         children_unpacked = tuple(children_unpacked)
         _clockable.__init__(self, children_unpacked + (self._wave_hook,))
         self._engine = self.hw_class_data["engine"]
+
+        if thread_mapping is not None:
+            self._engine.thread_pool_init()
+            for x in thread_mapping.keys():
+                self._engine.thread_pool_add(x)
+            for x in thread_mapping.keys():
+                for module_name in thread_mapping[x]:
+                    r = self._engine.thread_pool_map_module(x,module_name)
+                    print "Map returned",r
+
         self.display_all_errors()
         self._hwex = _hwexfile(self)
         self._engine.describe_hw(self._hwex)

@@ -84,6 +84,7 @@ typedef struct t_sl_wl_worklist
 /*f sl_wl_create_thread_pool
  */
 extern t_sl_wl_thread_pool_ptr sl_wl_create_thread_pool( void );
+extern t_sl_wl_thread_pool_ptr sl_wl_create_thread_pool( int num_mutexes );
 
 /*f sl_wl_delete_thread_pool
  */
@@ -147,6 +148,14 @@ extern t_sl_error_level sl_wl_assign_work_to_thread( t_sl_wl_worklist *worklist,
 extern t_sl_error_level sl_wl_execute_worklist( t_sl_wl_worklist *worklist,
                                                 int *guard_bits,
                                                 int entry_number ); // which of the entry_in_item function to call
+
+/*f sl_wl_mutex_claim
+ */
+extern void sl_wl_mutex_claim( t_sl_wl_thread_pool_ptr thread_pool, int mutex );
+
+/*f sl_wl_mutex_release
+ */
+extern void sl_wl_mutex_release( t_sl_wl_thread_pool_ptr thread_pool, int mutex );
 
 /*a Wrapper
  */

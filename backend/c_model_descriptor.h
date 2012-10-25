@@ -43,6 +43,8 @@
      { "v_clkgate_ports", required_argument, NULL, option_be_v_clkgate_ports }, \
      { "v_assert_delay", required_argument, NULL, option_be_v_assert_delay }, \
      { "v_comb_suffix", required_argument, NULL, option_be_v_comb_suffix }, \
+     { "v_additional_port_include", required_argument, NULL, option_be_v_additional_port_include }, \
+     { "v_additional_body_include", required_argument, NULL, option_be_v_additional_body_include }, \
      { "v_displays", no_argument, NULL, option_be_v_displays }, \
      { "vhdl", required_argument, NULL, option_be_vhdl }, \
      { "include-assertions", no_argument, NULL, option_be_include_assertions }, \
@@ -96,7 +98,9 @@ enum
     option_be_v_clkgate_ports,
     option_be_v_assert_delay,
     option_be_v_comb_suffix,
-    option_be_v_displays
+    option_be_v_displays,
+    option_be_v_additional_port_include,
+    option_be_v_additional_body_include,
 };
 
 /*t t_md_output_fn

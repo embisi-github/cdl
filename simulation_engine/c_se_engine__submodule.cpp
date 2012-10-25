@@ -70,7 +70,7 @@ void *c_engine::submodule_get_clock_handle( void *submodule_handle, const char *
     clk = se_engine_function_find_function( emi->clock_fn_list, clock_name );
     if (!clk)
     {
-        error->add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
+        add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_clock, error_id_se_c_engine_bind_clock,
                           error_arg_type_malloc_string, clock_name,
                           error_arg_type_malloc_filename, emi->full_name,
                           error_arg_type_none );
@@ -286,14 +286,14 @@ t_sl_error_level c_engine::submodule_drive_input( void *submodule_handle, const 
      input = se_engine_function_find_function( emi->input_list, name );
      if (!input)
      {
-          return error->add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
+          return add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, name,
                                    error_arg_type_malloc_filename, emi->full_name,
                                    error_arg_type_none );
      }
      if (input->data.input.size!=size)
      {
-         return error->add_error( (void *)emi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
+         return add_error( (void *)emi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, size,
                                   error_arg_type_integer, input->data.input.size,
                                   error_arg_type_malloc_filename, name,
@@ -319,7 +319,7 @@ t_sl_error_level c_engine::submodule_drive_input_with_module_input( void *module
      module_input = se_engine_function_find_function( emi->input_list, module_name );
      if (!module_input)
      {
-          return error->add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
+          return add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, module_name,
                                    error_arg_type_malloc_filename, emi->full_name,
                                    error_arg_type_none );
@@ -327,14 +327,14 @@ t_sl_error_level c_engine::submodule_drive_input_with_module_input( void *module
      submodule_input = se_engine_function_find_function( semi->input_list, submodule_name );
      if (!submodule_input)
      {
-          return error->add_error( (void *)semi->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
+          return add_error( (void *)semi->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, submodule_name,
                                    error_arg_type_malloc_filename, semi->full_name,
                                    error_arg_type_none );
      }
      if (module_input->data.input.size!=submodule_input->data.input.size)
      {
-         return error->add_error( (void *)semi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
+         return add_error( (void *)semi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, module_input->data.input.size,
                                   error_arg_type_integer, submodule_input->data.input.size,
                                   error_arg_type_malloc_filename, submodule_name,
@@ -360,7 +360,7 @@ t_sl_error_level c_engine::submodule_drive_input_with_submodule_output( void *su
      submodule_input = se_engine_function_find_function( semi_i->input_list, submodule_input_name );
      if (!submodule_input)
      {
-          return error->add_error( (void *)semi_i->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
+          return add_error( (void *)semi_i->full_name, error_level_serious, error_number_se_unknown_input, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, submodule_input_name,
                                    error_arg_type_malloc_filename, semi_i->full_name,
                                    error_arg_type_none );
@@ -368,14 +368,14 @@ t_sl_error_level c_engine::submodule_drive_input_with_submodule_output( void *su
      submodule_output = se_engine_function_find_function( semi_o->output_list, submodule_output_name );
      if (!submodule_output)
      {
-          return error->add_error( (void *)semi_o->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_drive,
+          return add_error( (void *)semi_o->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, submodule_output_name,
                                    error_arg_type_malloc_filename, semi_o->full_name,
                                    error_arg_type_none );
      }
      if (submodule_input->data.input.size!=submodule_output->data.output.size)
      {
-         return error->add_error( (void *)semi_i->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
+         return add_error( (void *)semi_i->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, submodule_input->data.input.size,
                                   error_arg_type_integer, submodule_output->data.output.size,
                                   error_arg_type_malloc_filename, submodule_input_name,
@@ -423,7 +423,7 @@ t_sl_error_level c_engine::submodule_output_add_receiver( void *submodule_handle
      output = se_engine_function_find_function( emi->output_list, name );
      if (!output)
      {
-          return error->add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_name,
+          return add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_name,
                                    error_arg_type_malloc_string, name,
                                    error_arg_type_malloc_filename, emi->full_name,
                                    error_arg_type_none );
@@ -431,7 +431,7 @@ t_sl_error_level c_engine::submodule_output_add_receiver( void *submodule_handle
 
      if (output->data.input.size!=size)
      {
-         return error->add_error( (void *)emi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
+         return add_error( (void *)emi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, output->data.input.size,
                                   error_arg_type_integer, size,
                                   error_arg_type_malloc_filename, name,
@@ -457,7 +457,7 @@ t_sl_error_level c_engine::submodule_output_drive_module_output( void *submodule
      module_output = se_engine_function_find_function( emi->output_list, module_output_name );
      if (!module_output)
      {
-          return error->add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_drive,
+          return add_error( (void *)emi->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, module_output_name,
                                    error_arg_type_malloc_filename, emi->full_name,
                                    error_arg_type_none );
@@ -465,14 +465,14 @@ t_sl_error_level c_engine::submodule_output_drive_module_output( void *submodule
      submodule_output = se_engine_function_find_function( semi->output_list, submodule_output_name );
      if (!submodule_output)
      {
-          return error->add_error( (void *)semi->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_drive,
+          return add_error( (void *)semi->full_name, error_level_serious, error_number_se_unknown_output, error_id_se_c_engine_drive,
                                    error_arg_type_malloc_string, submodule_output_name,
                                    error_arg_type_malloc_filename, semi->full_name,
                                    error_arg_type_none );
      }
      if (module_output->data.output.size!=submodule_output->data.output.size)
      {
-         return error->add_error( (void *)semi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
+         return add_error( (void *)semi->full_name, error_level_serious, error_number_se_bus_width_mismatch, error_id_se_c_engine_drive,
                                   error_arg_type_integer, module_output->data.input.size,
                                   error_arg_type_integer, submodule_output->data.input.size,
                                   error_arg_type_malloc_filename, submodule_output->name,
@@ -725,15 +725,37 @@ t_sl_error_level c_engine::submodule_set_clock_worklist_clock( void *engine_hand
  */
 t_sl_error_level c_engine::submodule_call_worklist( void *engine_handle, t_se_worklist_call wl_call, int *guard )
 {
+    t_sl_error_level r;
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)engine_handle;
 
     if (!emi)
         return error_level_serious;
 
-    return sl_wl_execute_worklist( (t_sl_wl_worklist *)(emi->worklist), guard, wl_call );
+    mutex_claim(engine_mutex_call_worklist);
+    r = sl_wl_execute_worklist( (t_sl_wl_worklist *)(emi->worklist), guard, wl_call );
+    mutex_release(engine_mutex_call_worklist);
+    return r;
 }
     
+/*a Mutex handling
+ */
+/*f c_engine::mutex_claim
+ */
+void c_engine::mutex_claim( t_engine_mutex mutex )
+{
+    if (!thread_pool) return;
+    sl_wl_mutex_claim( (t_sl_wl_thread_pool_ptr) thread_pool, mutex );
+}
+
+/*f c_engine::mutex_release
+ */
+void c_engine::mutex_release( t_engine_mutex mutex )
+{
+    if (!thread_pool) return;
+    sl_wl_mutex_release( (t_sl_wl_thread_pool_ptr) thread_pool, mutex );
+}
+
 /*a Editor preferences and notes
 mode: c ***
 c-basic-offset: 4 ***
