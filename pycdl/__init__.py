@@ -758,6 +758,16 @@ class hw(_clockable):
     """
     hw_class_data = {"engine":None,"id":0}
     def __init__(self, thread_mapping=None, children=None, *children_list):
+        # Hack arguments
+        if (children is None) or (type(children)!=list):
+            if children is not None:
+                children = [thread_mapping, children]
+                thread_mapping = None
+            elif thread_mapping is not None:
+                children.append(thread_mapping)
+                thread_mapping = None
+            children.extend(children_list)
+
         if self.hw_class_data["engine"]==None:
             self.hw_class_data["engine"] = py_engine.py_engine()
         self.hw_class_data["id"] = self.hw_class_data["id"]+1
@@ -765,8 +775,6 @@ class hw(_clockable):
 
         self._wavesinst = None
         self._wave_hook = _wave_hook()
-        if children is None:
-            children = children_list
         children_unpacked = []
         for child in children:
             if (isinstance(child,list)):
