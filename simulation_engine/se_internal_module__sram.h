@@ -34,6 +34,15 @@ Add error messages if reads are of an unwritten location
 
 /*a Types
  */
+/*t t_sram_log_filter
+ */
+typedef struct t_sram_log_filter
+{
+    int enable;
+    t_se_signal_value mask;
+    t_se_signal_value match;
+} t_sram_log_filter;
+
 /*t t_sram_posedge_clock_state
 */
 typedef struct t_sram_posedge_clock_state
@@ -66,6 +75,7 @@ typedef struct t_sram_clock_domain
     t_sram_inputs inputs;
     t_sram_posedge_clock_state next_posedge_clock_state;
     t_sram_posedge_clock_state posedge_clock_state;
+    t_sram_log_filter log_filters[2];
     struct t_engine_log_event_array *log_event_array;
 } t_sram_clock_domain;
 
@@ -98,6 +108,7 @@ private:
     int number_of_enables;
     int verbose;
     int num_ports;
+    t_sram_log_filter log_filter[2];
     t_sram_clock_domain *clock_domains; // Array of clock domain structures, one per port
     t_sl_uint64 *memory;
 };

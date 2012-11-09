@@ -354,6 +354,10 @@ struct t_engine_log_event_array *c_engine::log_event_register_array( void *engin
 void c_engine::log_event_occurred( void *engine_handle, struct t_engine_log_event_array *event_array, int event_number )
 {
     t_engine_log_event_callback_fn_instance *cfi;
+
+    if (!event_array->events[event_number].callback_list)
+        return;
+
     mutex_claim(engine_mutex_log_callback);
     //fprintf(stderr,"event_array %p\n",event_array);
     //fprintf(stderr,"event_number %d\n",event_number);

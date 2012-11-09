@@ -6108,10 +6108,12 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
          options.verilog_comb_reg_suffix                 = sl_option_get_string( env_options, "be_v_comb_suffix" );
          options.additional_port_include                 = sl_option_get_string( env_options, "be_v_additional_port_include" );
          options.additional_body_include                 = sl_option_get_string( env_options, "be_v_additional_body_include" );
+         options.assertions_ifdef                        = sl_option_get_string( env_options, "be_v_assertions_ifdef" );
          options.include_displays                        = (sl_option_get_string( env_options, "be_v_displays" )!=NULL);
          options.include_assertions                      = (sl_option_get_string( env_options, "be_assertions" )!=NULL);
          options.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
          options.include_coverage                        = (sl_option_get_string( env_options, "be_coverage" )!=NULL);
+         options.use_always_at_star                      = (sl_option_get_string( env_options, "be_v_use_always_at_star" )!=NULL);
          f = fopen(filename, "w");
           if (f)
           {
@@ -6184,6 +6186,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
      case option_be_v_displays:
           *env_options = sl_option_list( *env_options, "be_v_displays", "yes" );
           return 1;
+     case option_be_v_use_always_at_star:
+          *env_options = sl_option_list( *env_options, "be_v_use_always_at_star", "yes" );
+          return 1;
      case option_be_v_clkgate_type:
          *env_options = sl_option_list( *env_options, "be_v_clkgate_type", optarg );
          return 1;
@@ -6201,6 +6206,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
          return 1;
      case option_be_v_additional_body_include:
          *env_options = sl_option_list( *env_options, "be_v_additional_body_include", optarg );
+         return 1;
+     case option_be_v_assertions_ifdef:
+         *env_options = sl_option_list( *env_options, "be_v_assertions_ifdef", optarg );
          return 1;
      case option_be_vhdl:
           *env_options = sl_option_list( *env_options, "be_vhdlfile", optarg );
