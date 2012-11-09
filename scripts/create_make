@@ -74,6 +74,7 @@ import re
 models = { "c":[],
            "ef":[],
            "cdl":[],
+           "cdl_no_cpp":[],
            "hash":{},
            }
 libs = { "c":[],
@@ -214,9 +215,11 @@ def parse_cdl( model_object, cdl_options ):
     object["dir"] = dir
     object["model"] = model_name
     object["src"]   = model_name+".cdl"
-    object["c"]     = model_name+".cpp"
     object["v"]     = model_name+".v"
-    object["obj"]   = model_name+".o"
+
+    if model_type != "cdl_no_cpp":
+        object["c"]     = model_name+".cpp"
+        object["obj"]   = model_name+".o"
 
     args = []
     if len(model_object["args"])>2:
@@ -237,9 +240,13 @@ def parse_cdl( model_object, cdl_options ):
         if o=="model":
             model_name = v
             object["model"] = model_name
-            object["c"]     = model_name+".cpp"
             object["v"]     = model_name+".v"
-            object["obj"]   = model_name+".o"
+
+            if model_type != "cdl_no_cpp":
+                object["c"]     = model_name+".cpp"
+                object["obj"]   = model_name+".o"
+                pass
+            pass
         if o=="rmn":
             options.append("--remap-module-name")
             options.append(v)
@@ -266,7 +273,10 @@ def parse_cdl( model_object, cdl_options ):
     options.append("${TARGET_DIR}/"+model_name+".map")
 
     object["opts"] = options
-    models["cdl"].append(object)
+    if model_type != "cdl_no_cpp":
+        models["cdl"].append(object)
+    else:
+        models["cdl_no_cpp"].append(object)
     models["hash"][model_name] = object
 
 #f parse_models
@@ -287,7 +297,7 @@ def parse_models( object_list, extra_cdlflags ):
                     "statements":"off",
                     "displays":"off",
                     "extra_cdlflags":extra_cdlflags }
-    for selection in objs_of_type(object_list,["cdl", "cdl_options"]):
+    for selection in objs_of_type(object_list,["cdl", "cdl_options", "cdl_no_cpp"]):
         if selection["type"]=="cdl_options":
             parse_cdl_option( selection, cdl_options )
         else:
@@ -583,6 +593,55 @@ def options_string_from_list( option_list ):
         options = options + " " + opt
     return options
 
+#f cdltemplates
+def cdltemplates(output_file, template_name):
+    print >>output_file, "#f %s" % template_name
+    print >>output_file, """define %s""" % template_name
+    print >>output_file, """# @param $1 cdl filename inside src_root"""
+    if template_name == 'cdl_template':
+        print >>output_file, """# @param $2 c filename in output dir"""
+    else:
+        print >>output_file, """# @param $2 None"""
+    print >>output_file, """# @param $3 model name"""
+    if template_name == 'cdl_template':
+        print >>output_file, """# @param $4 object filename"""
+    else:
+        print >>output_file, """# @param $4 None"""
+    print >>output_file, """# @param $5 verilog filename"""
+    print >>output_file, """# @param $6 options"""
+
+    if template_name == 'cdl_template':
+        print >>output_file, """${TARGET_DIR}/$2 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
+        print >>output_file, """\t@echo "CDL $1 -cpp $2" """
+        print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --cpp ${TARGET_DIR}/$2 --cdlh ${TARGET_DIR}/${2:.cpp=.cdlh} $6 ${SRC_ROOT}/$1"""
+        print >>output_file
+        print >>output_file, """${TARGET_DIR}/$4 : ${TARGET_DIR}/$2"""
+        print >>output_file, """\t@echo "CC $2 -o $4" """
+        print >>output_file, """\t$(Q)$(CXX) $(CXXFLAGS) -c -o ${TARGET_DIR}/$4 ${TARGET_DIR}/$2"""
+        print >>output_file
+
+    print >>output_file, """${TARGET_DIR}/$5 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
+    print >>output_file, """\t@echo "CDL $5 -v $1" """
+    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --verilog ${TARGET_DIR}/$5 $6 ${SRC_ROOT}/$1"""
+    print >>output_file
+    print >>output_file, """${TARGET_DIR}/$3.cdlh : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
+    print >>output_file, """\t@echo "CDL $3 -cdlh $1" """
+    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --cdlh ${TARGET_DIR}/$3.cdlh $6 ${SRC_ROOT}/$1"""
+    print >>output_file
+    print >>output_file, """${TARGET_DIR}/$3.xml : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
+    print >>output_file, """\t@echo "CDL $3 -xml $1" """
+    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --xml ${TARGET_DIR}/$3.xml $6 ${SRC_ROOT}/$1"""
+    print >>output_file
+
+    print >>output_file, """MODELS += $3"""
+    print >>output_file, """VERILOG_FILES += ${TARGET_DIR}/$5"""
+    if template_name == 'cdl_template':
+        print >>output_file, """C_MODEL_OBJS += ${TARGET_DIR}/$4"""
+        print >>output_file, """CDLH_FILES += ${TARGET_DIR}/$3.cdlh"""
+    print >>output_file, """XML_FILES += ${TARGET_DIR}/$3.xml"""
+    print >>output_file
+    print >>output_file, """endef"""
+
 #f output_model_makefile
 def output_model_makefile( output_file ):
 
@@ -651,42 +710,9 @@ def output_model_makefile( output_file ):
     print >>output_file
     print >>output_file, """endef"""
     print >>output_file
-    print >>output_file, "#f cdl_template"
-    print >>output_file, """define cdl_template"""
-    print >>output_file, """# @param $1 cdl filename inside src_root"""
-    print >>output_file, """# @param $2 c filename in output dir"""
-    print >>output_file, """# @param $3 model name"""
-    print >>output_file, """# @param $4 object filename"""
-    print >>output_file, """# @param $5 verilog filename"""
-    print >>output_file, """# @param $6 options"""
-    print >>output_file, """${TARGET_DIR}/$2 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
-    print >>output_file, """\t@echo "CDL $1 -cpp $2" """
-    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --cpp ${TARGET_DIR}/$2 --cdlh ${TARGET_DIR}/${2:.cpp=.cdlh} $6 ${SRC_ROOT}/$1"""
-    print >>output_file
-    print >>output_file, """${TARGET_DIR}/$4 : ${TARGET_DIR}/$2"""
-    print >>output_file, """\t@echo "CC $2 -o $4" """
-    print >>output_file, """\t$(Q)$(CXX) $(CXXFLAGS) -c -o ${TARGET_DIR}/$4 ${TARGET_DIR}/$2"""
-    print >>output_file
-    print >>output_file, """${TARGET_DIR}/$5 : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
-    print >>output_file, """\t@echo "CDL $5 -v $1" """
-    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --verilog ${TARGET_DIR}/$5 $6 ${SRC_ROOT}/$1"""
-    print >>output_file
-    print >>output_file, """${TARGET_DIR}/$3.cdlh : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
-    print >>output_file, """\t@echo "CDL $3 -cdlh $1" """
-    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --cdlh ${TARGET_DIR}/$3.cdlh $6 ${SRC_ROOT}/$1"""
-    print >>output_file
-    print >>output_file, """${TARGET_DIR}/$3.xml : ${SRC_ROOT}/$1 $(CREATE_MAKE) $(CYCLICITY_BIN_DIR)/cdl"""
-    print >>output_file, """\t@echo "CDL $3 -xml $1" """
-    print >>output_file, """\t$(Q)$(CYCLICITY_BIN_DIR)/cdl --model $3 --xml ${TARGET_DIR}/$3.xml $6 ${SRC_ROOT}/$1"""
-    print >>output_file
 
-    print >>output_file, """MODELS += $3"""
-    print >>output_file, """C_MODEL_OBJS += ${TARGET_DIR}/$4"""
-    print >>output_file, """VERILOG_FILES += ${TARGET_DIR}/$5"""
-    print >>output_file, """CDLH_FILES += ${TARGET_DIR}/$3.cdlh"""
-    print >>output_file, """XML_FILES += ${TARGET_DIR}/$3.xml"""
-    print >>output_file
-    print >>output_file, """endef"""
+    for tname in ['cdl_template', 'cdl_no_cpp_template']:
+        cdltemplates(output_file, tname)
 
     print >>output_file
     print >>output_file, "#a C models"
@@ -724,6 +750,20 @@ def output_model_makefile( output_file ):
         cdl_filename = directory + "/" + source_file
         options = options_string_from_list(model["opts"])
         print >>output_file, """$(eval $(call cdl_template,%s,%s,%s,%s,%s,%s))""" % (cdl_filename, c_filename, model_name, object_filename, verilog_filename, options)
+
+    print >>output_file
+    print >>output_file, "#a CDL models with no CPP"
+    if models.has_key("cdl_no_cpp"):
+        for model in models["cdl_no_cpp"]:
+            directory = model["dir"]
+            model_name = model["model"]
+            source_file = model["src"]
+            c_filename = "None"
+            object_filename = "None"
+            verilog_filename = model["v"]
+            cdl_filename = directory + "/" + source_file
+            options = options_string_from_list(model["opts"])
+            print >>output_file, """$(eval $(call cdl_no_cpp_template,%s,%s,%s,%s,%s,%s))""" % (cdl_filename, c_filename, model_name, object_filename, verilog_filename, options)
 
     print >>output_file, "cdlh: ${CDLH_FILES}"
     print >>output_file, "xml: ${XML_FILES}"
