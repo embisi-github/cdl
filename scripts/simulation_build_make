@@ -61,11 +61,11 @@ $(TARGET_DIR)/derived_model_list.o: Makefile models.make
 	@echo "#include <stdio.h>" >> ${TARGET_DIR}/derived_model_list.cpp
 	@echo "typedef void (*t_python_init_fn)(void);" >> ${TARGET_DIR}/derived_model_list.cpp
 	@for a in ${MODELS}; do \
-		echo "extern void ${a}__init( void );" >> ${TARGET_DIR}/derived_model_list.cpp; \
+		echo "extern void $${a}__init( void );" >> ${TARGET_DIR}/derived_model_list.cpp; \
 	done
 	@echo "t_python_init_fn model_init_fns[] = {" >> ${TARGET_DIR}/derived_model_list.cpp
 	@for a in ${MODELS}; do \
-		echo "${a}__init," >> ${TARGET_DIR}/derived_model_list.cpp; \
+		echo "$${a}__init," >> ${TARGET_DIR}/derived_model_list.cpp; \
 	done
 	@echo "NULL" >> ${TARGET_DIR}/derived_model_list.cpp
 	@echo "};" >> ${TARGET_DIR}/derived_model_list.cpp

@@ -45,7 +45,9 @@
      { "v_comb_suffix", required_argument, NULL, option_be_v_comb_suffix }, \
      { "v_additional_port_include", required_argument, NULL, option_be_v_additional_port_include }, \
      { "v_additional_body_include", required_argument, NULL, option_be_v_additional_body_include }, \
+     { "v_assertions_ifdef", required_argument, NULL, option_be_v_assertions_ifdef }, \
      { "v_displays", no_argument, NULL, option_be_v_displays }, \
+     { "v_use_always_at_star", no_argument, NULL, option_be_v_use_always_at_star }, \
      { "vhdl", required_argument, NULL, option_be_vhdl }, \
      { "include-assertions", no_argument, NULL, option_be_include_assertions }, \
      { "sv-assertions", no_argument, NULL, option_be_sv_assertions }, \
@@ -101,6 +103,8 @@ enum
     option_be_v_displays,
     option_be_v_additional_port_include,
     option_be_v_additional_body_include,
+    option_be_v_assertions_ifdef,
+    option_be_v_use_always_at_star,
 };
 
 /*t t_md_output_fn

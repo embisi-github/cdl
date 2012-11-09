@@ -51,6 +51,7 @@ typedef enum
     se_message_reason_add_callback = 3,
     se_message_reason_remove_callback = 4,
     se_message_reason_interrogate_state = 5,    // ptrs[0] = const char *name (interpreted by module); standard return ptrs[0] = ptr to data (if array/vector); values[1] = data_width (width of vector/array), values[2] = 0 or size of array
+    se_message_reason_log_filter = 6,           // ptrs[0] = const char *name (interpreted by module), values[1-3] are interpreted by module; for example SRAMS use name=read/write, values[1]=address mask, values[2]=address match (mask=0 => disable)
     se_message_reason_read = 8,                 // interpreted by module - standard is values[0]=n, values[1]=address, values[2]=byte size of buffer, ptrs[3]=data buffer; values[0]==0 => values[2..] on return is the data read
     se_message_reason_write = 9,                // interpreted by module
     se_message_reason_checkpoint  = 10,         // to be specified by checkpoint/recover

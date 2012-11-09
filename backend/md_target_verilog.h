@@ -26,10 +26,12 @@ typedef struct
     const char *verilog_comb_reg_suffix;
     const char *additional_port_include;
     const char *additional_body_include;
+    const char *assertions_ifdef;
     int include_displays;
     int include_assertions;
     int sv_assertions;
     int include_coverage;
+    int use_always_at_star;
 } t_md_verilog_options;
 
 /*a External functions

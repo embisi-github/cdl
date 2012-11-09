@@ -285,7 +285,11 @@ t_sl_error_level c_se_internal_module__sram::read( unsigned int address, t_sl_ui
 
     if (clock_domain>=0)
     {
-        engine->log_event_occurred( engine_handle, clock_domains[clock_domain].log_event_array, 0 );
+        if (log_filter[0].enable &&
+            ((address & log_filter[0].mask)==log_filter[0].match))
+        {
+            engine->log_event_occurred( engine_handle, clock_domains[clock_domain].log_event_array, 0 );
+        }
         if (verbose)
         {
             fprintf(stderr,"%s:%d:Reading address %08x data word %08llx\n", engine->get_instance_name(engine_handle), engine->cycle(), address, data_out[0] );
@@ -330,7 +334,11 @@ t_sl_error_level c_se_internal_module__sram::write( unsigned int address, t_sl_u
         {
             fprintf(stderr,"%s:%d:Writing address %08x data word %08llx be %08llx\n", engine->get_instance_name(engine_handle), engine->cycle(), address, data_in[0], write_enable[0] );
         }
-        engine->log_event_occurred( engine_handle, clock_domains[clock_domain].log_event_array, 1 );
+        if (log_filter[1].enable &&
+            ((address & log_filter[1].mask)==log_filter[1].match))
+        {
+            engine->log_event_occurred( engine_handle, clock_domains[clock_domain].log_event_array, 1 );
+        }
     }
     return error_level_okay;
 }
@@ -379,6 +387,19 @@ t_sl_error_level c_se_internal_module__sram::message( t_se_message *message )
         message->data.values[1] = data_width;
         message->data.values[2] = data_size;
         break;
+    case se_message_reason_log_filter:
+        if (!strcmp((const char *)message->data.ptrs[0],"read"))
+        {
+            log_filter[0].enable = (message->data.values[1]!=0);
+            log_filter[0].mask   = message->data.values[1];
+            log_filter[0].match  = message->data.values[2];
+        }
+        if (!strcmp((const char *)message->data.ptrs[0],"write"))
+        {
+            log_filter[1].enable = (message->data.values[1]!=0);
+            log_filter[1].mask   = message->data.values[1];
+            log_filter[1].match  = message->data.values[2];
+        }
     case se_message_reason_read:
         if (message->data.values[0] == 0) // subreason of 0 -> read single value - put result in values[2]
         {
