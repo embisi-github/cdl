@@ -3403,7 +3403,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         output( handle, 1, "if (!inputs_captured) { capture_inputs(); inputs_captured++; }\n" );
         output( handle, 1, "if (clocks_to_call>%d)\n", 100 );
         output( handle, 1, "{\n" );
-        output( handle, 2, "fprintf(stderr,\"BUG - too many preclock calls after prepreclock\\n\");\n");
+        output( handle, 2, "fprintf(stderr,\"BUG - %%s:%%d too many preclock calls after prepreclock\\n\", __FILE__, __LINE__);\n");
         output( handle, 1, "} else {\n" );
         output( handle, 2, "clocks_fired[clocks_to_call].preclock=preclock;\n");
         output( handle, 2, "clocks_fired[clocks_to_call].clock=clock;\n");
