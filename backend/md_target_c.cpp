@@ -267,7 +267,7 @@ static void output_defines( c_model_descriptor *model, t_md_output_fn output, vo
     output( handle, 0, "#define DISPLAY_STRING(error_number,string) { \\\n" );
     output( handle, 1, "engine->add_message( NULL, error_level_info, error_number, error_id_sl_exec_file_allocate_and_read_exec_file, \\\n");
     output( handle, 2, "error_arg_type_integer, engine->cycle(),\\\n" );
-    output( handle, 2, "error_arg_type_const_string, \"%s\",\\\n", model->get_name() );
+    output( handle, 2, "error_arg_type_const_string, engine->get_instance_full_name( engine_handle ),\\\n");
     output( handle, 2, "error_arg_type_malloc_string, string,\\\n" );
     output( handle, 2, "error_arg_type_none ); }\n" );
     output( handle, 0, "#define PRINT_STRING(string) { DISPLAY_STRING(error_number_se_dated_message,string); }\n" );
