@@ -6153,9 +6153,11 @@ extern void be_getopt_usage( void )
      printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
      printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
      printf( "\t--v_comb_suffix\t\tTextual suffix for verilog 'reg' signals for combinatorials\n");
-     printf( "\t--v_displays\t\tIf included, then add $displays to verilog; else do not\n");
      printf( "\t--v_additional_port_include <filename>\t\tForces insertion of 'include \"filename\" before the ');' of every verilog module header\n");
      printf( "\t--v_additional_body_include <filename>\t\tForces insertion of 'include \"filename\" before the 'endmodule' of every verilog module body\n");
+     printf( "\t--v_assertions_ifdef <define>\t\tForces insertion of 'ifdef <define> before every asserted block in verilog\n");
+     printf( "\t--v_use_always_at_star\t\tMakes the verilog backend use 'always @*' for verilog output rather than 'initial' or 'always @ (a or b or...)'\n");
+     printf( "\t--v_displays\t\tIf included, then add $displays to verilog; else do not\n");
 }
 
 /*f be_handle_getopt

@@ -74,6 +74,8 @@ static PyObject *py_engine_method_find_state( t_py_engine_PyObject *py_cyc, PyOb
 static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_value_string( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_set_array_state( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_module_ios( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_init( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_checkpoint_add( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
@@ -129,6 +131,8 @@ static PyMethodDef engine_methods[] =
      {"get_state_value_string",    (PyCFunction)py_engine_method_get_state_value_string,  METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
      {"get_state_memory",          (PyCFunction)py_engine_method_get_state_memory,        METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
      {"get_module_ios",            (PyCFunction)py_engine_method_get_module_ios,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
+     {"set_state",                 (PyCFunction)py_engine_method_set_state,               METH_VARARGS|METH_KEYWORDS, "Set state to a certain value, with optional mask."},
+     {"set_array_state",           (PyCFunction)py_engine_method_set_array_state,         METH_VARARGS|METH_KEYWORDS, "Set an element of an array of state to a certain value, with optional mask."},
      {"checkpoint_init",           (PyCFunction)py_engine_method_checkpoint_init,         METH_VARARGS|METH_KEYWORDS, "Initialize checkpointing"},
      {"checkpoint_add",            (PyCFunction)py_engine_method_checkpoint_add,          METH_VARARGS|METH_KEYWORDS,  "Add a checkpoint"},
      {"checkpoint_info",           (PyCFunction)py_engine_method_checkpoint_info,         METH_VARARGS|METH_KEYWORDS, "Get information about a checkpoint"},
@@ -815,6 +819,7 @@ static PyObject *py_engine_method_get_state_value_string( t_py_engine_PyObject *
          {
              return py_engine_method_return( py_eng, NULL );
          }
+         // GJS suspects this if statement and content is unnecessary - we don't need prefix and tail
          if (!py_eng->engine->interrogate_get_entity_strings( sub_ih, &module, &prefix, &tail ))
          {
              return py_engine_method_return( py_eng, NULL );
@@ -876,6 +881,78 @@ static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_eng
                }
           }
           return py_engine_method_return( py_eng, NULL );
+     }
+     return NULL;
+}
+
+/*f py_engine_method_set_state
+ */
+static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char md[] = "module";
+    char id_s[] = "id";
+    char st[] = "value";
+    char ln[] = "mask";
+    char *kwdlist[] = { md, id_s, st, ln, NULL };
+    char *module;
+    int id;
+    t_sl_uint64 value, mask;
+
+    py_engine_method_enter( py_eng, "set_state", args );
+    mask = ~0;
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "siL|L", kwdlist, &module, &id, &value, &mask ))
+    {
+        t_se_interrogation_handle ih, sub_ih;
+        t_engine_state_desc_type state_desc_type;
+        t_se_signal_value *data;
+        int sizes[4];
+
+        ih = py_eng->engine->find_entity( module );
+        if (!ih) return NULL;
+        sub_ih = NULL;
+        py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, &sub_ih );
+        if (!sub_ih) return NULL;
+        state_desc_type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &data, sizes );
+        if (state_desc_type != engine_state_desc_type_bits) return NULL;
+        data[0] = ((data[0] & ~mask) | value) & ((1<<sizes[0])-1);
+        return py_engine_method_return( py_eng, NULL );
+     }
+     return NULL;
+}
+
+/*f py_engine_method_set_array_state
+ */
+static PyObject *py_engine_method_set_array_state( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char md[] = "module";
+    char id_s[] = "id";
+    char ind[] = "index";
+    char st[] = "value";
+    char ln[] = "mask";
+    char *kwdlist[] = { md, id_s, ind, st, ln, NULL };
+    char *module;
+    int id, index;
+    t_sl_uint64 value, mask;
+
+    py_engine_method_enter( py_eng, "set_state", args );
+    mask = ~0;
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "siiL|L", kwdlist, &module, &id, &index, &value, &mask ))
+    {
+        t_se_interrogation_handle ih, sub_ih;
+        t_engine_state_desc_type state_desc_type;
+        t_se_signal_value *data;
+        int sizes[4];
+
+        ih = py_eng->engine->find_entity( module );
+        if (!ih) return NULL;
+        sub_ih = NULL;
+        py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, &sub_ih );
+        if (!sub_ih) return NULL;
+        state_desc_type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &data, sizes );
+        if (state_desc_type != engine_state_desc_type_array) return NULL;
+        if ((index<0) || (index>=sizes[1])) return NULL;
+        data[index] = ((data[index] & ~mask) | value) & ((1<<sizes[0])-1);
+        return py_engine_method_return( py_eng, NULL );
      }
      return NULL;
 }
