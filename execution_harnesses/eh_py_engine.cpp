@@ -914,7 +914,11 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
         if (!sub_ih) return NULL;
         state_desc_type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &data, sizes );
         if (state_desc_type != engine_state_desc_type_bits) return NULL;
-        data[0] = ((data[0] & ~mask) | value) & ((1<<sizes[0])-1);
+        data[0] = ((data[0] & ~mask) | value) & ((1ULL<<sizes[0])-1);
+        if (sizes[0]==64)
+        {
+            data[0] = ((data[0] & ~mask) | value);
+        }
         return py_engine_method_return( py_eng, NULL );
      }
      return NULL;
@@ -951,7 +955,11 @@ static PyObject *py_engine_method_set_array_state( t_py_engine_PyObject *py_eng,
         state_desc_type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &data, sizes );
         if (state_desc_type != engine_state_desc_type_array) return NULL;
         if ((index<0) || (index>=sizes[1])) return NULL;
-        data[index] = ((data[index] & ~mask) | value) & ((1<<sizes[0])-1);
+        data[index] = ((data[index] & ~mask) | value) & ((1ULL<<sizes[0])-1);
+        if (sizes[0]==64)
+        {
+            data[index] = ((data[index] & ~mask) | value);
+        }
         return py_engine_method_return( py_eng, NULL );
      }
      return NULL;
