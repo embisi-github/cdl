@@ -424,7 +424,7 @@ void *c_engine::find_global( const char *name )
 int c_engine::find_state( char *name, int *id )
 {
      int i, j, n;
-     char *state_name;
+     char *state_name;     
      t_engine_module_instance *emi;
      t_engine_state_desc_list *sdl;
 
@@ -447,7 +447,7 @@ int c_engine::find_state( char *name, int *id )
      if (!emi)
           return 0;
 
-     for ( n=0,sdl=emi->state_desc_list; sdl; n+=sdl->num_state,sdl=sdl->next_in_list )
+     for (n=0, sdl=emi->state_desc_list; sdl; n+=sdl->num_state,sdl=sdl->next_in_list )
      {
           if (!sdl->prefix)
           {
@@ -911,6 +911,145 @@ int c_engine::interrogate_enumerate_hierarchy( t_se_interrogation_handle entity,
      }
      *sub_entity = value;
      return 1;
+}
+
+/*f c_engine::interrogate_enumerate_hierarchy
+  Return a new (or reused) sub_ih for a sub_entity of an entity, given the entity_name of that subentity and selecting from a particular subset of types
+  Return 0 and free the sub_ih if there is no sub_entity of that entity_name
+  Return 1 and create or reuse sub_ih if there is a sub_entity of that entity_name
+  Only operate if the main entity is a module; scan its state descriptors, inputs and outputs (dependent on mask)
+ */
+int c_engine::interrogate_find_entity( t_se_interrogation_handle entity, const char *entity_name, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask, t_se_interrogation_handle *sub_entity )
+{
+    int i;
+    int result;
+    t_se_interrogation_handle value;
+    t_engine_state_desc_list *sdl;
+    t_engine_function *signal;
+
+    if (*sub_entity)
+    {
+        value = *sub_entity;
+        value->global = NULL;
+        value->signal = NULL;
+        value->module_instance = NULL;
+        value->state_number = -1;
+        value->sdl = NULL;
+        value->state_desc = NULL;
+        value->signal_type = signal_type_none;
+    }
+    else
+    {
+        value = interrogation_handle_create();
+    }
+    result = 0;
+    if (entity)
+    {
+        if (entity->module_instance && !entity->state_desc && !entity->signal && !entity->global)
+        {
+            if (include_mask & engine_interrogate_include_mask_submodules)
+            {
+                t_engine_module_instance *emi;
+                for (emi=module_instance_list; emi && !result; emi=emi->next_instance)
+                {
+                    if (emi->parent_instance==entity->module_instance)
+                    {
+                        if (!strcmp(emi->name, entity_name))
+                        {
+                            value->module_instance = emi;
+                            result = 1;
+                        }
+                    }
+                }
+            }
+            if (include_mask & engine_interrogate_include_mask_state)
+            {
+                for (sdl=entity->module_instance->state_desc_list; sdl && !result; sdl=sdl->next_in_list)
+                {
+                    int j=-1; // so that j+1 is state of tail if there is no prefix
+                    if (sdl->prefix)
+                    {
+                        j = strlen(sdl->prefix);
+                    }
+                    if ( (j<0) ||
+                         ( (!strncmp(sdl->prefix, entity_name, j)) &&
+                           (entity_name[j]=='.') ) )
+                    {
+                        for (i=0; (i<sdl->num_state) && !result; i++)
+                        {
+                            if (type_mask&(1<<sdl->state_desc[i].type))
+                            {
+                                if (!strcmp( sdl->state_desc[i].name, entity_name+j+1 )) // compare the tail
+                                {
+                                    value->module_instance = entity->module_instance;
+                                    value->sdl = sdl;
+                                    value->state_number = i;
+                                    value->state_desc = sdl->state_desc+i;
+                                    result = 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if (include_mask & engine_interrogate_include_mask_inputs)
+            {
+                for (signal = entity->module_instance->input_list; signal && !result; signal=signal->next_in_list)
+                {
+                    if (type_mask & engine_state_desc_type_mask_bits)
+                    {
+                        if (!strcmp(signal->name, entity_name))
+                        {
+                            value->module_instance = entity->module_instance;
+                            value->signal = signal;
+                            value->signal_type = signal_type_input;
+                            result = 1;
+                        }
+                    }
+                }
+            }
+            if (include_mask & engine_interrogate_include_mask_outputs)
+            {
+                for (signal = entity->module_instance->output_list; signal && !result; signal=signal->next_in_list)
+                {
+                    if (type_mask & engine_state_desc_type_mask_bits)
+                    {
+                        if (!strcmp(signal->name, entity_name))
+                        {
+                            value->module_instance = entity->module_instance;
+                            value->signal = signal;
+                            value->signal_type = signal_type_output;
+                            result = 1;
+                        }
+                    }
+                }
+            }
+            if (include_mask & engine_interrogate_include_mask_clocks)
+            {
+                for (signal = entity->module_instance->clock_fn_list; signal && !result; signal=signal->next_in_list)
+                {
+                    if (type_mask & engine_state_desc_type_mask_bits)
+                    {
+                        if (!strcmp(signal->name, entity_name))
+                        {
+                            value->module_instance = entity->module_instance;
+                            value->signal = signal;
+                            value->signal_type = signal_type_clock;
+                            result = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (!result)
+    {
+        interrogation_handle_free( value );
+        *sub_entity = NULL;
+        return 0;
+    }
+    *sub_entity = value;
+    return 1;
 }
 
 /*f c_engine::interrogate_get_internal_fn

@@ -72,6 +72,7 @@ static PyObject *py_engine_method_thread_pool_map_module( t_py_engine_PyObject *
 static PyObject *py_engine_method_list_instances( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_find_state( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_value_string( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
@@ -128,11 +129,47 @@ static PyMethodDef engine_methods[] =
      {"list_instances",            (PyCFunction)py_engine_method_list_instances,          METH_VARARGS|METH_KEYWORDS, "List toplevel instances."},
      {"find_state",                (PyCFunction)py_engine_method_find_state,              METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
      {"get_state_info",            (PyCFunction)py_engine_method_get_state_info,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
-     {"get_state_value_string",    (PyCFunction)py_engine_method_get_state_value_string,  METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
+     {"get_state",                 (PyCFunction)py_engine_method_get_state,               METH_VARARGS|METH_KEYWORDS,
+      "Get state from simulation engine.\n"
+      "\n"
+      "@module:     module name\n"
+      "@state:      state name or enumerated id\n"
+      "@what:       what part of state to get (if memory/vector)\n"
+      "\n"
+      "Retrieve state contents from simulation engine.  If 'state' is\n"
+      "a memory then return list of all values or a selection of\n"
+      "values based on 'what'.  When 'what' is an int return a single\n"
+      "word in the memory.  When 'what' is a slice object return a\n"
+      "list of the indicated words in the memory.\n"
+      "\n"
+      "Throw ValueError if 'module' or 'state' can not be found."},
      {"get_state_memory",          (PyCFunction)py_engine_method_get_state_memory,        METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
      {"get_module_ios",            (PyCFunction)py_engine_method_get_module_ios,          METH_VARARGS|METH_KEYWORDS, "Get information about global or module state."},
-     {"set_state",                 (PyCFunction)py_engine_method_set_state,               METH_VARARGS|METH_KEYWORDS, "Set state to a certain value, with optional mask."},
-     {"set_array_state",           (PyCFunction)py_engine_method_set_array_state,         METH_VARARGS|METH_KEYWORDS, "Set an element of an array of state to a certain value, with optional mask."},
+     {"set_state",                 (PyCFunction)py_engine_method_set_state,               METH_VARARGS|METH_KEYWORDS,
+      "Set state in simulation engine.\n"
+      "\n"
+      "@module:     module name\n"
+      "@state:      state name or enumerated id\n"
+      "@value:      value(s) to set\n"
+      "@mask:       mask(s) for value(s) (or None)\n"
+      "@what:       what part of state to set (if memory/vector)\n"
+      "\n"
+      "Set state contents of simulation engine.  The 'mask' bits\n"
+      "indicate which bits of the state value to set.  If 'mask' is\n"
+      "None then all bits in the state is set.\n"
+      "\n"
+      "When 'state' indicates a memory 'value' and 'mask' can be\n"
+      "lists of values.  If 'mask' is a single value then it is\n"
+      "applied to all entries in the 'value' list.\n"
+      "\n"
+      "The 'what' parameter can be used to indicate which parts of\n"
+      "the memory state to modify.  A single int indicates a memory\n"
+      "word with a specific index.  A slice object indicates multiple\n"
+      "memory entries.\n"
+      "\n"
+      "Throw ValueError if 'module' or 'state' can not be found."},
+     {"get_state_value_string",    (PyCFunction)py_engine_method_get_state_value_string,  METH_VARARGS|METH_KEYWORDS, "Get string value of global or module state."},
+     {"set_array_state",           (PyCFunction)py_engine_method_set_array_state,         METH_VARARGS|METH_KEYWORDS,"Set an element of an array of state to a certain value, with optional mask."},
      {"checkpoint_init",           (PyCFunction)py_engine_method_checkpoint_init,         METH_VARARGS|METH_KEYWORDS, "Initialize checkpointing"},
      {"checkpoint_add",            (PyCFunction)py_engine_method_checkpoint_add,          METH_VARARGS|METH_KEYWORDS,  "Add a checkpoint"},
      {"checkpoint_info",           (PyCFunction)py_engine_method_checkpoint_info,         METH_VARARGS|METH_KEYWORDS, "Get information about a checkpoint"},
@@ -217,26 +254,26 @@ static PyObject *py_engine_method_return( t_py_engine_PyObject *py_eng, const ch
     return Py_None;
 }
 
-/*f py_engine_method_result_add_double
+/*f py_engine_method_error
  */
-// static void py_engine_method_result_add_double( void *handle, double d )
-// {
-// 	PyObject *obj;
+static PyObject *py_engine_method_error( t_py_engine_PyObject *py_eng )
+{
+ #ifdef PY_DEBUG
+    fprintf( stderr, "Exception in '%s'\n", where_last );
+    fflush( stderr );
+#endif
+    Py_CLEAR(result);
+    return NULL;
+}
 
-// 	if (!result)
-// 	{
-// 		result = PyFloat_FromDouble( d );
-// 		return;
-// 	}
-// 	if (!PyObject_TypeCheck( result, &PyList_Type) )
-// 	{
-// 		obj = PyList_New( 0 );
-// 		PyList_Append( obj, result );
-// 		result = obj;
-// 	}
-// 	obj = PyFloat_FromDouble( d );
-// 	PyList_Append( result, obj );
-// }
+/*f py_engine_method_result_empty_list
+ */
+static void py_engine_method_result_empty_list( void *handle )
+{
+        if (result)
+            Py_CLEAR( result );
+        result = PyList_New( 0 );
+}
 
 /*f py_engine_method_result_add_int
  */
@@ -359,6 +396,88 @@ static void py_engine_method_result_add_cons_list( void *handle, t_sl_cons_list 
     {
          PyList_Append( result, obj );
     }
+}
+
+/*a Support functions
+ */
+/*f find_ih_from_module_and_state_or_id
+  module_name is required
+  state_name is the name of the state being interrogated - if an 'id' is being supplied, then this is ignored
+  id should be the interrogate index for the module for mask ALL or -1 if not known (the common case)
+ */
+static int find_ih_from_module_and_state_or_id( t_py_engine_PyObject *py_eng, const char *module_name, const char *state_name, int id, t_se_interrogation_handle *sub_ih )
+{
+    t_se_interrogation_handle ih;
+
+    /*b Check arguments
+     */
+    if ((id==-1) && (!state_name))
+    {
+        PyErr_SetString( PyExc_TypeError, "required parameter 'id' or 'state' not provided" );
+        return 0;
+    }
+
+    /*b Lookup module
+      Given module/id/state_name, and ih, find a sub_ih or set an error
+    */
+    ih = py_eng->engine->find_entity( module_name );
+    if (!ih)
+    {
+        PyErr_SetObject( PyExc_ValueError, PyString_FromFormat("invalid module name: %s", module_name) );
+        return 0;
+    }
+
+    /*b Find sub_ih from state_name if provided
+    */
+    *sub_ih = NULL;
+    if (state_name)
+    {
+        py_eng->engine->interrogate_find_entity( ih, state_name, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, sub_ih );
+        if (!*sub_ih)
+        {
+            PyErr_SetObject( PyExc_ValueError, PyString_FromFormat("invalid state: %s", state_name) );
+        }
+    }
+    else
+    {
+        py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, sub_ih );
+        if (!*sub_ih)
+        {
+            PyErr_SetObject( PyExc_ValueError, PyString_FromFormat("invalid state: %d", id) );
+        }
+    }
+
+    /*b Done
+     */
+    py_eng->engine->interrogation_handle_free( ih );
+    return ((*sub_ih)!=NULL);
+}
+
+/*f find_data_info_from_module_and_state_or_id
+  module_name is required
+  state_name is the name of the state being interrogated - if an 'id' is being supplied, then this is ignored
+  id should be the interrogate index for the module for mask ALL or -1 if not known (the common case)
+ */
+static t_engine_state_desc_type find_data_info_from_module_and_state_or_id( t_py_engine_PyObject *py_eng, const char *module_name, const char *state_name, int id, t_se_signal_value **data, int *sizes )
+{
+    t_engine_state_desc_type state_desc_type;
+    t_se_interrogation_handle ih;
+
+    /*b Get handles
+     */
+    if (!find_ih_from_module_and_state_or_id( py_eng, module_name, state_name, id, &ih ))
+    {
+        return engine_state_desc_type_none;
+    }
+
+    /*b Get data about the state
+     */
+    state_desc_type = py_eng->engine->interrogate_get_data_sizes_and_type( ih, data, sizes );
+    py_eng->engine->interrogation_handle_free( ih );
+
+    /*b Return result
+     */
+    return state_desc_type;
 }
 
 /*a Python-called engine class methods
@@ -739,29 +858,23 @@ static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_eng, 
      py_engine_method_enter( py_eng, "get_state_info", args );
      if (PyArg_ParseTupleAndKeywords( args, kwds, "si", kwdlist, &module, &id ))
      {
-         t_se_interrogation_handle ih, sub_ih;
+         t_se_interrogation_handle sub_ih;
          const char *prefix, *tail;
 
-         ih = py_eng->engine->find_entity( module );
-         if (!ih)
+         if (!find_ih_from_module_and_state_or_id( py_eng, module, NULL, id, &sub_ih ))
          {
-             return py_engine_method_return( py_eng, NULL );
+             return py_engine_method_error( py_eng );
          }
-         sub_ih = NULL;
-         py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, &sub_ih );
-         if (!sub_ih)
-         {
-             return py_engine_method_return( py_eng, NULL );
-         }
+
          if (!py_eng->engine->interrogate_get_entity_strings( sub_ih, &module, &prefix, &tail ))
          {
              return py_engine_method_return( py_eng, NULL );
          }
+
+         sizes[0] = sizes[1] = 0;
+
          type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &dummy, sizes );
          py_eng->engine->interrogation_handle_free( sub_ih );
-         py_eng->engine->interrogation_handle_free( ih );
-         //sizes[0] = 0;
-         //sizes[1] = 0;
          py_engine_method_result_add_int( NULL, (int) type );
          py_engine_method_result_add_string( NULL, module );
          py_engine_method_result_add_string( NULL, prefix );
@@ -769,24 +882,128 @@ static PyObject *py_engine_method_get_state_info( t_py_engine_PyObject *py_eng, 
          py_engine_method_result_add_int( NULL, sizes[0] );
          py_engine_method_result_add_int( NULL, sizes[1] );
          return py_engine_method_return( py_eng, NULL );
-             // Old
-         //handle = py_eng->engine->find_module_instance( module );
-         // if ( (!handle) ||
-         //      (!py_eng->engine->set_state_handle( handle, id )) )
-         // {
-         //      return py_engine_method_return( py_eng, NULL );
-         // }
-         // type = py_eng->engine->get_state_name_and_type( handle, &module, &prefix, &state_name );
-         // py_engine_method_result_add_int( NULL, (int) type );
-         // py_engine_method_result_add_string( NULL, module );
-         // py_engine_method_result_add_string( NULL, prefix );
-         // py_engine_method_result_add_string( NULL, state_name );
-         // sizes[0] = 0;
-         // sizes[1] = 0;
-         // py_eng->engine->get_state_value_data_and_sizes( handle, &dummy, sizes );
-         // py_engine_method_result_add_int( NULL, sizes[0] );
-         // py_engine_method_result_add_int( NULL, sizes[1] );
-         // return py_engine_method_return( py_eng, NULL );
+
+     }
+     return NULL;
+}
+
+/*f py_engine_method_get_state
+ */
+static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char module_s[] = "module";
+    char state_s[] = "state";
+    char what_s[] = "what";
+    char *kwdlist[] = { module_s, state_s, what_s, NULL };
+    const char *module, *state_name = NULL;
+    PyObject *state, *what;
+    Py_ssize_t start, stop, step, length;
+    t_engine_state_desc_type state_desc_type;
+    t_se_signal_value *data;
+    uint64_t datamask;
+    int sizes[4];
+    int idx, err, id = 0;
+
+    py_engine_method_enter( py_eng, "get_state", args );
+
+    what = NULL;
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "sO|O", kwdlist, &module, &state, &what ))
+    {
+        /*b Validate parameters
+         */
+        if (PyInt_Check(state))
+        {
+            id = PyInt_AsLong(state);
+        }
+        else if (PyString_Check(state))
+        {
+            state_name = PyString_AsString( state );
+        }
+        else
+        {
+            PyErr_SetString( PyExc_TypeError, "argument 2 must be string or int" );
+            return py_engine_method_error( py_eng );
+        }
+
+        if (what == Py_None)
+        {
+            what = NULL;
+        }
+        else if (!what && !PyInt_Check(what) && !PySlice_Check(what))
+        {
+            PyErr_SetString( PyExc_TypeError, "argument 3 must be int or slice" );
+            return py_engine_method_error( py_eng );
+        }
+
+        /*b Get details of the state from the module name and state name / id
+         */
+        state_desc_type = find_data_info_from_module_and_state_or_id( py_eng, module, state_name, id, &data, sizes );
+        if (state_desc_type == engine_state_desc_type_none)
+        {
+            return py_engine_method_error( py_eng );
+        }
+
+        /*b Retrieve state and produce return value(s)
+         */
+        if (sizes[0] == 64)
+        {
+            datamask = ~0ULL;
+        }
+        else
+        {
+            datamask = (1ULL << sizes[0]) - 1;
+        }
+
+        if (state_desc_type == engine_state_desc_type_bits)
+        {
+            /* Ignore 'what' parameter if state is a single value */
+            py_engine_method_result_add_int( NULL, data[0] & datamask );
+            return py_engine_method_return( py_eng, NULL );
+        }
+        else if (state_desc_type == engine_state_desc_type_array)
+        {
+            if (!what)
+            {
+                /* Return whole array */
+                for (idx = 0; idx < sizes[1]; idx++)
+                {
+                    py_engine_method_result_add_int( NULL, data[idx] & datamask );
+                }
+                return py_engine_method_return( py_eng, NULL );
+            }
+            else if (PyInt_Check( what ))
+            {
+                /* Return a single value in array */
+                idx = PyInt_AsLong( what );
+                if (idx >= sizes[1])
+                {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("state index out of range: %d", idx) );
+                    return py_engine_method_error( py_eng );
+                }
+                py_engine_method_result_add_int( NULL, data[idx] & datamask );
+                return py_engine_method_return( py_eng, NULL );
+            }
+            else
+            {
+                /* Return slice of array */
+                err = PySlice_GetIndicesEx( (PySliceObject *) what, sizes[1], &start, &stop, &step, &length );
+                if (err)
+                    return py_engine_method_error( py_eng );
+
+                /* Make sure we always return a list type */
+                py_engine_method_result_empty_list( NULL );
+                for (idx = start; idx < stop; idx += step)
+                {
+                    py_engine_method_result_add_int( NULL, data[idx] & datamask );
+                }
+                return py_engine_method_return( py_eng, NULL );
+            }
+        }
+        else
+        {
+            PyErr_SetString( PyExc_RuntimeError, "state interrogation failed" );
+            return py_engine_method_error( py_eng );
+        }
      }
      return NULL;
 }
@@ -797,48 +1014,34 @@ static PyObject *py_engine_method_get_state_value_string( t_py_engine_PyObject *
 {
      char md[] = "module";
      char id_s[] = "id";
-     char *kwdlist[] = { md, id_s, NULL };
-     const char *module;
+     char state_s[] = "state";
+     char *kwdlist[] = { md, id_s, state_s, NULL };
+     const char *module, *state_name;
      char buffer[256];
      int id;
 
-     py_engine_method_enter( py_eng, "get_state_value_string", args );
-     if (PyArg_ParseTupleAndKeywords( args, kwds, "si", kwdlist, &module, &id ))
-     {
-         t_se_interrogation_handle ih, sub_ih;
-         const char *prefix, *tail;
+     /* The way we handle parameters below is not very intuitive or pythonesque, but legacy :-( */
 
-         ih = py_eng->engine->find_entity( module );
-         if (!ih)
+     py_engine_method_enter( py_eng, "get_state_value_string", args );
+
+     id = -1;
+     state_name = NULL;
+     if (PyArg_ParseTupleAndKeywords( args, kwds, "s|is", kwdlist, &module, &id, &state_name ))
+     {
+         t_se_interrogation_handle sub_ih;
+
+        /*b Given module/id/state_name, and ih, find a sub_ih or set an error
+         */
+         if (!find_ih_from_module_and_state_or_id( py_eng, module, state_name, id, &sub_ih ))
          {
-             return py_engine_method_return( py_eng, NULL );
+             return py_engine_method_error( py_eng );
          }
-         sub_ih = NULL;
-         py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, &sub_ih );
-         if (!sub_ih)
-         {
-             return py_engine_method_return( py_eng, NULL );
-         }
-         // GJS suspects this if statement and content is unnecessary - we don't need prefix and tail
-         if (!py_eng->engine->interrogate_get_entity_strings( sub_ih, &module, &prefix, &tail ))
-         {
-             return py_engine_method_return( py_eng, NULL );
-         }
+
          py_eng->engine->interrogate_get_entity_value_string( sub_ih, buffer, sizeof(buffer) );
          py_eng->engine->interrogation_handle_free( sub_ih );
-         py_eng->engine->interrogation_handle_free( ih );
          py_engine_method_result_add_string( NULL, buffer );
          return py_engine_method_return( py_eng, NULL );
 
-         // handle = py_eng->engine->find_module_instance( module );
-         // if ( (!handle) ||
-         //      (!py_eng->engine->set_state_handle( handle, id )) )
-         // {
-         //      return py_engine_method_return( py_eng, NULL );
-         // }
-         // py_eng->engine->get_state_value_string( handle, buffer, sizeof(buffer) );
-         // py_engine_method_result_add_string( NULL, buffer );
-         // return py_engine_method_return( py_eng, NULL );
      }
      return NULL;
 }
@@ -847,79 +1050,273 @@ static PyObject *py_engine_method_get_state_value_string( t_py_engine_PyObject *
  */
 static PyObject *py_engine_method_get_state_memory( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
-     char md[] = "module";
-     char id_s[] = "id";
-     char st[] = "start";
-     char ln[] = "length";
-     char *kwdlist[] = { md, id_s, st, ln, NULL };
-     void *handle;
-     char *module, buffer[256];
-     int id, start, length;
-     int sizes[4], *data;
-     int i;
+    char md[] = "module";
+    char id_s[] = "id";
+    char st[] = "start";
+    char ln[] = "length";
+    char state_s[] = "state";
+    char *kwdlist[] = { md, id_s, st, ln, state_s, NULL };
+    char *module, *state_name, buffer[256];
+    int id, start, length;
+    int sizes[4];
+    t_se_signal_value *data;
+    t_engine_state_desc_type state_desc_type;
+    int i;
 
-     py_engine_method_enter( py_eng, "get_state_memory", args );
-     if (PyArg_ParseTupleAndKeywords( args, kwds, "siii", kwdlist, &module, &id, &start, &length ))
-     {
-          handle = py_eng->engine->find_module_instance( module );
-          if ( (!handle) ||
-               (!py_eng->engine->set_state_handle( handle, id )) ||
-               (!py_eng->engine->get_state_value_data_and_sizes( handle, &data, sizes )) )
-          {
-               return py_engine_method_return( py_eng, NULL );
-          }
-          if (!data)
-          {
-               return py_engine_method_return( py_eng, NULL );
-          }
-          for (i=0; i<length; i++)
-          {
-               if ((i+start>=0) || (i+start<sizes[1]))
-               {
-                    sl_print_bits_hex( buffer, sizeof(buffer), data+(i+start)*BITS_TO_INTS(sizes[0]), sizes[0] );
-                    py_engine_method_result_add_string( NULL, buffer );
-               }
-          }
-          return py_engine_method_return( py_eng, NULL );
-     }
-     return NULL;
+    /* XXX The way we handle parameters below is not very intuitive or pythonesque */
+
+    py_engine_method_enter( py_eng, "get_state_memory", args );
+
+    id = -1;
+    start = -1;
+    length = -1;
+    state_name = NULL;
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "s|iiis", kwdlist, &module, &id, &start, &length, &state_name ))
+    {
+        /*b Validate parameters
+         */
+        if (start==-1)
+        {
+            PyErr_SetString( PyExc_TypeError, "required parameter 'start' (pos 3) not found" );
+            return py_engine_method_error( py_eng );
+        }
+
+        if (length==-1)
+        {
+            PyErr_SetString( PyExc_TypeError, "required parameter 'length' (pos 4) not found" );
+            return py_engine_method_error( py_eng );
+        }
+
+        /*b Get details of the state from the module name and state name / id
+         */
+        state_desc_type = find_data_info_from_module_and_state_or_id( py_eng, module, state_name, id, &data, sizes );
+        if (state_desc_type == engine_state_desc_type_none)
+        {
+            return py_engine_method_error( py_eng );
+        }
+
+        /*b Print state to a buffer and return that
+         */
+        for (i=0; i<length; i++)
+        {
+            if ((i+start>=0) || (i+start<sizes[1]))
+            {
+                sl_print_bits_hex( buffer, sizeof(buffer), ((int *)data)+(i+start)*BITS_TO_INTS(sizes[0]), sizes[0] );
+                py_engine_method_result_add_string( NULL, buffer );
+            }
+        }
+        return py_engine_method_return( py_eng, NULL );
+    }
+    return NULL;
 }
 
 /*f py_engine_method_set_state
  */
 static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
-    char md[] = "module";
-    char id_s[] = "id";
-    char st[] = "value";
-    char ln[] = "mask";
-    char *kwdlist[] = { md, id_s, st, ln, NULL };
-    char *module;
-    int id;
-    t_sl_uint64 value, mask;
+    char module_s[] = "module";
+    char state_s[] = "state";
+    char value_s[] = "value";
+    char mask_s[] = "mask";
+    char what_s[] = "what";
+    char *kwdlist[] = { module_s, state_s, value_s, mask_s, what_s, NULL };
+    const char *module, *state_name = NULL;
+    PyObject *state, *value, *mask, *what;
+    Py_ssize_t start, stop, step, length;
+    t_engine_state_desc_type state_desc_type;
+    t_se_signal_value *data;
+    uint64_t datamask, dataval, maskval = 0;
+    int sizes[4];
+    int idx, n, err, id = 0;
 
-    py_engine_method_enter( py_eng, "set_state", args );
-    mask = ~0;
-    if (PyArg_ParseTupleAndKeywords( args, kwds, "siL|L", kwdlist, &module, &id, &value, &mask ))
+    py_engine_method_enter( py_eng, "get_state", args );
+
+    mask = NULL;
+    what = NULL;
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "sOO|OO", kwdlist, &module, &state, &value, &mask, &what ))
     {
-        t_se_interrogation_handle ih, sub_ih;
-        t_engine_state_desc_type state_desc_type;
-        t_se_signal_value *data;
-        int sizes[4];
-
-        ih = py_eng->engine->find_entity( module );
-        if (!ih) return NULL;
-        sub_ih = NULL;
-        py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, &sub_ih );
-        if (!sub_ih) return NULL;
-        state_desc_type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &data, sizes );
-        if (state_desc_type != engine_state_desc_type_bits) return NULL;
-        data[0] = ((data[0] & ~mask) | value) & ((1ULL<<sizes[0])-1);
-        if (sizes[0]==64)
+        /*b Validate parameters
+         */
+        if (PyInt_Check( state ))
         {
-            data[0] = ((data[0] & ~mask) | value);
+            id = PyInt_AsLong( state );
         }
-        return py_engine_method_return( py_eng, NULL );
+        else if (PyString_Check( state ))
+        {
+            state_name = PyString_AsString( state );
+        }
+        else
+        {
+            PyErr_SetString( PyExc_TypeError, "argument 2 must be string or int" );
+            return py_engine_method_error( py_eng );
+        }
+
+        if (PyList_Check( value ))
+        {
+            length = PyList_Size( value );
+            if (length == 0)
+            {
+                PyErr_SetString( PyExc_ValueError, "len(value) == 0" );
+                return py_engine_method_error( py_eng );
+            }
+
+            for (idx = 0; idx < length; idx++)
+            {
+                if (!PyInt_Check(PyList_GET_ITEM( value, idx )))
+                {
+                    PyErr_SetObject( PyExc_ValueError, PyString_FromFormat("value[%d] is not an int", idx) );
+                    return py_engine_method_error( py_eng );
+                }
+            }
+        }
+        else if (!PyInt_Check( value ))
+        {
+            PyErr_SetString( PyExc_TypeError, "argument 3 must be int or list of int" );
+            return py_engine_method_error( py_eng );
+        }
+
+        if (mask == Py_None || !mask)
+        {
+            mask = NULL;
+            maskval = ~0UL;
+        }
+        else if (PyInt_Check( mask ))
+        {
+            maskval = PyInt_AsLong( mask );
+        }
+        else if (PyList_Check( mask ))
+        {
+            length = PyList_Size( mask );
+            if (length == 0)
+            {
+                PyErr_SetString( PyExc_ValueError, "len(mask) == 0" );
+                return py_engine_method_error( py_eng );
+            }
+            else if (PyList_Check( value ) && length < PyList_Size( value ))
+            {
+                PyErr_SetString( PyExc_ValueError, "len(mask) < len(value)" );
+                return py_engine_method_error( py_eng );
+            }
+
+            for (idx = 0; idx < length; idx++)
+            {
+                if (!PyInt_Check(PyList_GET_ITEM( mask, idx )))
+                {
+                    PyErr_SetObject( PyExc_ValueError, PyString_FromFormat("mask[%d] is not an int", idx) );
+                    return py_engine_method_error( py_eng );
+                }
+            }
+            maskval = PyInt_AsLong(PyList_GetItem( mask, 0 ));
+        }
+        else if (!PyInt_Check( mask ))
+        {
+            PyErr_SetString( PyExc_TypeError, "argument 4 must be int or list of int" );
+            return py_engine_method_error( py_eng );
+        }
+
+        if (what == Py_None)
+        {
+            what = NULL;
+        }
+        else if (what != NULL && !PyInt_Check( what ) && !PySlice_Check( what ))
+        {
+            PyErr_SetString( PyExc_TypeError, "argument 5 must be int or slice" );
+            return py_engine_method_error( py_eng );
+        }
+
+        /*b Get details of the state from the module name and state name / id
+         */
+        state_desc_type = find_data_info_from_module_and_state_or_id( py_eng, module, state_name, id, &data, sizes );
+        if (state_desc_type == engine_state_desc_type_none)
+        {
+            return py_engine_method_error( py_eng );
+        }
+
+        /*b Modify state
+         */
+        if (sizes[0] == 64)
+            datamask = ~0ULL;
+        else
+            datamask = (1ULL << sizes[0]) - 1;
+
+        if (state_desc_type == engine_state_desc_type_bits)
+        {
+            if (PyInt_Check( value ))
+                dataval = PyInt_AsLong( value );
+            else
+                dataval = PyInt_AsLong(PyList_GetItem( value, 0 ));
+
+            data[0] = ((data[0] & ~maskval) | (dataval & maskval)) & datamask;
+            return py_engine_method_return( py_eng, NULL );
+        }
+        else if (state_desc_type == engine_state_desc_type_array)
+        {
+            if (what == 0)
+            {
+                /* Modify whole array */
+                if (!PyList_Check( value ))
+                {
+                    PyErr_SetString( PyExc_TypeError, "argument 3 must list of int" );
+                    return py_engine_method_error( py_eng );
+                }
+                if (PyList_Size( value ) != sizes[1])
+                {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("size of value list must be %d entries", sizes[1]) );
+                    return py_engine_method_error( py_eng );
+                }
+                for (idx = 0; idx < sizes[1]; idx++)
+                {
+                    dataval = PyInt_AsLong(PyList_GetItem( value, idx ));
+                    if (mask && PyList_Check( mask ))
+                        maskval = PyInt_AsLong(PyList_GetItem( mask, idx ));
+                    data[idx] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
+                }
+                return py_engine_method_return( py_eng, NULL );
+            }
+            else if (PyInt_Check( what ))
+            {
+                /* Modify single entry */
+                idx = PyInt_AsLong( what );
+                if (idx >= sizes[1])
+                {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("state index out of range: %d", idx) );
+                    return py_engine_method_error( py_eng );
+                }
+                if (PyInt_Check( value ))
+                    dataval = PyInt_AsLong( value );
+                else
+                    dataval = PyInt_AsLong(PyList_GetItem( value, 0 ));
+
+                data[0] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
+                return py_engine_method_return( py_eng, NULL );
+            }
+            else
+            {
+                /* Modify slice of array */
+                err = PySlice_GetIndicesEx( (PySliceObject *) what, sizes[1], &start, &stop, &step, &length );
+                if (err)
+                    return py_engine_method_error( py_eng );
+
+                if (PyList_Size( value ) != length)
+                {
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("size of value list must be %ld entries", length) );
+                    return py_engine_method_error( py_eng );
+                }
+                for (idx = start, n = 0; idx < stop; idx += step, n++)
+                {
+                    dataval = PyInt_AsLong(PyList_GetItem( value, n ));
+                    if (mask && PyList_Check( mask ))
+                        maskval = PyInt_AsLong(PyList_GetItem( mask, n ));
+                    data[idx] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
+                }
+                return py_engine_method_return( py_eng, NULL );
+            }
+        }
+        else
+        {
+            PyErr_SetString( PyExc_RuntimeError, "state interrogation failed" );
+            return py_engine_method_error( py_eng );
+        }
      }
      return NULL;
 }
@@ -934,32 +1331,49 @@ static PyObject *py_engine_method_set_array_state( t_py_engine_PyObject *py_eng,
     char st[] = "value";
     char ln[] = "mask";
     char *kwdlist[] = { md, id_s, ind, st, ln, NULL };
-    char *module;
+    char *module, *state_name;
     int id, index;
     t_sl_uint64 value, mask;
 
+    /* ESK: The way we handle parameters below is not very intuitive or pythonesque */
+    /* ESK: We should be doing proper exception reporting below */
+    /* ESK: Needed to put 'id' and 'state' parameter last in parameter list */
     py_engine_method_enter( py_eng, "set_state", args );
+
     mask = ~0;
-    if (PyArg_ParseTupleAndKeywords( args, kwds, "siiL|L", kwdlist, &module, &id, &index, &value, &mask ))
+    id = -1;
+    state_name = NULL;
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "siL|Lis", kwdlist, &module, &index, &value, &mask, &id, &state_name ))
     {
-        t_se_interrogation_handle ih, sub_ih;
+        t_se_interrogation_handle sub_ih;
         t_engine_state_desc_type state_desc_type;
         t_se_signal_value *data;
         int sizes[4];
 
-        ih = py_eng->engine->find_entity( module );
-        if (!ih) return NULL;
-        sub_ih = NULL;
-        py_eng->engine->interrogate_enumerate_hierarchy( ih, id, (t_engine_state_desc_type_mask) -1 /* type mask */, engine_interrogate_include_mask_all, &sub_ih );
-        if (!sub_ih) return NULL;
-        state_desc_type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &data, sizes );
-        if (state_desc_type != engine_state_desc_type_array) return NULL;
-        if ((index<0) || (index>=sizes[1])) return NULL;
+        /*b Get details of the state from the module name and state name / id
+         */
+        state_desc_type = find_data_info_from_module_and_state_or_id( py_eng, module, state_name, id, &data, sizes );
+        if (state_desc_type == engine_state_desc_type_none)
+        {
+            return py_engine_method_error( py_eng );
+        }
+
+        if (state_desc_type != engine_state_desc_type_array)
+        {
+            py_eng->engine->interrogation_handle_free( sub_ih );
+            return NULL;
+        }
+        if ((index<0) || (index>=sizes[1]))
+        {
+            py_eng->engine->interrogation_handle_free( sub_ih );
+            return NULL;
+        }
         data[index] = ((data[index] & ~mask) | value) & ((1ULL<<sizes[0])-1);
         if (sizes[0]==64)
         {
             data[index] = ((data[index] & ~mask) | value);
         }
+        py_eng->engine->interrogation_handle_free( sub_ih );
         return py_engine_method_return( py_eng, NULL );
      }
      return NULL;

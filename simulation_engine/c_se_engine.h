@@ -372,28 +372,29 @@ public:
      t_engine_state_desc_type get_state_name_and_type( void *engine_handle, const char **module_name, const char **state_prefix, const char **state_name );
      int get_state_value_string( void *engine_handle, char *buffer, int buffer_size );
      t_engine_state_desc_type interrogate_get_internal_fn( t_se_interrogation_handle entity, void **fn );
-     int get_state_value_data_and_sizes( void *engine_handle, int **data, int *sizes );
+     int         get_state_value_data_and_sizes( void *engine_handle, int **data, int *sizes );
      const char *get_instance_name( void *engine_handle );
      const char *get_instance_full_name( void *engine_handle );
      const char *get_instance_name( void );
-     c_engine *get_next_instance( void );
-     void *find_module_instance( void *parent, const char *name ); // Find module instance from parent (NULL for global) and name
-     void *find_module_instance( void *parent, const char *name, int length ); // Find module instance from parent (NULL for global) and name/length
-     void *find_module_instance( const char *name ); // Find module instance from global name
-     void *find_module_instance( const char *name, int length ); // Find module instance from global name/length
-     int module_instance_send_message( void *module, t_se_message *message ); // Send a module instance (from handle) a message if the instance supports messages
-     void *find_global( const char *name );
-     int find_state( char *name, int *id );
-     t_se_interrogation_handle interrogation_handle_create( void );
-     void interrogation_handle_free( t_se_interrogation_handle entity );
-     t_se_interrogation_handle find_entity( const char *string ); // Find a signal, input, output, state, or module_instantiation from name
-     int interrogate_count_hierarchy( t_se_interrogation_handle entity, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask );
-     int interrogate_enumerate_hierarchy( t_se_interrogation_handle entity, int sub_number, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask, t_se_interrogation_handle *sub_entity );
-     int interrogate_get_entity_strings( t_se_interrogation_handle entity, const char **module_or_global, const char **prefix, const char **tail );
-     int interrogate_get_entity_path_string( t_se_interrogation_handle entity, char *buffer, int buffer_size );
-     const char *interrogate_get_entity_clue( t_se_interrogation_handle entity );
-     int interrogate_get_entity_value_string( t_se_interrogation_handle entity, char *buffer, int buffer_size );
-     t_engine_state_desc_type interrogate_get_data_sizes_and_type( t_se_interrogation_handle entity, t_se_signal_value **data, int *sizes );
+     c_engine   *get_next_instance( void );
+     void       *find_module_instance( void *parent, const char *name ); // Find module instance from parent (NULL for global) and name
+     void       *find_module_instance( void *parent, const char *name, int length ); // Find module instance from parent (NULL for global) and name/length
+     void       *find_module_instance( const char *name ); // Find module instance from global name
+     void       *find_module_instance( const char *name, int length ); // Find module instance from global name/length
+     int        module_instance_send_message( void *module, t_se_message *message ); // Send a module instance (from handle) a message if the instance supports messages
+     void       *find_global( const char *name );
+     int        find_state( char *name, int *id );
+     t_se_interrogation_handle     interrogation_handle_create( void );
+     void                          interrogation_handle_free( t_se_interrogation_handle entity );
+     t_se_interrogation_handle     find_entity( const char *string ); // Find a signal, input, output, state, or module_instantiation from name
+     int                           interrogate_count_hierarchy( t_se_interrogation_handle entity, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask );
+     int                           interrogate_enumerate_hierarchy( t_se_interrogation_handle entity, int sub_number, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask, t_se_interrogation_handle *sub_entity );
+     int                           interrogate_find_entity( t_se_interrogation_handle entity, const char *entity_name, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask, t_se_interrogation_handle *sub_entity );
+     int                           interrogate_get_entity_strings( t_se_interrogation_handle entity, const char **module_or_global, const char **prefix, const char **tail );
+     int                           interrogate_get_entity_path_string( t_se_interrogation_handle entity, char *buffer, int buffer_size );
+     const char                    *interrogate_get_entity_clue( t_se_interrogation_handle entity );
+     int                           interrogate_get_entity_value_string( t_se_interrogation_handle entity, char *buffer, int buffer_size );
+     t_engine_state_desc_type      interrogate_get_data_sizes_and_type( t_se_interrogation_handle entity, t_se_signal_value **data, int *sizes );
 
      /*b Submodule methods
       */
