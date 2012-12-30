@@ -49,18 +49,18 @@ typedef struct t_sl_fifo
 
 /*a Fifo functions
  */
-extern void sl_fifo_init( t_sl_fifo *fifo, int byte_size, int size, int nearly_empty_watermark, int nearly_full_watermark );
+extern void       sl_fifo_init( t_sl_fifo *fifo, int byte_size, int size, int nearly_empty_watermark, int nearly_full_watermark );
 extern t_sl_fifo *sl_fifo_create( int byte_size, int size, int nearly_empty_watermark, int nearly_full_watermark, int include_data );
-extern void sl_fifo_free( t_sl_fifo *fifo );
-extern void sl_fifo_reset( t_sl_fifo *fifo );
-extern int sl_fifo_add_entry( t_sl_fifo *fifo, void *data_ptr );
-extern int sl_fifo_remove_entry( t_sl_fifo *fifo, void *data_buffer );
-extern void sl_fifo_commit_reads( t_sl_fifo *fifo );
-extern void sl_fifo_revert_reads( t_sl_fifo *fifo );
-extern int sl_fifo_flags( t_sl_fifo *fifo, int *empty, int *full, int *nearly_empty, int *nearly_full, int *underflowed, int *overflowed );
-extern int sl_fifo_is_empty( t_sl_fifo *fifo );
-extern int sl_fifo_count( t_sl_fifo *fifo, int entries ); // Count entires or spaces - entries==1 for entries
-extern void sl_fifo_ptrs( t_sl_fifo *fifo, int *read_ptr, int *committed_read_ptr, int *write_ptr );
+extern void       sl_fifo_free( t_sl_fifo *fifo );
+extern void       sl_fifo_reset( t_sl_fifo *fifo );
+extern int        sl_fifo_add_entry( t_sl_fifo *fifo, void *data_ptr );
+extern int        sl_fifo_remove_entry( t_sl_fifo *fifo, void *data_buffer );
+extern void       sl_fifo_commit_reads( t_sl_fifo *fifo );
+extern void       sl_fifo_revert_reads( t_sl_fifo *fifo );
+extern int        sl_fifo_flags( t_sl_fifo *fifo, int *empty, int *full, int *nearly_empty, int *nearly_full, int *underflowed, int *overflowed );
+extern int        sl_fifo_is_empty( t_sl_fifo *fifo );
+extern int        sl_fifo_count( t_sl_fifo *fifo, int entries ); // Count entires or spaces - entries==1 for entries
+extern void       sl_fifo_ptrs( t_sl_fifo *fifo, int *read_ptr, int *committed_read_ptr, int *write_ptr );
 
 /*a Wrapper
  */

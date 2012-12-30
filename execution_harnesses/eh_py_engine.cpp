@@ -487,12 +487,13 @@ static t_engine_state_desc_type find_data_info_from_module_and_state_or_id( t_py
 static PyObject *py_engine_method_setenv( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
     const char *keyword, *value;
-    char kw[] = "keyword";
-    char vl[] = "value";
-    char *kwdlist[] = { kw, vl, NULL };
 
     py_engine_method_enter( py_eng, "setenv", args );
-    if (PyArg_ParseTupleAndKeywords( args, kwds, "ss", kwdlist, &keyword, &value))
+
+    static const char *kwdlist[] = {"keyword", "value", NULL};
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "ss",
+                                     (char **)kwdlist,
+                                     &keyword, &value))
     {
         py_eng->env_options = sl_option_list( py_eng->env_options, keyword, value );
         return py_engine_method_return( py_eng, NULL );
@@ -1325,12 +1326,6 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
  */
 static PyObject *py_engine_method_set_array_state( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
 {
-    char md[] = "module";
-    char id_s[] = "id";
-    char ind[] = "index";
-    char st[] = "value";
-    char ln[] = "mask";
-    char *kwdlist[] = { md, id_s, ind, st, ln, NULL };
     char *module, *state_name;
     int id, index;
     t_sl_uint64 value, mask;
@@ -1338,14 +1333,16 @@ static PyObject *py_engine_method_set_array_state( t_py_engine_PyObject *py_eng,
     /* ESK: The way we handle parameters below is not very intuitive or pythonesque */
     /* ESK: We should be doing proper exception reporting below */
     /* ESK: Needed to put 'id' and 'state' parameter last in parameter list */
-    py_engine_method_enter( py_eng, "set_state", args );
+    py_engine_method_enter( py_eng, "set_array_state", args );
 
     mask = ~0;
     id = -1;
     state_name = NULL;
-    if (PyArg_ParseTupleAndKeywords( args, kwds, "siL|Lis", kwdlist, &module, &index, &value, &mask, &id, &state_name ))
+    static const char *kwdlist[] = { "module", "id", "value", "mask", "index", "state", NULL };
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "siL|Lis",
+                                     (char **)kwdlist,
+                                     &module, &id, &value, &mask, &index, &state_name ))
     {
-        t_se_interrogation_handle sub_ih;
         t_engine_state_desc_type state_desc_type;
         t_se_signal_value *data;
         int sizes[4];
@@ -1360,20 +1357,18 @@ static PyObject *py_engine_method_set_array_state( t_py_engine_PyObject *py_eng,
 
         if (state_desc_type != engine_state_desc_type_array)
         {
-            py_eng->engine->interrogation_handle_free( sub_ih );
             return NULL;
         }
         if ((index<0) || (index>=sizes[1]))
         {
-            py_eng->engine->interrogation_handle_free( sub_ih );
             return NULL;
         }
         data[index] = ((data[index] & ~mask) | value) & ((1ULL<<sizes[0])-1);
+
         if (sizes[0]==64)
         {
             data[index] = ((data[index] & ~mask) | value);
         }
-        py_eng->engine->interrogation_handle_free( sub_ih );
         return py_engine_method_return( py_eng, NULL );
      }
      return NULL;

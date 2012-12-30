@@ -126,6 +126,23 @@ static t_sl_exec_file_state_desc_entry fifo_state_desc[] =
 
 /*a Exec file fns
  */
+/*f object_message_handler
+ */
+static t_sl_error_level object_message_handler( t_sl_exec_file_object_cb *obj_cb )
+{
+    t_sl_ef_lib_fifo *fifo;
+    fifo = &(((t_sl_fifo_object *)(obj_cb->object_desc->handle))->fifo);
+
+    WHERE_I_AM;
+    if (!strcmp(obj_cb->data.message.message,"fifo_get"))
+    {
+        ((t_sl_ef_lib_fifo **)obj_cb->data.message.client_handle)[0] = fifo;
+        return error_level_okay;
+    }
+    WHERE_I_AM;
+    return error_level_serious;
+}
+
 /*f find_object
  */
 static t_sl_fifo_object *find_object( t_sl_fifo_object **object_ptr, const char *name )
@@ -178,6 +195,7 @@ static t_sl_error_level exec_file_cmd_handler_cb( struct t_sl_exec_file_cmd_cb *
             object_desc.version = sl_ef_object_version_checkpoint_restore;
             object_desc.name = fifo->name;
             object_desc.handle = (void *)fifo;
+            object_desc.message_handler = object_message_handler;
             object_desc.methods = sl_fifo_object_methods;
             sl_exec_file_add_object_instance( cmd_cb->file_data, &object_desc );
             if (!fifo->fifo.contents)
