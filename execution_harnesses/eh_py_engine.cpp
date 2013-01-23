@@ -65,6 +65,7 @@ static PyObject *py_engine_method_get_error( t_py_engine_PyObject *py_cyc, PyObj
 static PyObject *py_engine_method_step( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_reset( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_cycle( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
+static PyObject *py_engine_method_write_profile( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_thread_pool_init( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_thread_pool_delete( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
 static PyObject *py_engine_method_thread_pool_add( t_py_engine_PyObject *py_cyc, PyObject *args, PyObject *kwds );
@@ -122,6 +123,7 @@ static PyMethodDef engine_methods[] =
      {"reset",                     (PyCFunction)py_engine_method_reset,                   METH_VARARGS|METH_KEYWORDS, "Reset the simulation engine."},
      {"cycle",                     (PyCFunction)py_engine_method_cycle,                   METH_VARARGS|METH_KEYWORDS, "Get the global cycle number of the simulation engine."},
      {"step",                      (PyCFunction)py_engine_method_step,                    METH_VARARGS|METH_KEYWORDS, "Step the simulation engine a number of cycles."},
+     {"write_profile",             (PyCFunction)py_engine_method_write_profile,           METH_VARARGS|METH_KEYWORDS, "Write out a sim profile after the sim has run."},
      {"thread_pool_init",          (PyCFunction)py_engine_method_thread_pool_init,        METH_VARARGS|METH_KEYWORDS, "Initialize the thread pool."},
      {"thread_pool_delete",        (PyCFunction)py_engine_method_thread_pool_delete,      METH_VARARGS|METH_KEYWORDS, "Delete the thread pool, killing all threads."},
      {"thread_pool_add",           (PyCFunction)py_engine_method_thread_pool_add,         METH_VARARGS|METH_KEYWORDS, "Add a named thread the thread pool."},
@@ -277,13 +279,13 @@ static void py_engine_method_result_empty_list( void *handle )
 
 /*f py_engine_method_result_add_int
  */
-static void py_engine_method_result_add_int( void *handle, int i )
+static void py_engine_method_result_add_int( void *handle, t_sl_uint64 value )
 {
 	PyObject *obj;
 
 	if (!result)
 	{
-		result = PyInt_FromLong( (long) i );
+		result = PyInt_FromLong( value );
 		return;
 	}
 	if (!PyObject_TypeCheck( result, &PyList_Type) )
@@ -292,7 +294,7 @@ static void py_engine_method_result_add_int( void *handle, int i )
 		PyList_Append( obj, result );
 		result = obj;
 	}
-	obj = PyInt_FromLong( (long) i );
+	obj = PyInt_FromLong( value );
 	PyList_Append( result, obj );
 }
 
@@ -337,6 +339,25 @@ static void py_engine_method_result_add_string( void *handle, const char *string
 //      obj = PyString_FromStringAndSize( string, size );
 //      PyList_Append( result, obj );
 // }
+
+/*f py_engine_method_int64_from_obj
+  Return 1 if object is convertable to a t_sl_uint64
+  Return 0 if not
+ */
+static int py_engine_method_int64_from_obj( PyObject *obj, t_sl_uint64 *value )
+{
+    if (PyInt_Check(obj))
+    {
+        *value = PyInt_AsSsize_t(obj);
+        return 1;
+    }
+    if (PyLong_Check(obj))
+    {
+        *value = PyLong_AsUnsignedLongLongMask(obj);
+        return 1;
+    }
+    return 0;
+}
 
 /*f py_list_from_cons_list
  */
@@ -715,6 +736,32 @@ static PyObject *py_engine_method_step( t_py_engine_PyObject *py_eng, PyObject *
      return NULL;
 }
 
+/*f py_engine_method_write_profile
+ */
+static PyObject *py_engine_method_write_profile( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
+{
+    char filename_s[] = "filename";
+    char *kwdlist[] = { filename_s, NULL };
+    const char *filename = NULL;
+
+
+    py_engine_method_enter( py_eng, "write_profile", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "s", kwdlist, &filename ))
+    {
+        int append = (filename[0]=='+');
+        FILE *f = fopen(filename+append,append?"a":"w");
+        if (f)
+        {
+            py_eng->engine->write_profile(f);
+            fclose(f);
+            return py_engine_method_return( py_eng, NULL );
+        }
+        PyErr_SetString( PyExc_TypeError, "failed to open file to write profile to" );
+        return py_engine_method_error( py_eng );
+    }
+    return NULL;
+}
+
 /*f py_engine_method_thread_pool_init
  */
 static PyObject *py_engine_method_thread_pool_init( t_py_engine_PyObject *py_eng, PyObject *args, PyObject *kwds )
@@ -910,7 +957,7 @@ static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_eng, PyObj
     what = NULL;
     if (PyArg_ParseTupleAndKeywords( args, kwds, "sO|O", kwdlist, &module, &state, &what ))
     {
-        /*b Validate parameters
+        /*b Validate parameters - state is string => state_name, state is int/long -> id, 'what' - just check if it is int/long/slice
          */
         if (PyInt_Check(state))
         {
@@ -930,7 +977,7 @@ static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_eng, PyObj
         {
             what = NULL;
         }
-        else if (!what && !PyInt_Check(what) && !PySlice_Check(what))
+        else if (what && !PyInt_Check(what) && !PySlice_Check(what))
         {
             PyErr_SetString( PyExc_TypeError, "argument 3 must be int or slice" );
             return py_engine_method_error( py_eng );
@@ -1163,14 +1210,16 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
 
             for (idx = 0; idx < length; idx++)
             {
-                if (!PyInt_Check(PyList_GET_ITEM( value, idx )))
+                PyObject *obj = PyList_GET_ITEM( value, idx );
+                t_sl_uint64 dummy;
+                if (!py_engine_method_int64_from_obj( obj, &dummy ))
                 {
                     PyErr_SetObject( PyExc_ValueError, PyString_FromFormat("value[%d] is not an int", idx) );
                     return py_engine_method_error( py_eng );
                 }
             }
         }
-        else if (!PyInt_Check( value ))
+        else if (!PyInt_Check( value ) && !PyLong_Check( value ))
         {
             PyErr_SetString( PyExc_TypeError, "argument 3 must be int or list of int" );
             return py_engine_method_error( py_eng );
@@ -1181,10 +1230,6 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
             mask = NULL;
             maskval = ~0UL;
         }
-        else if (PyInt_Check( mask ))
-        {
-            maskval = PyInt_AsLong( mask );
-        }
         else if (PyList_Check( mask ))
         {
             length = PyList_Size( mask );
@@ -1193,7 +1238,7 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
                 PyErr_SetString( PyExc_ValueError, "len(mask) == 0" );
                 return py_engine_method_error( py_eng );
             }
-            else if (PyList_Check( value ) && length < PyList_Size( value ))
+            else if (PyList_Check( value ) && (length < PyList_Size( value )))
             {
                 PyErr_SetString( PyExc_ValueError, "len(mask) < len(value)" );
                 return py_engine_method_error( py_eng );
@@ -1201,15 +1246,20 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
 
             for (idx = 0; idx < length; idx++)
             {
-                if (!PyInt_Check(PyList_GET_ITEM( mask, idx )))
+                PyObject *obj = PyList_GET_ITEM( mask, idx );
+                t_sl_uint64 dummy;
+                if (!py_engine_method_int64_from_obj( obj, &dummy ))
                 {
                     PyErr_SetObject( PyExc_ValueError, PyString_FromFormat("mask[%d] is not an int", idx) );
                     return py_engine_method_error( py_eng );
                 }
             }
-            maskval = PyInt_AsLong(PyList_GetItem( mask, 0 ));
+            py_engine_method_int64_from_obj( PyList_GetItem( mask, 0 ), &maskval);
         }
-        else if (!PyInt_Check( mask ))
+        else if (py_engine_method_int64_from_obj( mask, &maskval))
+        {
+        }
+        else
         {
             PyErr_SetString( PyExc_TypeError, "argument 4 must be int or list of int" );
             return py_engine_method_error( py_eng );
@@ -1242,10 +1292,10 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
 
         if (state_desc_type == engine_state_desc_type_bits)
         {
-            if (PyInt_Check( value ))
-                dataval = PyInt_AsLong( value );
-            else
-                dataval = PyInt_AsLong(PyList_GetItem( value, 0 ));
+            if (!py_engine_method_int64_from_obj( value, &dataval)) // If we cannot get an int64 from the value, then we must be a list of values that we CAN
+            {
+                py_engine_method_int64_from_obj( PyList_GetItem( value, 0 ), &dataval);
+            }
 
             data[0] = ((data[0] & ~maskval) | (dataval & maskval)) & datamask;
             return py_engine_method_return( py_eng, NULL );
@@ -1257,24 +1307,26 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
                 /* Modify whole array */
                 if (!PyList_Check( value ))
                 {
-                    PyErr_SetString( PyExc_TypeError, "argument 3 must list of int" );
+                    PyErr_SetString( PyExc_TypeError, "argument 3 must be list of int to set the state of an array" );
                     return py_engine_method_error( py_eng );
                 }
                 if (PyList_Size( value ) != sizes[1])
                 {
-                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("size of value list must be %d entries", sizes[1]) );
+                    PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("size of value list for state array must be %d entries", sizes[1]) );
                     return py_engine_method_error( py_eng );
                 }
                 for (idx = 0; idx < sizes[1]; idx++)
                 {
-                    dataval = PyInt_AsLong(PyList_GetItem( value, idx ));
+                    py_engine_method_int64_from_obj( PyList_GetItem( value, idx ), &dataval);
                     if (mask && PyList_Check( mask ))
-                        maskval = PyInt_AsLong(PyList_GetItem( mask, idx ));
+                    {
+                        py_engine_method_int64_from_obj( PyList_GetItem( mask, idx ), &maskval);
+                    }
                     data[idx] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
                 }
                 return py_engine_method_return( py_eng, NULL );
             }
-            else if (PyInt_Check( what ))
+            else if (PyInt_Check( what )) // If what is an int, then what is the index of the array that we need to set with datamask
             {
                 /* Modify single entry */
                 idx = PyInt_AsLong( what );
@@ -1283,10 +1335,10 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
                     PyErr_SetObject( PyExc_IndexError, PyString_FromFormat("state index out of range: %d", idx) );
                     return py_engine_method_error( py_eng );
                 }
-                if (PyInt_Check( value ))
-                    dataval = PyInt_AsLong( value );
-                else
-                    dataval = PyInt_AsLong(PyList_GetItem( value, 0 ));
+                if (!py_engine_method_int64_from_obj( value, &dataval)) // If we cannot get an int64 from the value, then we must be a list of values that we CAN
+                {
+                    py_engine_method_int64_from_obj( PyList_GetItem( value, 0 ), &dataval);
+                }
 
                 data[0] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
                 return py_engine_method_return( py_eng, NULL );
@@ -1305,9 +1357,11 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
                 }
                 for (idx = start, n = 0; idx < stop; idx += step, n++)
                 {
-                    dataval = PyInt_AsLong(PyList_GetItem( value, n ));
+                    py_engine_method_int64_from_obj( PyList_GetItem( value, n ), &dataval);
                     if (mask && PyList_Check( mask ))
-                        maskval = PyInt_AsLong(PyList_GetItem( mask, n ));
+                    {
+                        py_engine_method_int64_from_obj( PyList_GetItem( mask, n ), &maskval);
+                    }
                     data[idx] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
                 }
                 return py_engine_method_return( py_eng, NULL );

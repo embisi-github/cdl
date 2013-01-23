@@ -237,6 +237,11 @@ typedef struct t_engine_module_instance
     int state_to_view;
 
     struct t_engine_checkpoint_entry *checkpoint_entry;
+
+    t_sl_timer timer_clk_fns; // For profiling - time spent in clock functions for this module instance (when invoked as a submodule)
+    t_sl_timer timer_comb_fns; // For profiling - time spent in comb functions for this module instance (when invoked as a submodule)
+    t_sl_timer timer_propagate_fns; // For profiling - time spent in propagate functions for this module instance (when invoked as a submodule)
+
 } t_engine_module_instance;
 
 /*t t_se_engine_monitor

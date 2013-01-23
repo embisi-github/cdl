@@ -142,6 +142,7 @@ static void do_thread_work( t_sl_wl_worklist *worklist, int *guard_bits, int ent
             if ((guard&1)==0)
             {
                 //printf("Skipping\n", i, guard );
+                guard=guard>>1;
                 continue;
             }
             guard=guard>>1;
@@ -296,6 +297,8 @@ static t_sl_wl_thread *thread_add( t_sl_wl_thread_pool_ptr thread_pool, const ch
     thread->alive=1;
     thread->busy=0;
     thread->worklist = NULL;
+    thread->state_start = 0;
+    thread->state_done = 0;// Not used
     SL_TIMER_INIT( thread->timer );
 
     return thread;

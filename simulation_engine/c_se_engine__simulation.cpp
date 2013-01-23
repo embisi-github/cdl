@@ -276,9 +276,11 @@ static t_sl_exec_file_method ef_bfm_support_object_methods[] =
 static t_sl_exec_file_method_fn ef_method_eval_input_wait_for_value;
 static t_sl_exec_file_method_fn ef_method_eval_input_wait_for_change;
 static t_sl_exec_file_method_fn ef_method_eval_input_value;
+static t_sl_exec_file_method_fn ef_method_eval_input_width;
 static t_sl_exec_file_method ef_input_object_methods[] =
 {
     {"value",            'i', 0, "",  "value() - return the value of a signal", ef_method_eval_input_value, NULL },
+    {"width",            'i', 0, "",  "width() - return the width of a signal", ef_method_eval_input_width, NULL },
     {"wait_for_value",    0, 1, "ii",  "wait_for_value(<value>[,<timeout>]) - wait for an input to reach a specified value with an optional timeout", ef_method_eval_input_wait_for_value, NULL },
     {"wait_for_change",   0, 1, "i",   "wait_for_change([<timeout>]) - wait for an input to change with an optional timeout", ef_method_eval_input_wait_for_change, NULL },
     SL_EXEC_FILE_METHOD_NONE
@@ -288,10 +290,12 @@ static t_sl_exec_file_method ef_input_object_methods[] =
  */
 static t_sl_exec_file_method_fn ef_method_eval_output_reset;
 static t_sl_exec_file_method_fn ef_method_eval_output_drive;
+static t_sl_exec_file_method_fn ef_method_eval_output_width;
 static t_sl_exec_file_method ef_output_object_methods[] =
 {
     {"drive",            0, 1, "i",  "drive(<value>) - drive an output off the clock edge", ef_method_eval_output_drive, NULL },
     {"reset",            0, 1, "i",  "reset(<value) - drive an output immediately - for use in initial code", ef_method_eval_output_reset, NULL },
+    {"width",            'i', 0, "",  "width() - return the width of a signal", ef_method_eval_output_width, NULL },
     SL_EXEC_FILE_METHOD_NONE
 };
 
@@ -412,6 +416,34 @@ static t_sl_error_level ef_method_eval_input_value( t_sl_exec_file_cmd_cb *cmd_c
 
     //fprintf(stderr,"%5d%20s:%lld\n",0,input->name, input->value);
     if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, input->value))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_input_width
+ */
+static t_sl_error_level ef_method_eval_input_width( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_ef_lib_input *input;
+    WHERE_I_AM;
+    input = (t_sim_ef_lib_input *)(object_desc->handle);
+
+    //fprintf(stderr,"%5d%20s:%lld\n",0,input->name, input->value);
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64)(input->width)))
+        return error_level_fatal;
+    return error_level_okay;
+}
+
+/*f ef_method_eval_output_width
+ */
+static t_sl_error_level ef_method_eval_output_width( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
+{
+    t_sim_ef_lib_output *output;
+    WHERE_I_AM;
+    output = (t_sim_ef_lib_output *)(object_desc->handle);
+
+    //fprintf(stderr,"%5d%20s:%lld\n",0,output->name, output->value);
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64)(output->width)))
         return error_level_fatal;
     return error_level_okay;
 }
@@ -1534,6 +1566,16 @@ void c_engine::write_profile( FILE *f )
         se_engine_function_call_display_stats_all( f, clk->negedge.clock );
     }
 
+    t_engine_module_instance *emi;
+    for (emi=module_instance_list; emi; emi=emi->next_instance )
+    {
+        fprintf( f, "%15lf us clk, %15lf us comb %15lf us prop submodule %s since reset\n",
+                 SL_TIMER_VALUE_US(emi->timer_clk_fns),
+                 SL_TIMER_VALUE_US(emi->timer_comb_fns),
+                 SL_TIMER_VALUE_US(emi->timer_propagate_fns),
+                 emi->full_name
+            );
+    }
 }
 
 /*f c_engine::cycle

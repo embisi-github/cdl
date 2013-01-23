@@ -111,6 +111,9 @@ void c_engine::submodule_call_reset( void *submodule_handle, int pass )
     {
         ((t_engine_callback_arg_fn)(emi->reset_fn_list->callback_fn))( emi->reset_fn_list->handle, pass );
     }
+    SL_TIMER_INIT(emi->timer_clk_fns);
+    SL_TIMER_INIT(emi->timer_comb_fns);
+    SL_TIMER_INIT(emi->timer_propagate_fns);
 }
 
 /*f c_engine::submodule_call_prepreclock
@@ -120,10 +123,12 @@ void c_engine::submodule_call_prepreclock( void *submodule_handle )
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
     if (!emi) return;
+    SL_TIMER_ENTRY(emi->timer_clk_fns);
     if (emi->prepreclock_fn_list)
     {
         (emi->prepreclock_fn_list->data.prepreclock.prepreclock_fn)( emi->prepreclock_fn_list->handle );
     }
+    SL_TIMER_EXIT(emi->timer_clk_fns);
 }
 
 /*f c_engine::submodule_call_preclock
@@ -134,6 +139,7 @@ void c_engine::submodule_call_preclock( void *submodule_clock_handle, int posedg
     clk = (t_engine_function *)submodule_clock_handle;
     if (!clk)
         return;
+    SL_TIMER_ENTRY(clk->module_instance->timer_clk_fns);
     if (posedge && clk->data.clock.posedge_preclock_fn)
     {
         (clk->data.clock.posedge_preclock_fn)(clk->handle);
@@ -142,6 +148,7 @@ void c_engine::submodule_call_preclock( void *submodule_clock_handle, int posedg
     {
         (clk->data.clock.negedge_preclock_fn)(clk->handle);
     }
+    SL_TIMER_EXIT(clk->module_instance->timer_clk_fns);
 }
 
 /*f c_engine::submodule_call_clock
@@ -152,6 +159,7 @@ void c_engine::submodule_call_clock( void *submodule_clock_handle, int posedge )
     clk = (t_engine_function *)submodule_clock_handle;
     if (!clk)
         return;
+    SL_TIMER_ENTRY(clk->module_instance->timer_clk_fns);
     if (posedge && clk->data.clock.posedge_preclock_fn)
     {
         (clk->data.clock.posedge_clock_fn)(clk->handle);
@@ -160,6 +168,7 @@ void c_engine::submodule_call_clock( void *submodule_clock_handle, int posedge )
     {
         (clk->data.clock.negedge_clock_fn)(clk->handle);
     }
+    SL_TIMER_EXIT(clk->module_instance->timer_clk_fns);
 }
 
 /*f c_engine::submodule_call_propagate
@@ -170,10 +179,12 @@ void c_engine::submodule_call_propagate( void *submodule_handle )
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
     if (!emi) return;
+    SL_TIMER_ENTRY(emi->timer_propagate_fns);
     if (emi->propagate_fn_list)
     {
         (emi->propagate_fn_list->data.propagate.propagate_fn)( emi->propagate_fn_list->handle );
     }
+    SL_TIMER_EXIT(emi->timer_propagate_fns);
 }
 
 /*f c_engine::submodule_call_comb
@@ -184,10 +195,12 @@ void c_engine::submodule_call_comb( void *submodule_handle )
     t_engine_module_instance *emi;
     emi = (t_engine_module_instance *)submodule_handle;
     if (!emi) return;
+    SL_TIMER_ENTRY(emi->timer_comb_fns);
     if (emi->comb_fn_list)
     {
         (emi->comb_fn_list->data.comb.comb_fn)( emi->comb_fn_list->handle );
     }
+    SL_TIMER_EXIT(emi->timer_comb_fns);
 }
 
 /*a Handle clock sets
@@ -496,7 +509,7 @@ t_sl_error_level c_engine::thread_pool_init( void )
 {
     if (thread_pool)
         return error_level_fatal;
-    thread_pool = sl_wl_create_thread_pool();
+    thread_pool = sl_wl_create_thread_pool(engine_mutex_last_mutex);
     if (!thread_pool)
         return error_level_fatal;
     return error_level_okay;

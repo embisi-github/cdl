@@ -96,6 +96,17 @@ cdl tests/cdl_examples clocked_adder
 
 cdl tests/clock_gate gc_simple 
 
+cdl tests/sandbox credit_four_source inc:tests/sandbox
+cdl tests/sandbox credit_four_sink inc:tests/sandbox
+cdl tests/sandbox credit_four_fwd  inc:tests/sandbox
+cdl tests/sandbox credit_four_fwd2 inc:tests/sandbox
+cdl tests/sandbox credit_fifo_extender inc:tests/sandbox rmn:generic_credit_fifo_extender=credit_fifo_extender    rmt:gt_fifo_content=t_data    model:credit_fifo_extender
+#cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd
+cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd2
+cdl tests/sandbox crc16_ansi inc:tests/sandbox
+cdl tests/sandbox crc16_ansi_tb inc:tests/sandbox rit:crc16_ansi_tb.crc16_ansi_th=se_test_harness 
+cdl tests/sandbox rate_limited_selector inc:tests/sandbox
+cdl tests/sandbox rate_limited_selector_tb inc:tests/sandbox rit:rate_limited_selector_tb.rate_limited_selector_th=se_test_harness 
 
 #a Editor preferences and notes
 # Local Variables: ***
