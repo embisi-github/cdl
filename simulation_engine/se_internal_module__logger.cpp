@@ -237,7 +237,7 @@ t_sl_error_level c_logger::log_callback( void *eng_handle, int cycle, struct t_e
         int i;
         if (log_cb->occurences[event_number]==0)
         {
-            fprintf(outfile,"#%s,%d,\"%s\",%d", log_cb->module_instance_name, event_number, name, num_args );
+            fprintf(outfile,"#timestamp,id,%s,%d=\"%s\",%d", log_cb->module_instance_name, event_number, name, num_args );
             for (i=0; i<num_args; i++)
             {
                 fprintf(outfile,",\"%s\"", args[i].text );
