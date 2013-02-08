@@ -437,6 +437,8 @@ public:
      struct t_waveform_vcd_file *waveform_vcd_file_find( const char *name );
      struct t_waveform_vcd_file *waveform_vcd_file_create( const char *name );
      void waveform_vcd_file_free( struct t_waveform_vcd_file *wvf );
+     int  waveform_vcd_file_open( t_waveform_vcd_file *wvf, const char *filename );
+     void waveform_vcd_file_close( t_waveform_vcd_file *wvf);
      void waveform_vcd_file_reset( t_waveform_vcd_file *wvf );
      void waveform_vcd_file_pause( t_waveform_vcd_file *wvf, int pause ); // Pause or unpause a VCD wave file
      void waveform_vcd_file_add( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity ); // Add an entity, and if a module just its ports not submodules

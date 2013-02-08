@@ -29,7 +29,7 @@
 #include "c_se_engine.h"
 
 #include "vpi_user.h"
-#include "vpi_user_cds.h"
+//#include "vpi_user_cds.h"
 
 /*a Defines
  */
@@ -113,7 +113,7 @@ static void setup_vpi_callbacks( void );
  */
 /*v vlog_startup_routines - this extern is used by the vpi to invoke the init routines required for this library
  */
-void (*vlog_startup_routines[MAX_SYSTFS])() =
+void (*vlog_startup_routines[])() =
 {
   setup_vpi_callbacks,
   0
@@ -229,6 +229,9 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
             }
         }
     }
+
+    globals.engine->simulation_set_cycle(globals.engine->cycle()+1);
+    globals.engine->simulation_invoke_callbacks();
 
     {
         char error_accumulator[16384];
@@ -491,6 +494,45 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
     /*b Add initial reset callback
      */
     globals.engine->simulation_assist_reset_instance( vmi->engine_handle, 0 );
+
+    /*b Attach to a VCD file, if desired
+     */
+    {
+        const char *vcd_file = sl_option_get_string(vmi->option_list, "vcd_file");
+        if (vcd_file)
+        {
+            t_waveform_vcd_file *vcd;
+            vcd = globals.engine->waveform_vcd_file_find(vmi->instance_name);
+            if (vcd == NULL)
+            {
+                vcd = globals.engine->waveform_vcd_file_create(vmi->instance_name);
+            }
+            else
+            {
+                globals.engine->waveform_vcd_file_reset(vcd);
+            }
+            globals.engine->waveform_vcd_file_open(vcd, vcd_file);
+            if (vcd)
+            {
+                t_se_interrogation_handle entity;
+                entity = globals.engine->find_entity(vmi->instance_name);
+                if (entity)
+                {
+                    globals.engine->waveform_vcd_file_add_hierarchy(vcd, entity);
+                    globals.engine->waveform_vcd_file_enable(vcd);
+                    vpi_printf("%s: Logging to %s\n", vmi->instance_name, vcd_file);
+                }
+                else
+                {
+                    vpi_printf("%s: Can't find myself as an entity\n", vmi->instance_name);
+                }
+            }
+            else
+            {
+                vpi_printf("%s: Can't open waveform file \"%s\"\n", vmi->instance_name, vcd_file);
+            }
+        }
+    }
 
     /*b Done
      */

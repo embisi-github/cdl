@@ -217,6 +217,35 @@ void c_engine::waveform_vcd_file_free( t_waveform_vcd_file *wvf )
      free(wvf);
 }
 
+/*f c_engine::waveform_vcd_file_open
+ */
+int c_engine::waveform_vcd_file_open( t_waveform_vcd_file *wvf, const char *filename )
+{
+    waveform_vcd_file_close( wvf );
+    
+    wvf->filename = sl_str_alloc_copy( filename );
+    wvf->file = fopen(wvf->filename, "w" );
+
+    return (wvf->filename != NULL);
+}
+
+/*f c_engine::waveform_vcd_file_close
+ */
+void c_engine::waveform_vcd_file_close( t_waveform_vcd_file *wvf )
+{
+    if (wvf->filename)
+    {
+        free( wvf->filename );
+        wvf->filename = NULL;
+    }
+
+    if (wvf->file)
+    {
+        fclose( wvf->file );
+        wvf->file = NULL;
+    }
+}
+
 /*f c_engine::waveform_vcd_file_add
  */
 void c_engine::waveform_vcd_file_add( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity )
@@ -465,13 +494,17 @@ void c_engine::waveform_vcd_file_enable( t_waveform_vcd_file *wvf )
      wvf->number_signals = 0;
 
      if (!wvf->file)
-          return;
+     {
+         fprintf( stderr, "Waveform object '%s' has no file when being enabled\n", wvf->name );
+         return;
+     }
 
      number_signals = waveform_vcd_file_count_and_fill_signals( wvf->entities, 0, NULL );
      wvf->vcd_signals = (t_waveform_vcd_file_signal_entry *)malloc(sizeof(t_waveform_vcd_file_signal_entry)*number_signals);
      if (!wvf->vcd_signals)
      {
-          return;
+         fprintf( stderr, "Waveform object '%s' has no signals when being enabled\n", wvf->name );
+         return;
      }
      for (i=0; i<number_signals; i++)
      {
@@ -583,21 +616,10 @@ static t_sl_error_level ef_method_eval_file_size( t_sl_exec_file_cmd_cb *cmd_cb,
 static t_sl_error_level ef_method_eval_open( t_sl_exec_file_cmd_cb *cmd_cb, void *object_handle, t_sl_exec_file_object_desc *object_desc, t_sl_exec_file_method *method )
 {
     t_waveform_vcd_file *wvf;
-
+    int opened_ok;
     wvf = (t_waveform_vcd_file *)object_desc->handle;
-    if (wvf->file)
-    {
-        fclose(wvf->file);
-        wvf->file = NULL;
-    }
-    if (wvf->filename)
-    {
-        free(wvf->filename);
-        wvf->filename = NULL;
-    }
-    wvf->filename = sl_str_alloc_copy( sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 ));
-    wvf->file = fopen(wvf->filename, "w" );
-    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64) (wvf->file!=NULL) ))
+    opened_ok = wvf->engine->waveform_vcd_file_open( wvf, sl_exec_file_eval_fn_get_argument_string( cmd_cb->file_data, cmd_cb->args, 0 ) );
+    if (!sl_exec_file_eval_fn_set_result( cmd_cb->file_data, (t_sl_uint64) (opened_ok) ))
         return error_level_fatal;
     return error_level_okay;
 }
@@ -609,16 +631,7 @@ static t_sl_error_level ef_method_eval_close( t_sl_exec_file_cmd_cb *cmd_cb, voi
     t_waveform_vcd_file *wvf;
 
     wvf = (t_waveform_vcd_file *)object_desc->handle;
-    if (wvf->file)
-    {
-        fclose(wvf->file);
-        wvf->file = NULL;
-    }
-    if (wvf->filename)
-    {
-        free(wvf->filename);
-        wvf->filename = NULL;
-    }
+    wvf->engine->waveform_vcd_file_close( wvf );
     return error_level_okay;
 }
 

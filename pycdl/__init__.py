@@ -24,6 +24,7 @@ code to CDL's py_engine interface.
 # environment variable.
 import sys, os
 import itertools, collections
+from c_python_telnetd import c_python_telnet_server
 
 if "CDL_BUILD_DIR" in os.environ:
     oldpath = sys.path
@@ -893,6 +894,9 @@ class hw(_clockable):
         """
         self._engine.step(cycles,1)
         self.display_all_errors()
+    def run_console( self, port=8745, locals={} ):
+        console_server = c_python_telnet_server( port=port, locals=locals )
+        console_server.serve()
 
 def load_mif(filename, length=0, width=64):
     """
