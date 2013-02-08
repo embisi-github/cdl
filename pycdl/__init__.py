@@ -492,6 +492,13 @@ class th(_instantiable):
         self._outputs = self._flatten_names(outputs)
         self._eventanonid = 1
 
+    def sim_message(self):
+        self._thfile.cdlsim_reg.sim_message( "sim_message_obj" )
+        x = self._thfile.sim_message_obj
+        #x = self._thfile.sim_message
+        del self._thfile.sim_message_obj
+        return x
+
     def bfm_wait(self, cycles):
         self._thfile.cdlsim_sim.bfm_wait(cycles)
 

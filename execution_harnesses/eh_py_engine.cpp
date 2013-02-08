@@ -948,7 +948,7 @@ static PyObject *py_engine_method_get_state( t_py_engine_PyObject *py_eng, PyObj
     Py_ssize_t start, stop, step, length;
     t_engine_state_desc_type state_desc_type;
     t_se_signal_value *data;
-    uint64_t datamask;
+    t_sl_uint64 datamask;
     int sizes[4];
     int idx, err, id = 0;
 
@@ -1173,7 +1173,7 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
     Py_ssize_t start, stop, step, length;
     t_engine_state_desc_type state_desc_type;
     t_se_signal_value *data;
-    uint64_t datamask, dataval, maskval = 0;
+    t_sl_uint64 datamask, dataval, maskval = 0;
     int sizes[4];
     int idx, n, err, id = 0;
 
