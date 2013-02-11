@@ -1,0 +1,43 @@
+<html>
+<head>
+    <script type="text/javascript" src="ajax.js"></script>
+    <script type="text/javascript" src="log_summary.js"></script>
+    <script type="text/javascript">
+    window.onload = function() {
+        init_summary();
+    }
+    </script>
+<title>
+CDL log file interaction
+</title>
+</head>
+<body>
+<table>
+<tr>
+<td id="ajax_in_progress_0">-</td>
+<td id="ajax_in_progress_1">-</td>
+<td id="ajax_in_progress_2">-</td>
+<td id="ajax_in_progress_3">-</td>
+</tr>
+</table>
+<h1>
+CDL log file interaction page
+</h1>
+<h2>
+Configured filters (specified in the server's config file)
+</h2>
+<div id="log_filters">
+</div>
+<h2>
+Log events in the file which match the applied filters
+</h2>
+<div id="log_summary">
+</div>
+<hr/>
+<h2>
+Log event occurrences, populated when 'populate' is pressed above
+</h2>
+<div id="log_events">
+</div>
+</body>
+</html>
