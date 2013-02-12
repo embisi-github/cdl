@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 #a Imports
-import os, string, copy
+import os, string
 import c_httpd
 from xml.dom.minidom import Document
 import traceback
-import ConfigParser
 import c_logs
-
 #a Globals
 cyclicity_root = os.environ["CYCLICITY_ROOT"]
 
@@ -143,9 +141,8 @@ def xml_reload_log_file( server, url_dict, query_dict, log_file ):
     """
     Reload the configuration - set a new log_file
     """
-    config_results  = load_config( server.config_filename )
-    server.log_file = load_logfile( server.log_filename, config_results )
-    
+    server.log_file = load_config_and_logfile( config_filename = server.config_filename,
+                                               log_filename    = server.log_filename )
     doc = Document()
     xml = doc.createElement("null")
     return ("xml", xml)
@@ -169,66 +166,15 @@ def httpd_callback( server, url_dict, query_dict ):
         return ("text",traceback.format_exc())
     return ("text", "Failed to find query type %s"%query_type )
 
-#a Server configuration management
-#f read_config_filter
-def read_config_filter( config, section, config_data, config_results ):
-    if config.has_option(section,"filters"):
-        for f in eval(config.get(section, "filters")):
-            read_config_filter( config, f, config_data, config_results )
-            pass
-        pass
-    if config.has_option(section,"filter"):
-        filter = eval(config.get(section, "filter"))
-        config_results["filters"][section] = filter
-        pass
-    return
-    
-#f read_config
-def read_config( config, section, config_data, config_results ):
-    config_data = copy.copy(config_data)
-    if config.has_option(section,"root"):
-        config_data["path"] = config_data["path"]+config.get(section, "root")+"."
-    if config.has_option(section,"components"):
-        components = eval(config.get(section, "components"))
-        for (subsection,instance_data_list) in components.iteritems():
-            for instance_data in instance_data_list:
-                alias = config_data["alias"]
-                if "alias" in instance_data.keys(): alias = config_data["alias"]+instance_data["alias"]+"."
-                path = config_data["path"]
-                if "path" in instance_data.keys(): path = config_data["path"]+instance_data["path"]+"."
-                instance_config_data = copy.copy(config_data)
-                instance_config_data["alias"] = alias
-                instance_config_data["path"] = path
-                read_config( config, subsection, instance_config_data, config_results )
-                pass
-            pass
-        pass
-    if config.has_option(section,"module_aliases"):
-        for (m,ma) in eval(config.get(section, "module_aliases")):
-            config_results["module_aliases"][config_data["path"]+m] = config_data["alias"]+ma
-            pass
-        pass
-    if config.has_option(section,"filters"):
-        for f in eval(config.get(section, "filters")):
-            read_config_filter( config, f, config_data, config_results )
-            pass
-        pass
-
-#b Top level
-def load_config( config_filename ):
-    config = ConfigParser.RawConfigParser()
-    config.read(config_filename)
-    config_data    = { "alias":"", "path":"" }
-    config_results = {"module_aliases":{}, "filters":{} }
-    read_config( config, "main", config_data, config_results )
-    return config_results
-
 #a Server
 #b Create log file and add filters
-def load_logfile( log_filename, config_results ):
-    lf = c_logs.c_log_file( module_aliases = config_results["module_aliases"] )
+def load_config_and_logfile( config_filename, log_filename ):
+    lc = c_logs.c_log_config()
+    lc.load_file( config_filename )
+
+    lf = c_logs.c_log_file( module_aliases = lc.module_aliases() )
     lf.open( filename=log_filename )
-    for (name,field_dict_list) in config_results["filters"].iteritems():
+    for (name,field_dict_list) in lc.filters().iteritems():
         f = c_logs.c_log_filter()
         for field_dict in field_dict_list:
             f.add_match( field_dict )
@@ -237,10 +183,12 @@ def load_logfile( log_filename, config_results ):
         pass
     return lf
 
+#f usage
 def usage(code):
     print >>sys.stderr, """\
 log_server [options] <logfile>
            --config=<name>      Config filename describing aliases and filters
+           --ip=<name>      Config filename describing aliases and filters
            --port=<port number> Port number to run the server on
 
 The program runs an HTTP server on 127.0.0.1:<port> for analysis of CDL log files
@@ -249,18 +197,20 @@ The config option should be provided, or an environment variable 'LOGCONFIG' set
     sys.exit(code)
 
 import getopt, sys
-getopt_options = ["config=","port="]
-args = {}
+getopt_options = ["config=","ip=","port="]
+args = {"port":8000}
 for o in getopt_options:
     if o[-1]=='=':
-        args[o[:-1]]=None
+        if o[:-1] not in args:
+            args[o[:-1]]=None
 try:
     (optlist,file_list) = getopt.getopt(sys.argv[1:],'',getopt_options)
 except:
     print >>sys.stderr, "Exception parsing options:", sys.exc_info()[1]
     usage(4)
+
 for opt,value in optlist:
-    if (opt[0:2]=='--') and  (opt[2:] in arg_options):
+    if (opt[0:2]=='--') and  (opt[2:] in args):
         args[opt[2:]] = value
     else:
         print >>sys.stderr, "Unknown option", opt, "with value", value
@@ -279,11 +229,10 @@ if len(file_list)==0:
     pass
 
 log_filename = file_list[0]
-config_results = load_config( config_filename )
-lf             = load_logfile( log_filename, config_results )
+lf = load_config_and_logfile( config_filename=config_filename, log_filename=log_filename )
 
 #b Create and run server
-server = c_httpd.c_http_server( server_address=("127.0.0.1",8000),
+server = c_httpd.c_http_server( server_address=("127.0.0.1",args["port"]),
                                 file_path = [cyclicity_root+"/httpd/log", cyclicity_root+"/httpd/log/js", cyclicity_root+"/httpd/js"],
                                 client_callback = httpd_callback,
                                 verbose = {}, # "get":99, "response":99 }

@@ -400,6 +400,7 @@ t_sl_error_level c_se_internal_module__sram::message( t_se_message *message )
             log_filter[1].mask   = message->data.values[1];
             log_filter[1].match  = message->data.values[2];
         }
+        break;
     case se_message_reason_read:
         if (message->data.values[0] == 0) // subreason of 0 -> read single value - put result in values[2]
         {

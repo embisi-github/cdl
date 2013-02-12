@@ -3,6 +3,7 @@
 #a Imports
 import string, copy, re
 import csv
+import ConfigParser
 
 #a Log filter classes
 #c c_log_filter_match_base
@@ -361,4 +362,159 @@ class c_log_file( object ):
         f.close()
         self.update()
         return True
+
+
+#a Log file config loading
+#c c_log_config
+class c_log_config( object ):
+    #f __init__
+    def __init__( self ):
+        self.reset()
+        pass
+    #f reset
+    def reset(self):
+        self.config_filename = None
+        self.config_files = {}
+        self.config_sections = {}
+        self.results = {"module_aliases":{}, "filters":{} }
+        return
+
+    #f load_file
+    def load_file( self, config_filename ):
+        self.reset()
+        self.filename = config_filename
+        if not self.read_config_files( config_filename ):
+            self.reset()
+            return False
+        rc = self.parse_config()
+        print self
+        return rc
+
+    #f __repr__
+    def __repr__( self ):
+        result = ""
+        result += """Log config\n"""
+        result += """  config files:\n"""
+        for x in self.config_files:
+            result += """    """+x+":"+str(self.config_files[x])+"\n"
+            pass
+        result += """  config sections:\n"""
+        for x in self.config_sections:
+            result += """    """+x+":"+str(self.config_sections[x])+"\n"
+            pass
+        result += """  module_aliases:\n"""
+        for x in self.results["module_aliases"]:
+            result += """    """+x+":"+str(self.results["module_aliases"][x])+"\n"
+            pass
+        result += """  filters:\n"""
+        for x in self.results["filters"]:
+            result += """    """+x+":"+str(self.results["filters"][x])+"\n"
+            pass
+        return result
+
+    #f read_config_files
+    def read_config_files( self, filename, id="top" ):
+        """
+        Read and parse a config file; if it has been parsed before, then assume it is already done
+        Return True if okay, False if not
+        """
+        if filename in self.config_files: return True
+        config_file = open(filename)
+        config = ConfigParser.RawConfigParser()
+        config.readfp( config_file )
+        config_file.close()
+        self.config_files[ filename ] = config
+        if config.has_section("include"):
+            include_files = config.items("include")
+            for (include_id,include_filename) in include_files:
+                self.read_config_files( id=include_id, filename=eval(include_filename) )
+            pass
+        for s in config.sections():
+            self.config_sections[id+":"+s] = (filename, config)
+            pass
+        return True
+
+    #f parse_config
+    def parse_config( self ):
+        config_data    = { "alias":"", "path":"" }
+        return self.read_config( "top", "main", config_data )
+
+    #f config_from_id_and_section
+    def config_from_id_and_section( self, id, section ):
+        if ':' in section:
+            id      = section[:section.index(':')]
+            section = section[section.index(':')+1:]
+            pass
+
+        full_section=id+":"+section
+        if full_section not in self.config_sections:
+            raise Exception, "Failed to find section '%s' in log file configuration"%(full_section)
+
+        return (id,section,self.config_sections[full_section][1])
+
+    #f read_config_filter
+    def read_config_filter( self, id, section, config_data ):
+        (id,section,config) = self.config_from_id_and_section( id, section )
+
+        if config.has_option(section,"filters"):
+            for f in eval(config.get(section, "filters")):
+                if not self.read_config_filter( id, f, config_data ):
+                    return False
+                pass
+            pass
+
+        if config.has_option(section,"filter"):
+            filter = eval(config.get(section, "filter"))
+            self.results["filters"][section] = filter
+            pass
+        return True
+    
+    #f read_config
+    def read_config( self, id, section, config_data ):
+        (id,section,config) = self.config_from_id_and_section( id, section )
+
+        config_data = copy.copy(config_data)
+        if config.has_option(section,"root"):
+            config_data["path"] = config_data["path"]+config.get(section, "root")+"."
+            pass
+
+        if config.has_option(section,"components"):
+            components = eval(config.get(section, "components"))
+            for (subsection,instance_data_list) in components.iteritems():
+                for instance_data in instance_data_list:
+                    alias = config_data["alias"]
+                    if "alias" in instance_data.keys(): alias = config_data["alias"]+instance_data["alias"]+"."
+                    path = config_data["path"]
+                    if "path" in instance_data.keys(): path = config_data["path"]+instance_data["path"]+"."
+                    instance_config_data = copy.copy(config_data)
+                    instance_config_data["alias"] = alias
+                    instance_config_data["path"] = path
+                    if not self.read_config( id, subsection, instance_config_data ):
+                        return False
+                    pass
+                pass
+            pass
+
+        if config.has_option(section,"module_aliases"):
+            for (m,ma) in eval(config.get(section, "module_aliases")):
+                self.results["module_aliases"][config_data["path"]+m] = config_data["alias"]+ma
+                pass
+            pass
+
+        if config.has_option(section,"filters"):
+            for f in eval(config.get(section, "filters")):
+                if not self.read_config_filter( id, f, config_data ):
+                    return False
+                pass
+            pass
+
+        return True
+
+    #f module_aliases
+    def module_aliases( self ):
+        return self.results["module_aliases"]
+
+    #f filters
+    def filters( self ):
+        return self.results["filters"]
 
