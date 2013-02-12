@@ -6,8 +6,8 @@ import c_httpd
 from xml.dom.minidom import Document
 import traceback
 import c_logs
+
 #a Globals
-cyclicity_root = os.environ["CYCLICITY_ROOT"]
 
 #a Http callback
 #f get_query_dict
@@ -111,7 +111,7 @@ def xml_get_events( server, url_dict, query_dict, log_file ):
         subentry.setAttribute( "number",    str(o[1]) )
         arguments = ['']*len(argument_field_alphabetical)
         for i in xrange(len(event.arguments)):
-            arguments[event_types_added[k][i]] = str(o[2][i])
+            arguments[event_types_added[k][i]] = hex(o[2][i])
             pass
         argument_string=''
         for a in arguments:
@@ -187,18 +187,20 @@ def load_config_and_logfile( config_filename, log_filename ):
 def usage(code):
     print >>sys.stderr, """\
 log_server [options] <logfile>
-           --config=<name>      Config filename describing aliases and filters
-           --ip=<name>      Config filename describing aliases and filters
-           --port=<port number> Port number to run the server on
+           --cdl=<path>         File path to CDL root - if not provided, uses env[CYCLICITY_ROOT]
+           --config=<name>      Config filename describing aliases and filters; default from env[LOGCONFIG]
+           --ip=<name>          IP address to use; if not provided, all IP addresses on the machine can be used
+           --port=<port number> Port number to run the server on, default is 8000
 
 The program runs an HTTP server on 127.0.0.1:<port> for analysis of CDL log files
 The config option should be provided, or an environment variable 'LOGCONFIG' set; one or other is required.
 """
     sys.exit(code)
 
+#b Handle arguments
 import getopt, sys
-getopt_options = ["config=","ip=","port="]
-args = {"port":8000}
+getopt_options = ["config=","ip=","port=","cdl="]
+args = {"port":8000,"ip":""}
 for o in getopt_options:
     if o[-1]=='=':
         if o[:-1] not in args:
@@ -216,14 +218,24 @@ for opt,value in optlist:
         print >>sys.stderr, "Unknown option", opt, "with value", value
         usage(4)
 
+#b Defaults if not provided and can use environment
+if args["cdl"]==None:
+    if "CYCLICITY_ROOT" not in os.environ:
+        usage(4)
+        pass
+    cyclicity_root = os.environ["CYCLICITY_ROOT"]
+else:
+    cyclicity_root = args["cdl"]
+
 if args["config"]==None:
-    if "LOGCONFIG" not in os.environ.keys():
+    if "LOGCONFIG" not in os.environ:
         usage(4)
         pass
     config_filename = os.environ["LOGCONFIG"]
 else:
     config_filename = args["config"]
 
+#b Parse config file and  log file initially
 if len(file_list)==0:
     usage(4)
     pass
@@ -232,7 +244,7 @@ log_filename = file_list[0]
 lf = load_config_and_logfile( config_filename=config_filename, log_filename=log_filename )
 
 #b Create and run server
-server = c_httpd.c_http_server( server_address=("127.0.0.1",args["port"]),
+server = c_httpd.c_http_server( server_address=(args["ip"],args["port"]),
                                 file_path = [cyclicity_root+"/httpd/log", cyclicity_root+"/httpd/log/js", cyclicity_root+"/httpd/js"],
                                 client_callback = httpd_callback,
                                 verbose = {}, # "get":99, "response":99 }
