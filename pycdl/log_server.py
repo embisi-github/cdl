@@ -244,7 +244,7 @@ log_filename = file_list[0]
 lf = load_config_and_logfile( config_filename=config_filename, log_filename=log_filename )
 
 #b Create and run server
-server = c_httpd.c_http_server( server_address=(args["ip"],args["port"]),
+server = c_httpd.c_http_server( server_address=(args["ip"],int(args["port"])),
                                 file_path = [cyclicity_root+"/httpd/log", cyclicity_root+"/httpd/log/js", cyclicity_root+"/httpd/js"],
                                 client_callback = httpd_callback,
                                 verbose = {}, # "get":99, "response":99 }
