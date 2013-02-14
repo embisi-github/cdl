@@ -212,18 +212,18 @@ function reload_log_file()
 function fill_log_events(module,module_log_number)
 {
     var i;
-    request = "get_events?x=";
+    request = "get_events?max=10000";
     r = "&"
     for (i=0; i<filters_to_apply.length; i++)
     {
         request = request+r+"filters="+filters_to_apply[i]
         r = "&";
     }
-    if (module!='')
+    if (module !=='')
     {
         request = request+r+"module="+module;
     }
-    if (module_log_number!=0)
+    if (module_log_number !== "")
     {
         request = request+r+"module_log_number="+module_log_number;
     }
