@@ -4,6 +4,7 @@
 import string, copy, re
 import csv
 import ConfigParser
+import traceback
 
 #a Log filter classes
 #c c_log_filter_match_base
@@ -336,9 +337,17 @@ class c_log_file( object ):
         module = row[2]
         module_log_number = int(row[3])
         num_args = int(row[4])
-        arguments = []
-        for i in range(num_args):
-            arguments.append(int(row[5+i],16))
+        try:
+            arguments = []
+            for i in range(num_args):
+                arguments.append(int(row[5+i],16))
+                pass
+            pass
+        except ValueError:
+            arguments = None
+            pass
+        if arguments is None:
+            return
         k = (module,module_log_number)
         if k not in self.log_events.keys():
             return
@@ -355,9 +364,21 @@ class c_log_file( object ):
         csv_row_iterator = csv.reader( f, dialect=csv.excel )
         for row in csv_row_iterator:
             if row[0][0] == '#':
-                self.add_csv_event_type( row )
+                try:
+                    self.add_csv_event_type( row )
+                    pass
+                except:
+                    print "Failed to add log file event header row",row
+                    print traceback.format_exc()
+                    pass
             else:
-                self.add_csv_event_occurrence( row )
+                try:
+                    self.add_csv_event_occurrence( row )
+                    pass
+                except:
+                    print "Failed to add log file event row",row
+                    print traceback.format_exc()
+                    pass
             pass
         f.close()
         self.update()
