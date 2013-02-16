@@ -5,6 +5,7 @@ import string, copy, re
 import csv
 import ConfigParser
 import traceback
+import os.path
 
 #a Log filter classes
 #c c_log_filter_match_base
@@ -389,7 +390,8 @@ class c_log_file( object ):
 #c c_log_config
 class c_log_config( object ):
     #f __init__
-    def __init__( self ):
+    def __init__( self, config_path=None ):
+        self.config_path = config_path
         self.reset()
         pass
     #f reset
@@ -433,6 +435,26 @@ class c_log_config( object ):
             pass
         return result
 
+    #f file_on_path
+    def file_on_path( self, filename, path ):
+        for p in path.split(":"):
+            pf = os.path.join(p,filename)
+            if os.path.exists( pf ):
+                return pf
+            pass
+        return None
+
+    #f open_config_file
+    def open_config_file( self, filename ):
+        try:
+            f = open(filename)
+        except:
+            path_filename = self.file_on_path( filename, self.config_path )
+            if path_filename is None:
+                raise
+            f = open(path_filename)
+            pass
+        return f
     #f read_config_files
     def read_config_files( self, filename, id="top" ):
         """
@@ -440,7 +462,7 @@ class c_log_config( object ):
         Return True if okay, False if not
         """
         if filename in self.config_files: return True
-        config_file = open(filename)
+        config_file = self.open_config_file(filename)
         config = ConfigParser.RawConfigParser()
         config.readfp( config_file )
         config_file.close()
