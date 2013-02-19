@@ -10,6 +10,7 @@ import c_logs
 #a Globals
 
 #a Log server class
+#c c_http_log_server
 class c_http_log_server(object):
     #f __init__
     def __init__( self, log_filename, config_filename, config_path, server_address, file_path ):
@@ -61,15 +62,15 @@ class c_http_log_server(object):
         return qd[index]
 
     #f xml_get_summary
-    def xml_get_summary( self, url_dict, query_dict, log_file ):
+    def xml_get_summary( self, url_dict, query_dict ):
         """
         Get a summary of the log file that matches the provided filters
         """
         doc = Document()
         xml = doc.createElement("log_summary")
         filter_names = self.get_query_dict(query_dict,"filters")
-        for k in log_file.matching_events( filter_names ):
-            event = log_file.log_events[k]
+        for k in self.log_file.matching_events( filter_names ):
+            event = self.log_file.log_events[k]
             entry = doc.createElement("log_event")
             (module, module_log_number) = k
             entry.setAttribute( "module_alias", event.module_alias )
@@ -206,7 +207,7 @@ class c_http_log_server(object):
         return ("xml", xml)
 
     #f httpd_callback
-    def httpd_callback( self, url_dict, query_dict ):
+    def httpd_callback( self, server, url_dict, query_dict ):
         print url_dict, query_dict
         query_type = url_dict.path
         if query_type[0]=='/': query_type=query_type[1:]

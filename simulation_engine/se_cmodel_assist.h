@@ -99,10 +99,41 @@ typedef struct t_se_cma_module_desc
     t_se_cma_clock_desc  **clock_descs_list;
 } t_se_cma_module_desc;
 
-/*a Function declarations
+/*a Inline function definitions
  */
-extern void se_cmodel_assist_assign_to_bit( t_sl_uint64 *vector, int size, int bit, unsigned int value);
-extern void se_cmodel_assist_assign_to_bit_range( t_sl_uint64 *vector, int size, int bit, int length, t_sl_uint64 value);
+/*f se_cmodel_assist_assign_to_bit
+ */
+static inline void se_cmodel_assist_assign_to_bit( t_sl_uint64 *vector, int size, int bit, unsigned int value)
+{
+    t_sl_uint64 old;
+    int shift;
+
+    if ((bit<size) && (bit>=0))
+    {
+        old = vector[bit/64];
+        shift = bit%64;
+        vector[bit/64] = (old &~ (1LL<<shift)) | ((value&1LL)<<shift);
+    }
+}
+
+/*f se_cmodel_assist_assign_to_bit_range
+ */
+static inline void se_cmodel_assist_assign_to_bit_range( t_sl_uint64 *vector, int size, int bit, int length, t_sl_uint64 value)
+{
+    t_sl_uint64 old, bit_mask;
+    int shift;
+    bit_mask = (length >= 64) ? ~0ULL : ((1ULL << length)-1);
+
+    if ((bit+length<=size) && (bit>=0) && (length>=1))
+    {
+        old = vector[bit/64];
+        shift = bit%64;
+        vector[bit/64] = (old &~ (bit_mask<<shift)) | ((value&bit_mask)<<shift);
+    }
+}
+
+/*a Function declarations - for functions that are called once per instantiation, or once per error message etc
+ */
 extern char *se_cmodel_assist_vsnprintf( char *buffer, int buffer_size, const char *format, int num_args, ... );
 extern void se_cmodel_assist_module_declaration( c_engine *engine, void*engine_handle, void *base, t_se_cma_module_desc *module_desc );
 extern void se_cmodel_assist_instantiation_wire_ports( c_engine *engine, void*engine_handle, void *base, const char *module_name, const char *module_instance_name, void *instance_handle, t_se_cma_instance_port *port_list );

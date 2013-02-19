@@ -1340,7 +1340,7 @@ static PyObject *py_engine_method_set_state( t_py_engine_PyObject *py_eng, PyObj
                     py_engine_method_int64_from_obj( PyList_GetItem( value, 0 ), &dataval);
                 }
 
-                data[0] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
+                data[idx] = ((data[idx] & ~maskval) | (dataval & maskval)) & datamask;
                 return py_engine_method_return( py_eng, NULL );
             }
             else

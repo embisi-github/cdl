@@ -27,60 +27,8 @@
  */
 static t_sl_uint64 dummy_input[16]={0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0};
 
-/*a Statics
- */
-static t_sl_uint64 bit_mask[] = {
-     0LL, 1LL, 3LL, 7LL,
-     0xfLL, 0x1fLL, 0x3fLL, 0x7fLL,
-     0xffLL, 0x1ffLL, 0x3ffLL, 0x7ffLL,
-     0xfffLL, 0x1fffLL, 0x3fffLL, 0x7fffLL,
-     0xffffLL, 0x1ffffLL, 0x3ffffLL, 0x7ffffLL,
-     0xfffffLL, 0x1fffffLL, 0x3fffffLL, 0x7fffffLL,
-     0xffffffLL, 0x1ffffffLL, 0x3ffffffLL, 0x7ffffffLL,
-     0xfffffffLL, 0x1fffffffLL, 0x3fffffffLL, 0x7fffffffLL,
-     0xffffffffLL, 0x1ffffffffLL, 0x3ffffffffLL, 0x7ffffffffLL,
-     0xfffffffffLL, 0x1fffffffffLL, 0x3fffffffffLL, 0x7fffffffffLL,
-     0xffffffffffLL, 0x1ffffffffffLL, 0x3ffffffffffLL, 0x7ffffffffffLL,
-     0xfffffffffffLL, 0x1fffffffffffLL, 0x3fffffffffffLL, 0x7fffffffffffLL,
-     0xffffffffffffLL, 0x1ffffffffffffLL, 0x3ffffffffffffLL, 0x7ffffffffffffLL,
-     0xfffffffffffffLL, 0x1fffffffffffffLL, 0x3fffffffffffffLL, 0x7fffffffffffffLL,
-     0xffffffffffffffLL, 0x1ffffffffffffffLL, 0x3ffffffffffffffLL, 0x7ffffffffffffffLL,
-     0xfffffffffffffffLL, 0x1fffffffffffffffLL, 0x3fffffffffffffffLL, 0x7fffffffffffffffLL,
-     0xffffffffffffffffLL
-};
-
 /*a External functions
  */
-/*f se_cmodel_assist_assign_to_bit
- */
-extern void se_cmodel_assist_assign_to_bit( t_sl_uint64 *vector, int size, int bit, unsigned int value)
-{
-    t_sl_uint64 old;
-    int shift;
-
-    if ((bit<size) && (bit>=0))
-    {
-        old = vector[bit/64];
-        shift = bit%64;
-        vector[bit/64] = (old &~ (1LL<<shift)) | ((value&1LL)<<shift);
-    }
-}
-
-/*f se_cmodel_assist_assign_to_bit_range
- */
-extern void se_cmodel_assist_assign_to_bit_range( t_sl_uint64 *vector, int size, int bit, int length, t_sl_uint64 value)
-{
-    t_sl_uint64 old;
-    int shift;
-
-    if ((bit+length<=size) && (bit>=0) && (length>=1))
-    {
-        old = vector[bit/64];
-        shift = bit%64;
-        vector[bit/64] = (old &~ (bit_mask[length]<<shift)) | ((value&bit_mask[length])<<shift);
-    }
-}
-
 /*f arg_from_vprintf_string
  */
 static int arg_from_vprintf_string( const char *string, int *used, int num_args )
