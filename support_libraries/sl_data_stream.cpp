@@ -60,7 +60,7 @@ extern void sl_data_stream_start_packet( t_sl_data_stream *ds )
  */
 extern void sl_data_stream_next_data_word( t_sl_data_stream *ds )
 {
-    switch (ds->type && 127)
+    switch (ds->type & 127)
     {
     case sl_data_stream_type_constant:
         ds->value = ds->seed;

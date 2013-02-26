@@ -209,10 +209,14 @@ typedef struct t_engine_module_instance
 {
     struct t_engine_module_instance *next_instance;
     struct t_engine_module_instance *parent_instance; // Parent in a hierarchy, if this is not a root module instance
+    struct t_engine_module_instance *next_sibling_instance;
+    struct t_engine_module_instance *first_child_instance;
 
     void *module_handle; // Handle from instantiation function; used in all callbacks
-    char *name; // Instance name inside this level of hierarchy
+    char *name; // Instance name inside this level of hierarchy 
+    unsigned int name_hash;
     char *full_name; // Full instance name from global level
+    unsigned int full_name_hash;
     char *type; // Module type
 
     t_sl_option_list option_list;

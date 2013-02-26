@@ -449,22 +449,31 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      emi->next_instance = module_instance_list;
      module_instance_list = emi;
      emi->parent_instance = pemi;
+     emi->next_sibling_instance = NULL;
+     emi->first_child_instance = NULL;
 
      emi->module_handle = em;
      emi->name = sl_str_alloc_copy( name );
+     emi->name_hash = sl_str_hash( name, -1 );
      emi->type = sl_str_alloc_copy( type );
      if (pemi)
      {
+         emi->next_sibling_instance = pemi->first_child_instance;
+         pemi->first_child_instance = emi;
          int parent_length;
          parent_length = strlen(pemi->full_name);
          emi->full_name = (char *)malloc( parent_length+strlen(name)+2 );
          strcpy( emi->full_name, pemi->full_name );
          emi->full_name[parent_length] = '.';
          strcpy( emi->full_name+parent_length+1, name );
+         emi->full_name_hash = sl_str_hash( emi->full_name, -1 );
      }
      else
      {
          emi->full_name = emi->name;
+         emi->full_name_hash = emi->name_hash;
+         emi->next_sibling_instance = toplevel_module_instance_list;
+         toplevel_module_instance_list = emi;
      }
 
      /*b Find any override options for full_name, and create a new list with those options pointing to option_list at the tail;

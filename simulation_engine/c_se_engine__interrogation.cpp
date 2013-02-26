@@ -317,14 +317,18 @@ c_engine *c_engine::get_next_instance( void )
 
 /*a Find-from-name methods
  */
-/*f c_engine::find_module_instance
+/*f c_engine::find_module_instance( parent, name )
  */
 void *c_engine::find_module_instance( void *parent, const char *name )
 {
      t_engine_module_instance *emi;
-     for (emi=module_instance_list; emi; emi=emi->next_instance )
+     t_engine_module_instance *pemi = (t_engine_module_instance *)parent;
+     unsigned int name_hash = sl_str_hash( name, -1 );
+
+     for (emi=pemi?pemi->first_child_instance:toplevel_module_instance_list; emi; emi=emi->next_sibling_instance )
      {
           if ( (parent==emi->parent_instance) &&
+               (name_hash == emi->name_hash) && 
                (!strcmp(emi->name,name)) )
           {
                return (void *)emi;
@@ -333,36 +337,44 @@ void *c_engine::find_module_instance( void *parent, const char *name )
      return NULL;
 }
 
-/*f c_engine::find_module_instance( name, length )
+/*f c_engine::find_module_instance( parent, name, length )
  */
 void *c_engine::find_module_instance( void *parent, const char *name, int length )
 {
      t_engine_module_instance *emi;
+     t_engine_module_instance *pemi = (t_engine_module_instance *)parent;
+     unsigned int name_hash = sl_str_hash( name, length );
+
      SL_DEBUG( sl_debug_level_info, "c_engine::find_module_instance", "Find entity with parent %p, name %s (length %d)", parent, name, length );
-     for (emi=module_instance_list; emi; emi=emi->next_instance )
+
+     for (emi=pemi?pemi->first_child_instance:toplevel_module_instance_list; emi; emi=emi->next_sibling_instance )
      {
          if ( (parent==emi->parent_instance) && (parent))
          {
              SL_DEBUG( sl_debug_level_info, "c_engine::find_module_instance:loop", "Check entity %p parent %p name %s", emi, emi->parent_instance, emi->name );
          }
-          if ( (parent==emi->parent_instance) &&
-               !strncmp(emi->name, name, length) &&
-               (emi->name[length]==0) )
-          {
-               return (void *)emi;
-          }
+         if ( (name_hash=emi->name_hash) && 
+              (parent==emi->parent_instance) &&
+              !strncmp(emi->name, name, length) &&
+              (emi->name[length]==0) )
+         {
+             return (void *)emi;
+         }
      }
      return NULL;
 }
 
-/*f c_engine::find_module_instance
+/*f c_engine::find_module_instance( full_name )
  */
 void *c_engine::find_module_instance( const char *full_name )
 {
      t_engine_module_instance *emi;
+     unsigned int full_name_hash = sl_str_hash( full_name, -1 );
+     
      for (emi=module_instance_list; emi; emi=emi->next_instance )
      {
-          if ( (!strcmp(emi->full_name,full_name)) )
+         if ( (full_name_hash==emi->full_name_hash) &&
+              (!strcmp(emi->full_name,full_name)) )
           {
                return (void *)emi;
           }
@@ -370,20 +382,23 @@ void *c_engine::find_module_instance( const char *full_name )
      return NULL;
 }
 
-/*f c_engine::find_module_instance( name, length )
+/*f c_engine::find_module_instance( full_name, length )
  */
 void *c_engine::find_module_instance( const char *full_name, int length )
 {
-     t_engine_module_instance *emi;
-     for (emi=module_instance_list; emi; emi=emi->next_instance )
-     {
-          if ( !strncmp(emi->full_name, full_name, length) &&
-               (emi->full_name[length]==0) )
-          {
-               return (void *)emi;
-          }
-     }
-     return NULL;
+    t_engine_module_instance *emi;
+    unsigned int full_name_hash = sl_str_hash( full_name, length );
+
+    for (emi=module_instance_list; emi; emi=emi->next_instance )
+    {
+        if ( (full_name_hash==emi->full_name_hash) &&
+             !strncmp(emi->full_name, full_name, length) &&
+             (emi->full_name[length]==0) )
+        {
+            return (void *)emi;
+        }
+    }
+    return NULL;
 }
 
 /*f c_engine::module_instance_send_message( handle, message )

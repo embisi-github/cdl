@@ -420,6 +420,19 @@ extern int sl_str_split( const char *src, char **dest, int argc, char **argv, in
     return arg;
 }
 
+/*f sl_str_hash
+ */
+extern unsigned int sl_str_hash( const char *str, int length )
+{
+    unsigned int hash=5381; // This is from djb2
+    char c=0;
+    for (; ((c=str[0])!=0) && (length!=0); str++, length--) // Note, length!=0 allows length=-1 in as a 'until end of string'
+    {
+        hash = ((hash<<5)+hash)+c;
+    }
+    return hash;
+}
+
 /*a Editor preferences and notes
 mode: c ***
 c-basic-offset: 4 ***

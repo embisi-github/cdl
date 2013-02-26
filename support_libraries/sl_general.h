@@ -60,6 +60,7 @@ typedef const char *(*t_sl_get_environment_fn)( void *handle, const char *name )
 /*a External functions
  */
 extern int sl_log2( unsigned int value );
+extern unsigned int sl_str_hash( const char *string, int length );
 extern char *sl_str_alloc_copy( const char *text );
 extern char *sl_str_alloc_copy( const char *text, int length );
 extern char *sl_str_copy_max( char *dest, const char *src, int max_length );

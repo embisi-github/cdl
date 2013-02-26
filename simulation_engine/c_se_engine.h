@@ -501,6 +501,7 @@ private:
      c_engine *next_instance;
      struct t_engine_module_forced_option *module_forced_options;
      struct t_engine_module_instance *module_instance_list;
+     struct t_engine_module_instance *toplevel_module_instance_list;
      char *instance_name;
 
      struct t_engine_signal *global_signal_list;

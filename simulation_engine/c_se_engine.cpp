@@ -71,6 +71,7 @@ c_engine::c_engine( c_sl_error *error, const char *name )
 
      cycle_number = 0;
      module_instance_list = NULL;
+     toplevel_module_instance_list = NULL;
      module_forced_options = NULL;
      global_signal_list = NULL;
      global_clock_list = NULL;
