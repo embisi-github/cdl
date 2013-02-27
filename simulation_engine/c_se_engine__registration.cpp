@@ -175,6 +175,7 @@ void c_engine::register_output_signal( void *engine_handle, const char *name, in
      efn->data.output.drives = NULL;
      efn->data.output.generated_by_clock = NULL;
      efn->data.output.combinatorial = 0;
+     efn->data.output.has_clocked_state_desc = -1; // Have not checked it it has a clocked_state_desc yet
 }
 
 /*f c_engine::register_clock_fns

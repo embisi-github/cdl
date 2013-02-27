@@ -175,6 +175,7 @@ void c_engine::delete_instances_and_signals( void )
           free(emi);
      }
      module_instance_list = NULL;
+     toplevel_module_instance_list = NULL;
 
      /*b Delete clocks and global signals
       */

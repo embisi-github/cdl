@@ -101,6 +101,7 @@ typedef struct t_engine_function
             struct t_engine_signal_reference *drives; // A list of all globals that this output drives
             struct t_engine_function *generated_by_clock;
             int combinatorial;
+            int has_clocked_state_desc;
         } output;
     } data;
 } t_engine_function;

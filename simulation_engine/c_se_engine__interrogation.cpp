@@ -703,21 +703,21 @@ int c_engine::interrogate_count_hierarchy( t_se_interrogation_handle entity, t_e
                     {
                         if (type_mask&(1<<sdl->state_desc[i].type))
                         {
-                            signal = NULL;
-                            if (include_mask & engine_interrogate_include_mask_outputs) // Don't include in state if it is an output
-                            {
-                                for (signal = entity->module_instance->output_list; signal; signal=signal->next_in_list)
-                                {
-                                    if (!strcmp(signal->name, sdl->state_desc[i].name))
-                                    {
-                                        break;
-                                    }
-                                }
-                            }
-                            if (!signal)
-                            {
+                            //signal = NULL;
+                            //if (include_mask & engine_interrogate_include_mask_outputs) // Don't include in state if it is an output
+                            //{
+                            //    for (signal = entity->module_instance->output_list; signal; signal=signal->next_in_list)
+                            //    {
+                            //        if (!strcmp(signal->name, sdl->state_desc[i].name))
+                            //        {
+                            //            break;
+                            //        }
+                            //    }
+                            //}
+                            //if (!signal)
+                            //{
                                 num++;
-                            }
+                                //}
                         }
                     }
                }
@@ -733,7 +733,15 @@ int c_engine::interrogate_count_hierarchy( t_se_interrogation_handle entity, t_e
           {
                for (signal = entity->module_instance->output_list; signal; signal=signal->next_in_list)
                {
-                    num += ((type_mask & engine_state_desc_type_mask_bits)!=0);
+                   if (signal->data.output.has_clocked_state_desc==-1) // Not known if it is shadowed by state yet - find out
+                   {
+                       check_output_shadows_state( entity->module_instance, signal );
+                   }
+                   if ( (signal->data.output.has_clocked_state_desc==0) ||
+                        !(include_mask & engine_interrogate_include_mask_state) ) // Only consider if it is not shadowed by state or we don't want state
+                   {
+                       num += ((type_mask & engine_state_desc_type_mask_bits)!=0);
+                   }
                }
           }
           if (include_mask & engine_interrogate_include_mask_clocks)
@@ -747,6 +755,26 @@ int c_engine::interrogate_count_hierarchy( t_se_interrogation_handle entity, t_e
      }
 
      return 0;
+}
+
+/*f c_engine::check_output_shadows_state
+ */
+void c_engine::check_output_shadows_state( t_engine_module_instance *emi, t_engine_function *signal )
+{
+    t_engine_state_desc_list *sdl;
+    int found=0;
+    for (sdl=emi->state_desc_list; sdl && !found; sdl=sdl->next_in_list)
+    {
+        for (int i=0; i<sdl->num_state; i++)
+        {
+            if (!strcmp(signal->name, sdl->state_desc[i].name))
+            {
+                found = 1;
+                break;
+            }
+        }
+    }
+    signal->data.output.has_clocked_state_desc = found;
 }
 
 /*f c_engine::interrogate_enumerate_hierarchy
@@ -836,29 +864,15 @@ int c_engine::interrogate_enumerate_hierarchy( t_se_interrogation_handle entity,
                             //fprintf(stderr, "sdl %p n %d i %d mask %08x\n", sdl, num, i, include_mask );
                             if (type_mask&(1<<sdl->state_desc[i].type))
                             {
-                                signal = NULL;
-                                if (include_mask & engine_interrogate_include_mask_outputs) // Don't include in state if it is an output
+                                if (sub_number==num)
                                 {
-                                    for (signal = entity->module_instance->output_list; signal; signal=signal->next_in_list)
-                                    {
-                                        if (!strcmp(signal->name, sdl->state_desc[i].name))
-                                        {
-                                            break;
-                                        }
-                                    }
+                                    value->module_instance = entity->module_instance;
+                                    value->sdl = sdl;
+                                    value->state_number = i;
+                                    value->state_desc = sdl->state_desc+i;
+                                    result = 1;
                                 }
-                                if (!signal) // If not an output, see if the requested number (sub_number) is the current one; if so return; else just move on
-                                {
-                                    if (sub_number==num)
-                                    {
-                                        value->module_instance = entity->module_instance;
-                                        value->sdl = sdl;
-                                        value->state_number = i;
-                                        value->state_desc = sdl->state_desc+i;
-                                        result = 1;
-                                    }
-                                    num++;
-                                }
+                                num++;
                             }
                         }
                     }
@@ -885,18 +899,25 @@ int c_engine::interrogate_enumerate_hierarchy( t_se_interrogation_handle entity,
                {
                     for (signal = entity->module_instance->output_list; (num<=sub_number) && signal; signal=signal->next_in_list)
                     {
-                        //fprintf(stderr, "signal %p n %d\n", signal, num );
-                         if (type_mask & engine_state_desc_type_mask_bits)
-                         {
-                              if (sub_number==num)
-                              {
-                                   value->module_instance = entity->module_instance;
-                                   value->signal = signal;
-                                   value->signal_type = signal_type_output;
-                                   result = 1;
-                              }
-                              num++;
-                         }
+                        if (signal->data.output.has_clocked_state_desc==-1) // Not known if it is shadowed by state yet - find out
+                        {
+                            check_output_shadows_state( entity->module_instance, signal );
+                        }
+                        if ( (signal->data.output.has_clocked_state_desc==0) ||
+                             !(include_mask & engine_interrogate_include_mask_state) ) // Only consider if it is not shadowed by state or we don't want state
+                        {
+                            if (type_mask & engine_state_desc_type_mask_bits)
+                            {
+                                if (sub_number==num)
+                                {
+                                    value->module_instance = entity->module_instance;
+                                    value->signal = signal;
+                                    value->signal_type = signal_type_output;
+                                    result = 1;
+                                }
+                                num++;
+                            }
+                        }
                     }
                }
                if (include_mask & engine_interrogate_include_mask_clocks)
@@ -928,7 +949,7 @@ int c_engine::interrogate_enumerate_hierarchy( t_se_interrogation_handle entity,
      return 1;
 }
 
-/*f c_engine::interrogate_enumerate_hierarchy
+/*f c_engine::interrogate_find_entity
   Return a new (or reused) sub_ih for a sub_entity of an entity, given the entity_name of that subentity and selecting from a particular subset of types
   Return 0 and free the sub_ih if there is no sub_entity of that entity_name
   Return 1 and create or reuse sub_ih if there is a sub_entity of that entity_name

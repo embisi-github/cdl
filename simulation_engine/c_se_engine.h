@@ -387,6 +387,7 @@ public:
      t_se_interrogation_handle     interrogation_handle_create( void );
      void                          interrogation_handle_free( t_se_interrogation_handle entity );
      t_se_interrogation_handle     find_entity( const char *string ); // Find a signal, input, output, state, or module_instantiation from name
+     void                          check_output_shadows_state( struct t_engine_module_instance *emi, struct t_engine_function *signal );
      int                           interrogate_count_hierarchy( t_se_interrogation_handle entity, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask );
      int                           interrogate_enumerate_hierarchy( t_se_interrogation_handle entity, int sub_number, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask, t_se_interrogation_handle *sub_entity );
      int                           interrogate_find_entity( t_se_interrogation_handle entity, const char *entity_name, t_engine_state_desc_type_mask type_mask, t_engine_interrogate_include_mask include_mask, t_se_interrogation_handle *sub_entity );
