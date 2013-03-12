@@ -825,7 +825,9 @@ class hw(_clockable):
         for i in self._children:
             if isinstance(i, th) and not isinstance(i, _internal_th):
                 if not i.passed():
+                    print "Test harness %s not PASSED" % str(th)
                     return False
+        print "ALL TEST HARNESSES PASSED"
         return True
 
     def display_all_errors( self, max=10000 ):
