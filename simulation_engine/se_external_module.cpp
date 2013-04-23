@@ -30,10 +30,12 @@
  */
 typedef struct t_engine_module
 {
-     struct t_engine_module *next_module;
-     char *name;
-     void *handle;
-     t_se_instantiation_fn instantiation_fn;
+    struct t_engine_module *next_module;
+    struct t_engine_module *next_module_of_same_name;
+    char *name;
+    void *handle;
+    const char *implementation_name;
+    t_se_instantiation_fn instantiation_fn;
 } t_engine_module;
 
 /*a Statics
@@ -48,6 +50,13 @@ static t_engine_module *registered_module_list;
  */
 extern void *se_external_module_find( const char *name )
 {
+    return se_external_module_find( name, NULL );
+}
+
+/*f se_external_module_find
+ */
+extern void *se_external_module_find( const char *name, const char *implementation_name )
+{
      t_engine_module *em;
 
      SL_DEBUG(sl_debug_level_verbose_info, "se_external_module_find", "Looking for module type '%s'", name ) ;
@@ -56,7 +65,32 @@ extern void *se_external_module_find( const char *name )
      {
           if (!strcmp(em->name, name))
           {
-               return (void *)em;
+              while (1)
+              {
+                  if ((em->implementation_name==NULL) && (implementation_name==NULL))
+                  {
+                      //fprintf(stderr,"Found NULL implementation for module type '%s'\n", name );
+                      return (void *)em;
+                  }
+                  if (em->implementation_name && implementation_name && !strcmp(implementation_name, em->implementation_name))
+                  {
+                      //fprintf(stderr,"Found implementation '%s' for module type '%s'\n", implementation_name, name );
+                      return (void *)em;
+                  }
+                  if (em->next_module_of_same_name==NULL)
+                  {
+                      if (implementation_name!=NULL)
+                      {
+                          fprintf(stderr,"WARNING: Failed to find implementation '%s' for module type '%s' - using last added\n", implementation_name, name );
+                      }
+                      else
+                      {
+                          //fprintf(stderr,"Using last implementation for module type '%s', no particular implementation requested\n", name );
+                      }
+                      return (void *)em;
+                  }
+                  em = em->next_module_of_same_name;
+              }
           }
      }
      SL_DEBUG(sl_debug_level_verbose_info, "se_external_module_find", "Failed to find module type '%s'", name ) ;
@@ -90,27 +124,54 @@ extern char *se_external_module_name( int n )
  */
 extern void se_external_module_register( int registration_version, const char *name, t_se_instantiation_fn instantiation_fn )
 {
+    se_external_module_register( registration_version, name, instantiation_fn, NULL );
+}
+
+/*f se_external_module_register
+  register a module, checking the version number of the registration call first.
+  return a handle for use with future instantiation calls, or NULL for failure.
+ */
+extern void se_external_module_register( int registration_version, const char *name, t_se_instantiation_fn instantiation_fn, const char *implementation_name )
+{
      t_engine_module *em;
+     t_engine_module *prev_em;
 
      SL_DEBUG(sl_debug_level_info, "se_external_module_register", "Registering module type '%s'", name ) ;
 
-     if (registration_version!=1)
+     if (registration_version==1)
+     {
+     }
+     else
      {
           return;
      }
 
-     if (se_external_module_find(name))
+     prev_em = (t_engine_module *)se_external_module_find(name, NULL);
+     if (prev_em)
      {
-          return;
+         while (prev_em->next_module_of_same_name)
+         {
+             prev_em = prev_em->next_module_of_same_name;
+         }
      }
 
      em = (t_engine_module *)malloc(sizeof(t_engine_module));
-     em->next_module = registered_module_list;
-     registered_module_list = em;
      em->name = sl_str_alloc_copy( name );
-
+     if (implementation_name!=NULL) implementation_name=sl_str_alloc_copy(implementation_name);
+     em->implementation_name = implementation_name;
      em->instantiation_fn = instantiation_fn;
+     em->next_module_of_same_name = NULL;
 
+     if (prev_em)
+     {
+         prev_em->next_module_of_same_name = em;
+         em->next_module = NULL;
+     }
+     else
+     {
+         em->next_module = registered_module_list;
+         registered_module_list = em;
+     }
      return;
 }
 
@@ -126,6 +187,7 @@ extern t_sl_error_level se_external_module_instantiate( void *handle, c_engine *
 
 /*f se_external_module_deregister
   deregister a module
+  Not yet been updated for 
  */
 extern int se_external_module_deregister( const char *name )
 {

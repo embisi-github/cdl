@@ -423,10 +423,78 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      void *em;
      t_engine_module_instance *emi, *pemi;
      t_sl_option_list combined_option_list;
+     char *full_name;
 
      SL_DEBUG(sl_debug_level_info, "c_engine::instantiate", "Instantiating '%s' of type '%s'", name, type ) ;
 
-     em = se_external_module_find(type);
+     /*b Find name and full name of module
+      */
+     name = sl_str_alloc_copy( name );
+     pemi = (t_engine_module_instance *)parent_engine_handle;
+     if (pemi)
+     {
+         int parent_length;
+         parent_length = strlen(pemi->full_name);
+         full_name = (char *)malloc( parent_length+strlen(name)+2 );
+         strcpy( full_name, pemi->full_name );
+         full_name[parent_length] = '.';
+         strcpy( full_name+parent_length+1, name );
+     }
+     else
+     {
+         full_name = (char *)name;
+     }
+
+     /*b Find any override options for full_name, and create a new list with those options pointing to option_list at the tail;
+      */
+     combined_option_list = option_list;
+     {
+         t_engine_module_forced_option *fopt;
+         for (fopt = module_forced_options; fopt; fopt=fopt->next_in_list)
+         {
+             if (!strcmp(fopt->full_name, full_name))
+             {
+                 //fprintf(stderr,"Prepending forces option for module %s\n",full_name);
+                 combined_option_list = sl_option_list_prepend( combined_option_list, fopt->option );
+             }
+         }
+     }
+
+     /*b Find any forced implementation name
+      */
+     const char *implementation_name = sl_option_get_string(combined_option_list,"__implementation_name");
+     //fprintf(stderr,"Implementation name %s before forced options for type for module %s\n",implementation_name?implementation_name:"<none>", full_name );
+     if (implementation_name==NULL)
+     {
+         t_engine_module_instance *root;
+         const char *root_name;
+         int root_len;
+         root = NULL;
+         root_name = name;
+         if (pemi)
+         {
+             for (root = pemi; root->parent_instance; root=root->parent_instance );
+             root_name = root->name;
+         }
+         root_len = strlen(root_name);
+
+         //fprintf(stderr,"Searching for implementation name due to forced options for type %s for module %s\n",type,full_name);
+         t_engine_module_forced_option *fopt;
+         for (fopt = module_forced_options; fopt && (implementation_name==NULL); fopt=fopt->next_in_list)
+         {
+             //fprintf(stderr,"Checking option %s %s %d %s\n",fopt->full_name, root_name, root_len, type );
+             if ( (!strncmp(fopt->full_name, root_name, root_len)) &&
+                  (fopt->full_name[root_len]=='.') &&
+                  (!strcmp(fopt->full_name+root_len+1, type)) )
+             {
+                 implementation_name = sl_option_get_string(fopt->option,"__implementation_name");
+             }
+         }
+     }
+
+     /*b Find required implementation of the module instance type
+      */
+     em = se_external_module_find(type, implementation_name );
      if (!em)
      {
           return add_error( (void *)"instantiate", error_level_serious, error_number_se_unknown_module_type, error_id_se_c_engine_instantiate,
@@ -436,7 +504,6 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      }
 
 
-     pemi = (t_engine_module_instance *)parent_engine_handle;
      emi = (t_engine_module_instance *)find_module_instance( pemi, name );
      if (emi)
      {
@@ -453,42 +520,21 @@ t_sl_error_level c_engine::instantiate( void *parent_engine_handle, const char *
      emi->first_child_instance = NULL;
 
      emi->module_handle = em;
-     emi->name = sl_str_alloc_copy( name );
-     emi->name_hash = sl_str_hash( name, -1 );
      emi->type = sl_str_alloc_copy( type );
      if (pemi)
      {
          emi->next_sibling_instance = pemi->first_child_instance;
          pemi->first_child_instance = emi;
-         int parent_length;
-         parent_length = strlen(pemi->full_name);
-         emi->full_name = (char *)malloc( parent_length+strlen(name)+2 );
-         strcpy( emi->full_name, pemi->full_name );
-         emi->full_name[parent_length] = '.';
-         strcpy( emi->full_name+parent_length+1, name );
-         emi->full_name_hash = sl_str_hash( emi->full_name, -1 );
      }
      else
      {
-         emi->full_name = emi->name;
-         emi->full_name_hash = emi->name_hash;
          emi->next_sibling_instance = toplevel_module_instance_list;
          toplevel_module_instance_list = emi;
      }
-
-     /*b Find any override options for full_name, and create a new list with those options pointing to option_list at the tail;
-      */
-     combined_option_list = option_list;
-     {
-         t_engine_module_forced_option *fopt;
-         for (fopt = module_forced_options; fopt; fopt=fopt->next_in_list)
-         {
-             if (!strcmp(fopt->full_name, emi->full_name))
-             {
-                 combined_option_list = sl_option_list_prepend( combined_option_list, fopt->option );
-             }
-         }
-     }
+     emi->name      = (char *)name;
+     emi->name_hash = sl_str_hash( name, -1 );
+     emi->full_name       = full_name;
+     emi->full_name_hash  = sl_str_hash( emi->full_name, -1 );
 
      emi->option_list = combined_option_list;
      emi->delete_fn_list = NULL;
@@ -539,6 +585,7 @@ t_sl_error_level c_engine::instance_add_forced_option( const char *full_module_n
     t_engine_module_forced_option *fopt;
     fopt = (t_engine_module_forced_option *)malloc(sizeof(t_engine_module_forced_option)+strlen(full_module_name)+1);
     if (!fopt) return error_level_fatal;
+    //fprintf(stderr,"Adding forced option for module %s\n",full_module_name);
     fopt->next_in_list = module_forced_options;
     module_forced_options = fopt;
     fopt->full_name = ((char *)fopt)+sizeof(t_engine_module_forced_option);

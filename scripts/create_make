@@ -22,7 +22,9 @@
 #  def:<thing> - use for -D<thing>
 # cdl_options are one or more of:
 #  model:<name> - change the output model name to be <name>, and its C code goes to <name>.cpp, object to <name>.o
-#  rmn:<mapping> - add --remap-module-name <mapping> to the CDL run, so that the module name may be remapped
+#  rmn:<mapping> - add --remap-module-name <mapping> to the CDL run, so that the module name and CPP class names may be remapped
+#  rmr:<mapping> - add --remap-registered-name <mapping> to the CDL run, so that a module registered name (as can be used in SIM) may be remapped
+#  rim:<mapping> - add --remap-implementation-name <mapping> to the CDL run, so that a module may declare a particular implementation name
 #  rit:<mapping> - add --remap-instance-type <mapping> to the CDL run, so that submodules may be remapped
 #  inc:<path> - add include path, relative to the source root
 #  dc:<constant setting> - define a constant override for the CDL run (adds --constant <constant setting> to the CDL command line)
@@ -169,6 +171,12 @@ def parse_ef( model_object ):
         if o=="rit":
             options.append("--remap-instance-type")
             options.append(v)
+        if o=="rim":
+            options.append("--remap-implementation-name")
+            options.append(v)
+        if o=="rmr":
+            options.append("--remap-registered-name")
+            options.append(v)
 
     object["opts"] = options
     models["ef"].append(object)
@@ -249,6 +257,12 @@ def parse_cdl( model_object, cdl_options ):
             pass
         if o=="rmn":
             options.append("--remap-module-name")
+            options.append(v)
+        if o=="rim":
+            options.append("--remap-implementation-name")
+            options.append(v)
+        if o=="rmr":
+            options.append("--remap-registered-name")
             options.append(v)
         if o=="rit":
             options.append("--remap-instance-type")

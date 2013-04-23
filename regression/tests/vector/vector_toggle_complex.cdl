@@ -1,0 +1,52 @@
+/*a Copyright
+  
+  This file 'vector_toggle.cdl' copyright Gavin J Stark 2003, 2004
+  
+  This program is free software; you can redistribute it and/or modify it under
+  the terms of the GNU General Public License as published by the Free Software
+  Foundation, version 2.0.
+  
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+  for more details.
+*/
+constant integer width=16;
+
+module vector_toggle_complex( clock io_clock,
+                              input bit io_reset,
+                              input bit[width] vector_input_0,
+                              input bit[width] vector_input_1,
+                              output bit[width] vector_output_0,
+                              output bit[width] vector_output_1 )
+    "This module toggles its vector output on every clock in a complex fashion"
+{
+    default clock io_clock;
+    default reset io_reset;
+    clocked bit[width] vector_output_0 = 0;
+    clocked bit[width] vector_output_1 = -1;
+    clocked bit[8] countdown=0;
+
+toggle_code:
+    {
+        for (i; width )
+        {
+            vector_output_0[i] <= vector_output_0[i] ^ 1;
+            vector_output_1[i] <= vector_output_1[i] ^ 1;
+        }
+        countdown <= countdown+1;
+        if (countdown==8)
+        {
+            print("Ticked %x0% %x1%", vector_output_0, vector_output_1);
+            countdown<=0;
+        }
+    }
+}
+
+/*a Editor preferences and notes
+mode: c ***
+c-basic-offset: 4 ***
+c-default-style: (quote ((c-mode . "k&r") (c++-mode . "k&r"))) ***
+outline-regexp: "/\\\*a\\\|[\t ]*\/\\\*[b-z][\t ]" ***
+*/
+

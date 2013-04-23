@@ -57,7 +57,10 @@
      { "include-stmt-coverage", no_argument, NULL, option_be_include_stmt_coverage }, \
      { "coverage-desc-file", required_argument, NULL, option_be_coverage_desc_file }, \
      { "remap-module-name", required_argument, NULL, option_be_remap_module_name }, \
-     { "remap-instance-type", required_argument, NULL, option_be_remap_instance_type },
+     { "remap-instance-type", required_argument, NULL, option_be_remap_instance_type }, \
+     { "remap-registered-name", required_argument, NULL, option_be_remap_registered_name }, \
+     { "remap-implementation-name", required_argument, NULL, option_be_remap_implementation_name }, \
+
 #define MD_TYPE_DEFINITION_HANDLE_VALID(a) ( (a).type!=md_type_definition_handle_type_none )
 
 /*a Types
@@ -95,6 +98,8 @@ enum
     option_be_coverage_desc_file,
     option_be_remap_module_name,
     option_be_remap_instance_type,
+    option_be_remap_implementation_name,
+    option_be_remap_registered_name,
     option_be_vmod_mode,
     option_be_v_clkgate_type,
     option_be_v_clkgate_ports,
@@ -858,7 +863,9 @@ typedef struct t_md_module
     char *name;
     int name_to_be_freed;
     char *documentation; // always freed if not null
-    const char *output_name; // never freed - points in to option, or points to name
+    const char *output_name;         // never freed - points in to option, or points to name
+    const char *registered_name;     // never freed - points in to option, or points to name
+    const char *implementation_name; // never freed - points in to option, or points to "cdl_model"
     t_md_client_reference client_ref;
 
     int external; // 1 if the module is not to be analyzed; its input and output dependencies are given explicitly, and no code is expected to be generated 

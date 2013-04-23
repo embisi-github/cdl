@@ -5529,8 +5529,15 @@ void c_model_descriptor::module_instance_analyze( t_md_module *module, t_md_modu
     {
         for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list) // Find the module clock that is tied to the instance clock port
         {
-            reference_add( &module_instance->dependencies, clock_port->local_clock_signal, md_edge_pos  ); // The module depends on this clock and this edge
-            clock_port->local_clock_signal->data.clock.edges_used[md_edge_pos] = 1; // So the local clock within the module is used by the specified edge
+            if (clock_port->local_clock_signal)
+            {
+                reference_add( &module_instance->dependencies, clock_port->local_clock_signal, md_edge_pos  ); // The module depends on this clock and this edge
+                clock_port->local_clock_signal->data.clock.edges_used[md_edge_pos] = 1; // So the local clock within the module is used by the specified edge
+            }
+            else
+            {
+                fprintf(stderr,"Local clock not found for clock port %s\n", clock_port->clock_name );
+            }
         }
     }
 
@@ -5942,21 +5949,42 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
       */
      for (module=module_list; module; module=module->next_in_list)
      {
-         module->output_name = module->name;
-         for (i=0; ; i++)
+         module->output_name     = module->name;
+         module->registered_name = module->name;
+         module->implementation_name = "cdl_model";
+         int done = 0;
+         for (i=0; !done; i++)
          {
-             if (!sl_option_get_string( env_options, "be_remap_module_name", i, &remap))
+             done = 1;
+             if (sl_option_get_string( env_options, "be_remap_module_name", i, &remap))
              {
-                 break;
-             }
-             for (j=0; remap[j] && (remap[j]!='='); j++);
-             if (remap[j])
-             {
-                 if ( (!strncmp( module->name, remap, j)) &&
-                      (module->name[j]==0) )
+                 done = 0;
+                 // remap should be foo=bar
+                 for (j=0; remap[j] && (remap[j]!='='); j++); // remap=>foo j=>=bar
+                 if (remap[j] && (!strncmp( module->name, remap, j)) && (module->name[j]==0) ) // module->name=foo
                  {
                      module->output_name = remap+j+1;
-                     //fprintf(stderr, "Found module name '%s' for remapping instance type '%s', now '%s'\n", module->name, remap+j, module->output_name );
+                     module->registered_name = remap+j+1;
+                 }
+             }
+             if (sl_option_get_string( env_options, "be_remap_registered_name", i, &remap))
+             {
+                 done = 0;
+                 // remap should be foo=bar
+                 for (j=0; remap[j] && (remap[j]!='='); j++); // remap=>foo j=>=bar
+                 if (remap[j] && (!strncmp( module->name, remap, j)) && (module->name[j]==0) ) // module->name=foo
+                 {
+                     module->registered_name = remap+j+1;
+                 }
+             }
+             if (sl_option_get_string( env_options, "be_remap_implementation_name", i, &remap))
+             {
+                 done = 0;
+                 // remap should be foo=bar
+                 for (j=0; remap[j] && (remap[j]!='='); j++); // remap=>foo j=>=bar
+                 if (remap[j] && (!strncmp( module->name, remap, j)) && (module->name[j]==0) ) // module->name=foo
+                 {
+                     module->implementation_name = remap+j+1;
                  }
              }
          }
@@ -5969,33 +5997,29 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
                  mi->output_type = mi->module_definition->output_name;
              else
                  mi->output_type = mi->type;
-             //fprintf(stderr, "Module instance type %s is mapped to %s\n", mi->type, mi->output_type );
-             for (i=0; ; i++)
+             int done=0;
+             for (i=0; !done; i++)
              {
-                 if (!sl_option_get_string( env_options, "be_remap_instance_type", i, &remap))
+                 done = 1;
+                 if (sl_option_get_string( env_options, "be_remap_instance_type", i, &remap))
                  {
-                     break;
-                 }
-                 for (j=0; remap[j] && (remap[j]!='.'); j++);
-                 if (remap[j])
-                 {
-                     if ( (!strncmp(module->name, remap, j)) && (module->name[j]==0) )
-                     {
-                         //fprintf(stderr, "Found module name '%s' for remapping instance type '%s'\n", module->name, remap+j );
-                         remap += j+1;
-                         j = -1;
-                     }
-                 }
-                 if (j<0)
-                 {
-                     for (j=0; remap[j] && (remap[j]!='='); j++);
+                     done = 0;
+                     // remap should be foo.bar=banana
+                     for (j=0; remap[j] && (remap[j]!='.'); j++); // remap=>foo j=> .bar=banana
                      if (remap[j])
                      {
-                         if ( (!strncmp( mi->type, remap, j)) &&
-                              (mi->type[j]==0) )
+                         if ( (!strncmp(module->name, remap, j)) && (module->name[j]==0) )
                          {
-                             //fprintf(stderr, "Found module type '%s' for remapping instance type '%s'\n", mi->type, remap+j );
-                             mi->output_type = remap+j+1;
+                             remap += j+1;  // module->name==foo, foo. remap=>bar=banana
+                             for (j=0; remap[j] && (remap[j]!='='); j++);  // module->name==foo, foo. remap=>bar j=>=banana
+                             if (remap[j])
+                             {
+                                 if ( (!strncmp( mi->type, remap, j)) &&
+                                      (mi->type[j]==0) ) // module->name==foo, mi->type==bar
+                                 {
+                                     mi->output_type = remap+j+1;
+                                 }
+                             }
                          }
                      }
                  }
@@ -6040,18 +6064,18 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
      filename = sl_option_get_string( env_options, "be_cppfile" );
      if (filename)
      {
-          f = fopen(filename, "w");
-          if (f)
-          {
-              target_c_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage, multithread );
-              fclose(f);
-          }
-          else
-          {
-              error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
-                                error_arg_type_malloc_string, filename,
-                                error_arg_type_none );
-          }
+         f = fopen(filename, "w");
+         if (f)
+         {
+             target_c_output( this, output_indented, (void *)f, include_assertions, include_coverage, include_stmt_coverage, multithread );
+             fclose(f);
+         }
+         else
+         {
+             error->add_error( NULL, error_level_fatal, error_number_general_bad_filename, error_id_be_c_model_descriptor_message_create,
+                               error_arg_type_malloc_string, filename,
+                               error_arg_type_none );
+         }
      }
 
      filename = sl_option_get_string( env_options, "be_xmlfile" );
@@ -6146,8 +6170,10 @@ extern void be_getopt_usage( void )
      printf( "\t--include-coverage\tInclude code coverage statistics generation in C++ model\n");
      printf( "\t--include-stmt-coverage\tInclude code coverage for statements statistics generation in C++ model\n");
      printf( "\t--coverage-desc-file <file>\tOutput coverage descriptor file\n");
-     printf( "\t--remap-module-name <name=new_name>\tRemap module type 'name' to be another type 'new_name'\n");
+     printf( "\t--remap-module-name <name=new_name>\tRemap module type 'name' to be another type 'new_name'; this changes the fundamental CPP classname for a CDL C model. 'new_name' has to be unique in the library of built modules.\n");
      printf( "\t--remap-instance-type <module_name.instance_type=new_instance_type>\tRemap module instance types matching given type in given module to be another type 'new_name'\n");
+     printf( "\t--remap-registered-name <name=new_name>\tRemap module type 'name' to register in simulation as another module name 'new_name'. The CPP classname is not effected. This permits many different CDL models with different CPP classes to build different implementations of the same simulatable module name.\n");
+     printf( "\t--remap-implementation-name <name=implementation_name>\tMake C model for module 'name' declare itself as the specified implementation name; if not given, declare as 'cdl_model'\n");
      printf( "\t--vmod-mode\t\tOption for verilog which hacks things that VMOD cannot cope with\n");
      printf( "\t--v_assert_delay\t\tTextual string inserted to verilog prior to testing for an assertion - this might be '#1', for example\n");
      printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
@@ -6241,6 +6267,12 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
           return 1;
      case option_be_remap_instance_type:
           *env_options = sl_option_list( *env_options, "be_remap_instance_type", optarg );
+          return 1;
+     case option_be_remap_registered_name:
+          *env_options = sl_option_list( *env_options, "be_remap_registered_name", optarg );
+          return 1;
+     case option_be_remap_implementation_name:
+          *env_options = sl_option_list( *env_options, "be_remap_implementation_name", optarg );
           return 1;
      }
      return 0;

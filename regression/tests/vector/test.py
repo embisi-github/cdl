@@ -36,7 +36,7 @@ class vector_test_harness(pycdl.th):
         self.passtest(self.global_cycle(), "Test succeeded")
 
 class vector_hw(pycdl.hw):
-    def __init__(self, width, module_name, module_mif_filename):
+    def __init__(self, width, module_name, module_mif_filename, inst_forces={} ):
         print "Running vector test on module %s with mif file %s" % (module_name, module_mif_filename)
 
         self.test_reset = pycdl.wire()
@@ -46,13 +46,19 @@ class vector_hw(pycdl.hw):
         self.vector_output_1 = pycdl.wire(width)
         self.system_clock = pycdl.clock(0, 1, 1)
 
+        dut_forces = dict( inst_forces.items() +
+                           {}.items()
+                           )
+
         self.dut_0 = pycdl.module(module_name, 
                                   clocks={ "io_clock": self.system_clock }, 
                                   inputs={ "io_reset": self.test_reset,
                                            "vector_input_0": self.vector_input_0,
                                            "vector_input_1": self.vector_input_1 },
                                   outputs={ "vector_output_0": self.vector_output_0,
-                                            "vector_output_1": self.vector_output_1 })
+                                            "vector_output_1": self.vector_output_1 },
+                                  forces = dut_forces
+                                  )
         self.test_harness_0 = vector_test_harness(clocks={ "clock": self.system_clock }, 
                                                   inputs={ "vector_output_0": self.vector_output_0,
                                                            "vector_output_1": self.vector_output_1 },
@@ -65,8 +71,8 @@ class vector_hw(pycdl.hw):
 
 
 class TestVector(unittest.TestCase):
-    def do_vector_test(self, width, module_name, module_mif_filename):
-        hw = vector_hw(width, module_name, module_mif_filename)
+    def do_vector_test(self, width, module_name, module_mif_filename, inst_forces={} ):
+        hw = vector_hw(width, module_name, module_mif_filename, inst_forces=inst_forces)
         waves = hw.waves()
         waves.open(module_name+".vcd")
         waves.add_hierarchy(hw.dut_0)
@@ -78,9 +84,12 @@ class TestVector(unittest.TestCase):
     def test_toggle_16(self):
         self.do_vector_test(16, "vector_toggle__width_16", "vector_toggle__width_16.mif")
 
-    def test_toggle_18(self):
-        self.do_vector_test(18, "vector_toggle__width_18", "vector_toggle__width_18.mif")
+    def test_toggle_18_complex(self):
+        self.do_vector_test(18, "vector_toggle__width_18", "vector_toggle__width_18.mif", inst_forces={"vector_toggle__width_18.__implementation_name":"complex_cdl_model"})
 
+    def test_toggle_18_simple(self):
+        self.do_vector_test(18, "vector_toggle__width_18", "vector_toggle__width_18.mif", inst_forces={"vector_toggle__width_18.__implementation_name":"cdl_model"})
+                      
     def test_add_4(self):
         self.do_vector_test(4, "vector_add__width_4", "vector_add__width_4.mif")
 
