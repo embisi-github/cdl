@@ -3580,6 +3580,7 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
             if (!value)
             {
                 fprintf(stderr,"Error occurred parsing string\n");
+                if (PyErr_Occurred()) PyErr_PrintEx(1);
                 return -1;
             }
             cmd_cb->args[j].type = sl_exec_file_value_type_string;
@@ -3599,6 +3600,7 @@ static int py_engine_cb_args( PyObject* args, const char*arg_string, t_sl_exec_f
             if (PyErr_Occurred())
             {
                 fprintf(stderr,"Error occurred parsing int\n");
+                PyErr_PrintEx(1);
                 return -1;
             }
             cmd_cb->args[j].type = sl_exec_file_value_type_integer;
@@ -3755,6 +3757,7 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
     cmd_cb.lib_desc = NULL;
     cmd_cb.execution = barrier_thread_data ? &(barrier_thread_data->execution) : NULL;
 
+    int errored = 0;
     file_data->command_from_thread = NULL;
     if (type==0)
     {
@@ -3779,6 +3782,10 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
             if (fn->result=='d') return PyFloat_FromDouble(file_data->cmd_result.real);
             if (fn->result=='i') return PyInt_FromLong(file_data->cmd_result.integer);
         }
+        else
+        {
+            errored = 1;
+        }
     }
     else if (type==1)
     {
@@ -3797,6 +3804,7 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
         if (py_engine_cb_args( args, lib_desc->file_cmds[offset].args, &cmd_cb)<0)
         {
             fprintf(stderr,"Misparsed args\n");
+            errored = 1;
         }
         else
         {
@@ -3841,8 +3849,17 @@ static PyObject *py_engine_cb( PyObject* self, PyObject* args )
             if (method->result=='i') return PyInt_FromLong(file_data->cmd_result.integer);
             py_engine_cb_block_on_wait( py_object, barrier_thread, barrier_thread_data );
         }
+        else
+        {
+            errored = 1;
+        }
     }
     Py_XDECREF(py_object);
+    if (errored)
+    {
+        PyErr_SetString( PyExc_TypeError, "Errored parsing arguments somehow" );
+        return NULL;
+    }
     Py_INCREF( Py_None );
     return Py_None;
 }

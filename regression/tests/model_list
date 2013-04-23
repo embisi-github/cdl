@@ -43,8 +43,9 @@ cdl tests/enum enum_cycle
 cdl tests/fsm fsm_cycle
 cdl tests/fsm fsm_machine
 
-cdl tests/vector vector_toggle dc:width=16 model:vector_toggle__width_16 rmn:vector_toggle=vector_toggle__width_16
-cdl tests/vector vector_toggle dc:width=18 model:vector_toggle__width_18 rmn:vector_toggle=vector_toggle__width_18
+cdl tests/vector vector_toggle dc:width=16 model:vector_toggle__width_16                 rmn:vector_toggle=vector_toggle__width_16
+cdl tests/vector vector_toggle         dc:width=18 model:vector_toggle__width_18         rmn:vector_toggle=vector_toggle__width_18
+cdl tests/vector vector_toggle_complex dc:width=18 model:vector_toggle_complex__width_18 rmn:vector_toggle_complex=vector_toggle_complex__width_18 rmr:vector_toggle_complex=vector_toggle__width_18 rim:vector_toggle_complex=complex_cdl_model
 cdl tests/vector vector_add dc:width=4 model:vector_add__width_4 rmn:vector_add=vector_add__width_4
 cdl tests/vector vector_add dc:width=8 model:vector_add__width_8 rmn:vector_add=vector_add__width_8
 cdl tests/vector vector_mult_by_11 dc:width=8 model:vector_mult_by_11__width_8 rmn:vector_mult_by_11=vector_mult_by_11__width_8
@@ -58,7 +59,8 @@ cdl tests/vector vector_op_2
 cdl tests/vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_sum_2=vector_sum_2__width_4
 
 cdl tests/instantiation hierarchy_reg
-cdl tests/instantiation hierarchy_and
+cdl tests/instantiation hierarchy_and         rim:hierarchy_and=simple
+cdl tests/instantiation hierarchy_and_complex rmr:hierarchy_and_complex=hierarchy_and rim:hierarchy_and=complex
 cdl tests/instantiation hierarchy_gated_clock
 cdl_options mul:on
 cdl tests/instantiation hierarchy_comb_and_clocked

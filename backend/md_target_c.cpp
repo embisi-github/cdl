@@ -3497,7 +3497,7 @@ static void output_initalization_functions( c_model_descriptor *model, t_md_outp
     {
         if (module->external)
             continue;
-        output( handle, 1, "se_external_module_register( 1, \"%s\", %s_instance_fn );\n", module->output_name, module->output_name );
+        output( handle, 1, "se_external_module_register( 1, \"%s\", %s_instance_fn, \"%s\" );\n", module->registered_name, module->output_name, module->implementation_name );
     }
     output( handle, 0, "}\n");
     output( handle, 0, "\n");

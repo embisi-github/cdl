@@ -26,7 +26,7 @@ import sys, os
 import itertools, collections
 from c_python_telnetd import c_python_telnet_server
 
-version_info = (1,4,12,"",0)
+version_info = (1,4,13,"",0)
 
 def version():
     global version_info

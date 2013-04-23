@@ -31,9 +31,11 @@
 /*a External functions
  */
 extern void *se_external_module_find( const char *name );
+extern void *se_external_module_find( const char *name, const char *implementation_name );
 extern char *se_external_module_name( void *handle );
 extern char *se_external_module_name( int n );
 extern void se_external_module_register( int registration_version, const char *name, t_se_instantiation_fn instantiation_fn );
+extern void se_external_module_register( int registration_version, const char *name, t_se_instantiation_fn instantiation_fn, const char *implementation_name );
 extern t_sl_error_level se_external_module_instantiate( void *handle, class c_engine *engine, void *instantiation_handle );
 extern int se_external_module_deregister( const char *name );
 extern void se_external_module_deregister_all( void );
