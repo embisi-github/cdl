@@ -218,6 +218,104 @@ class c_log_event( object ):
                                       reason=self.reason,
                                       argument_names=self.arguments )
 
+#a Log transaction tracing classes
+#c c_traced_operation
+class c_traced_operation( object ):
+    log_entries = []
+    #f __init__
+    def __init__( self, **kwargs ):
+        self.log_entry_mappings = {}
+        pass
+
+    #f log_strings
+    def log_strings( self ):
+        s = []
+        for log_name in self.log_entries:
+            s.append( log_name )
+            pass
+        return s
+
+    #f log_entry_event_mapping
+    def log_entry_event_mapping( self, event_tag, event ):
+        reason = event.reason
+        event_args = event.arguments
+        if reason in self.log_entries:
+            self.log_entry_mappings[ reason ] = []
+            self.log_entry_mappings[ event_tag ] = reason
+            log_args = self.log_entries[reason][0]
+            for arg in log_args:
+                if arg in event_args: # It had better be...
+                    self.log_entry_mappings[ reason ].append( event_args.index(arg) )
+                    pass
+                else:
+                    raise Exception, "Failed to find blah"
+            pass
+        return
+
+    #f log_entry_event_occurrence
+    def log_entry_event_occurrence( self, event_tag, cycle, number, args, occurrence ):
+        reason = self.log_entry_mappings[event_tag]
+        callback = self.log_entries[reason][1]
+        extracted_args = []
+        for i in self.log_entry_mappings[reason]:
+            extracted_args.append( args[i] )
+            pass
+        callback( reason, cycle, number, extracted_args, occurrence )
+        return
+
+    #f log_analyze_file
+    def log_analyze_file( self, log_filename, max_occurrences=10000 ):
+        lf = c_log_file()
+        lf.open(log_filename)
+        filter = c_log_filter()
+        filter.add_match( {"field":"reason", "type":"streq", "strings":self.log_strings()} )
+        lf.add_filter( filter_name="blah", filter=filter )
+        for e in lf.matching_events( ["blah"] ):
+            event = lf.log_events[e]
+            self.log_entry_event_mapping( e, event )
+            pass
+        
+        for oc in lf.matching_event_occurrences( filter_name_list=["blah"], max_occurrences=max_occurrences ):
+            self.log_entry_event_occurrence( oc[0], oc[1][0], oc[1][1], oc[1][2], oc )
+            pass
+
+        return
+
+#c c_traced_operation_transaction
+class c_traced_operation_transaction( c_traced_operation ):
+    #f __init__
+    def __init__( self, transaction_start, transaction_end, **kwargs ):
+        c_traced_operation.__init__(self, **kwargs )
+        self.transaction_start = transaction_start
+        self.transaction_end   = transaction_end
+        self.log_entries = { transaction_start[0]:  (transaction_start[1:],self.log_callback),
+                             transaction_end[0]:    (transaction_end[1:],self.log_callback), }
+        self.transactions_in_progress = {}
+        self.transaction_id = 0
+        pass
+
+    #f log_callback
+    def log_callback( self, reason, cycle, number, extracted_args, occurrence ):
+        transaction_key = tuple(extracted_args)
+        if reason == self.transaction_start[0]:
+            if transaction_key in self.transactions_in_progress:
+                print "Unexpected %s - transaction %s already in progress"%(self.transaction_start[0], str(transaction_key))
+            else:
+                self.transactions_in_progress[transaction_key] = (self.transaction_id, cycle)
+                self.transaction_id += 1
+                pass
+            pass
+        else:
+            if transaction_key not in self.transactions_in_progress:
+                print "Unexpected %s - transaction %s NOT in progress"%(self.transaction_end[0], str(transaction_key))
+            else:
+                (id, start_cycle) = self.transactions_in_progress[transaction_key]
+                self.transaction_completed( tag=self.transaction_id, start_cycle=start_cycle, end_cycle=cycle )
+                del self.transactions_in_progress[transaction_key]
+                pass
+            pass
+        return
+
 #a Log file classes
 #c c_log_file
 class c_log_file( object ):
