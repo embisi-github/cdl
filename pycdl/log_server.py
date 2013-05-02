@@ -258,7 +258,7 @@ class c_cmd_line_server( object ):
     #f parse_args
     def parse_args( self ):
         import getopt, sys
-        getopt_options = ["config=","ip=","port=","cdl=", "config-path="]
+        getopt_options = ["config=","ip=","port=","cdl=", "config_path="]
         for o in getopt_options:
             if o[-1]=='=':
                 if o[:-1] not in self.args:
