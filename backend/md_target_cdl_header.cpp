@@ -257,7 +257,10 @@ static void output_ports_nets_clocks( c_model_descriptor *model, t_md_module *mo
      */
     for (signal=module->outputs; signal; signal=signal->next_in_list)
     {
-        output( handle, indent, "output %s,\n", string_type_name(signal->instance,signal->name));
+	/*b Careful with output, make sure to account for last line before the closing paren.
+ 	 *  otherwise, there will be a dangling comma.
+ 	 */
+        output( handle, indent, "output %s%s\n", string_type_name(signal->instance,signal->name), signal->next_in_list ? "," : "");
     }
 
     /*b Finish header, start body
