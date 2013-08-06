@@ -315,7 +315,7 @@ int c_engine::waveform_vcd_file_count_and_fill_signals( t_waveform_vcd_file_enti
                    {
                        breakout_to = sizes[1];
                        if (breakout_to<0) breakout_to=0;
-                       if (breakout_to>64) breakout_to=64;
+                       if (breakout_to>sl_waveform_depth) breakout_to=sl_waveform_depth;
                    }
                    if (signals)
                    {

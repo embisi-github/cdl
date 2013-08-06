@@ -27,6 +27,7 @@
      { "sl_debug", no_argument, NULL, option_sl_debug }, \
      { "sl_debug_level", required_argument, NULL, option_sl_debug_level }, \
      { "sl_debug_file", required_argument, NULL, option_sl_debug_file }, \
+     { "sl_waveform_depth", required_argument, NULL, option_sl_waveform_depth }, \
 
 /*a Types
  */
@@ -47,7 +48,8 @@ enum
 {
      option_sl_debug = option_sl_start,
      option_sl_debug_level,
-     option_sl_debug_file
+     option_sl_debug_file,
+     option_sl_waveform_depth
 };
 
 typedef struct t_sl_option *t_sl_option_list;

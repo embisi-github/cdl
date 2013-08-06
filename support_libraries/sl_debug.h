@@ -42,6 +42,7 @@ typedef enum
      sl_debug_level_high_warning = 10
 } t_sl_debug_level;
 
+extern int sl_waveform_depth;
 /*a Functions
  */
 #ifdef SL_DEBUG_ENABLED

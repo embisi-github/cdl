@@ -28,6 +28,8 @@
 #define WHERE_I_AM {}
 #endif
 
+int sl_waveform_depth = 64;
+
 /*a Types
  */
 /*t option_type_*
@@ -354,6 +356,7 @@ extern void sl_option_getopt_usage( void )
      printf( "\t--sl_debug \t\tEnable debugging\n");
      printf( "\t--sl_debug_level <level> \tSet level of debugging information and enable\n\t\t\t\t debugging\n");
      printf( "\t--sl_debug_file <file> \tSet file to output debug to (else stdout)\n");
+     printf( "\t--sl_waveform_depth <array-depth> \tSet the array depth to capture in waves (default: 64)\n");
 }
 
 /*f sl_option_handle_getopt
@@ -377,6 +380,10 @@ extern int sl_option_handle_getopt( t_sl_option_list *env_options, int c, const 
      case option_sl_debug:
           sl_debug_enable(1);
          return 1;
+     case option_sl_waveform_depth:
+          if (sscanf(optarg,"%d", &i )==1)
+               sl_waveform_depth = i;
+          return 1;
      }
      return 0;
 }
