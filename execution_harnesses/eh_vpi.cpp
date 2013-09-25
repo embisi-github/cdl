@@ -512,18 +512,44 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
             globals.engine->waveform_vcd_file_open(vcd, vcd_file);
             if (vcd)
             {
-                t_se_interrogation_handle entity;
-                entity = globals.engine->find_entity(vmi->instance_name);
-                if (entity)
+                const char *entities = sl_option_get_string(vmi->option_list, "vcd_entities");
+                if (entities == NULL)
+                    entities = vmi->instance_name;
+
+                char *elist = sl_str_alloc_copy(entities);
+                char *efree = elist;
+                char *cp;
+
+                while ((cp = strsep(&elist, " \t\n\r")))
                 {
-                    globals.engine->waveform_vcd_file_add_hierarchy(vcd, entity);
-                    globals.engine->waveform_vcd_file_enable(vcd);
-                    vpi_printf("%s: Logging to %s\n", vmi->instance_name, vcd_file);
+                    char *dc;
+                    int depth;
+                    t_se_interrogation_handle entity;
+
+                    dc = strchr(cp, ',');
+                    if (dc)
+                    {
+                        *(dc++) = 0;
+                        depth = strtol(dc, NULL, 0);
+                    }
+                    else
+                    {
+                        depth = 1;
+                    }
+
+                    entity = globals.engine->find_entity(cp);
+                    if (entity)
+                    {
+                        globals.engine->waveform_vcd_file_add_hierarchy(vcd, entity, depth);
+                        globals.engine->waveform_vcd_file_enable(vcd);
+                        vpi_printf("%s: Logging to %s,%d\n", vcd_file, cp, depth);
+                    }
+                    else
+                    {
+                        vpi_printf("%s: Can't find this entity\n", vcd_file, cp);
+                    }
                 }
-                else
-                {
-                    vpi_printf("%s: Can't find myself as an entity\n", vmi->instance_name);
-                }
+                free(efree);
             }
             else
             {
