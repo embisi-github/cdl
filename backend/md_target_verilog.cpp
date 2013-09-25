@@ -633,6 +633,8 @@ static void output_module_rtl_architecture_expression( c_model_descriptor *model
     switch (expr->type)
     {
     case md_expr_type_value:
+        // Jason wants:
+        // output( handle, -1, "%d'h%llx", expr->data.value.value.width, expr->data.value.value.value[0] & ((~0ULL) >> (64 - expr->data.value.value.width))); 
         output( handle, -1, "%d'h%llx", expr->data.value.value.width, expr->data.value.value.value[0] ); 
         break;
     case md_expr_type_lvar:
@@ -651,6 +653,8 @@ static void output_module_rtl_architecture_expression( c_model_descriptor *model
         if ( (expr->data.cast.expression) &&
              (expr->data.cast.expression->type==md_expr_type_value) )
         {
+            // Jason wants:
+            //output( handle, -1, "%d'h%llx", expr->width, expr->data.cast.expression->data.value.value.value[0] & ((~0ULL) >> (64 - expr->width)) ); 
             output( handle, -1, "%d'h%llx", expr->width, expr->data.cast.expression->data.value.value.value[0] ); 
         }
         else
@@ -904,6 +908,8 @@ static void output_module_rtl_architecture_parallel_switch( c_model_descriptor *
                {
                    if (stmts_reqd || statement->data.switch_stmt.full || 1)
                    {
+                       // Jason wants this:
+                       // output( handle, indent+1, "%d'h%llx: // req %d\n", statement->data.switch_stmt.expr->width, switem->data.value.value.value[0] & ((~0ULL) >> (64 - statement->data.switch_stmt.expr->width)), stmts_reqd );
                        output( handle, indent+1, "%d'h%llx: // req %d\n", statement->data.switch_stmt.expr->width, switem->data.value.value.value[0], stmts_reqd );
                        output( handle, indent+2, "begin\n");
                        output_module_rtl_architecture_statement( model, output, handle, code_block, switem->statement, indent+1, clock, edge, reset, reset_level );

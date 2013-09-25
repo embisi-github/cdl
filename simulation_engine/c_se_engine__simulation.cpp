@@ -1657,8 +1657,8 @@ void c_engine::simulation_assist_clock_instance( void *engine_handle, int posedg
     t_engine_module_instance *emi;
     t_engine_function *emi_sig;
 
-    emi = (t_engine_module_instance *)engine_handle;
-    for (emi_sig=emi->clock_fn_list;emi_sig;emi_sig=emi_sig->next_in_list)
+    emi = (t_engine_module_instance *) engine_handle;
+    for ( emi_sig=emi->clock_fn_list; emi_sig; emi_sig=emi_sig->next_in_list )
     {
         if ((!clock_name) || (!strcmp(clock_name, emi_sig->name)))
         {
@@ -1674,12 +1674,42 @@ void c_engine::simulation_assist_clock_instance( void *engine_handle, int posedg
     }
 }
 
+/*f c_engine::simulation_assist_comb_instance
+  Only to be used in extremis - this is for other simulators, and generating waves for them
+ */
+void c_engine::simulation_assist_comb_instance( void *engine_handle)
+{
+    t_engine_module_instance *emi;
+    t_engine_function *emi_sig;
+
+    emi = (t_engine_module_instance *) engine_handle;
+    for ( emi_sig=emi->comb_fn_list; emi_sig; emi_sig=emi_sig->next_in_list )
+    {
+        emi_sig->data.comb.comb_fn( emi_sig->handle);
+    }
+}
+
+/*f c_engine::simulation_assist_propagate_instance
+  Only to be used in extremis - this is for other simulators, and generating waves for them
+ */
+void c_engine::simulation_assist_propagate_instance( void *engine_handle)
+{
+    t_engine_module_instance *emi;
+    t_engine_function *emi_sig;
+
+    emi = (t_engine_module_instance *) engine_handle;
+    for ( emi_sig=emi->propagate_fn_list; emi_sig; emi_sig=emi_sig->next_in_list )
+    {
+        emi_sig->data.propagate.propagate_fn( emi_sig->handle);
+    }
+}
+
 /*f c_engine::simulation_assist_reset_instance
  */
 void c_engine::simulation_assist_reset_instance( void *engine_handle, int pass )
 {
     t_engine_module_instance *emi;
-    emi = (t_engine_module_instance *)engine_handle;
+    emi = (t_engine_module_instance *) engine_handle;
     se_engine_function_call_invoke_all_arg( emi->reset_fn_list, pass ); // First pass for each is purely internal state, second allows for inputs to be used
 }
 

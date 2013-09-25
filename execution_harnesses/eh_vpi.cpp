@@ -190,6 +190,7 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
             {
                 if (vck->edges&1)
                 {
+                    globals.engine->simulation_assist_prepreclock_instance( vmi->engine_handle, 1, vck->signal_name );
                     globals.engine->simulation_assist_preclock_instance( vmi->engine_handle, 1, vck->signal_name );
                     globals.engine->simulation_assist_clock_instance( vmi->engine_handle, 1, vck->signal_name );
                 }
@@ -198,10 +199,14 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
             {
                 if (vck->edges&2)
                 {
+                    globals.engine->simulation_assist_prepreclock_instance( vmi->engine_handle, 0, vck->signal_name );
                     globals.engine->simulation_assist_preclock_instance( vmi->engine_handle, 0, vck->signal_name );
                     globals.engine->simulation_assist_clock_instance( vmi->engine_handle, 0, vck->signal_name );
                 }
             }
+            WHERE_I_AM;
+            globals.engine->simulation_assist_comb_instance( vmi->engine_handle );
+            globals.engine->simulation_assist_propagate_instance( vmi->engine_handle );
             WHERE_I_AM;
             for (i=0; i<vmi->num_outputs; i++)
             {
@@ -230,11 +235,13 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
                     }
                 }
             }
+
+            /* Invoke the callbacks to generate the waveforms */
+            globals.engine->simulation_set_cycle(globals.engine->cycle()+1);
+            globals.engine->simulation_invoke_callbacks();
+
         }
     }
-
-    globals.engine->simulation_set_cycle(globals.engine->cycle()+1);
-    globals.engine->simulation_invoke_callbacks();
 
     {
         char error_accumulator[16384];

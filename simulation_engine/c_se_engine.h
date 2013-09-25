@@ -337,6 +337,8 @@ public:
      void simulation_assist_prepreclock_instance( void *engine_handle, int posedge, const char *clock_name );
      void simulation_assist_preclock_instance( void *engine_handle, int posedge );
      void simulation_assist_clock_instance( void *engine_handle, int posedge );
+     void simulation_assist_comb_instance( void *engine_handle);
+     void simulation_assist_propagate_instance( void *engine_handle);
      void simulation_assist_reset_instance( void *engine_handle, int pass );
      t_sl_error_level add_message( void *location,
                                  t_sl_error_level error_level,
