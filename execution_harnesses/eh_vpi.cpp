@@ -66,6 +66,7 @@ typedef struct t_vpi_output
     char *signal_name;
     int width;
     t_se_signal_value *value_ptr;
+    s_vpi_vecval vector[MAX_VALUE_SIZE];
     vpiHandle signal_handle;
 } t_vpi_output;
 
@@ -208,21 +209,25 @@ static PLI_INT32 clock_callback( t_cb_data *cb_data )
                 {
                     int j;
                     s_vpi_vecval vector[MAX_VALUE_SIZE];
-                    s_vpi_time delta;
-                    s_vpi_strengthval strength;
                     for (j=0; j<(vmi->outputs[i].width+31)/32; j++)
                     {
                         vector[j].aval = (vmi->outputs[i].value_ptr[j/2])>>(32*(j&1));
-                        //printf("Output %d/%d value %08x\n",i,j,vector[j].aval);
                         vector[j].bval = 0;
                     }
-                    vck->value.format = vpiVectorVal;
-                    vck->value.value.vector = vector;
-                    delta.type = vpiSimTime;
-                    delta.high = 0; delta.low = 1;
-                    strength.s0 = vpiStrongDrive;
-                    strength.s1 = vpiStrongDrive;
-                    vpi_put_value( vmi->outputs[i].signal_handle, &(vck->value), &delta, vpiInertialDelay );
+                    if (memcmp(vector, vmi->outputs[i].vector, sizeof(vector[0])*j)!=0) {
+                        memcpy(vmi->outputs[i].vector, vector, sizeof(vector[0])*j);
+#if 0
+                        vpi_printf("%d: %s value ",globals.engine->cycle(),vmi->outputs[i].signal_name);
+                        while (j > 0) {
+                            vpi_printf("%08x", vector[j-1].aval);
+                            j--;
+                        }
+                        vpi_printf("\n");
+#endif
+                        vck->value.format = vpiVectorVal;
+                        vck->value.value.vector = vector;
+                        vpi_put_value( vmi->outputs[i].signal_handle, &(vck->value), NULL, vpiNoDelay);
+                    }
                 }
             }
         }
@@ -434,6 +439,8 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
             for (i=0; i<vmi->num_outputs; i++)
             {
                 vmi->outputs[i].width = 0;
+                /* This will ensure that the initial values are flushed */
+                vmi->outputs[i].vector[0].bval = 1;
                 if (globals.engine->interrogate_enumerate_hierarchy( handle, i, engine_state_desc_type_mask_bits, engine_interrogate_include_mask_outputs, &sub_handle ))
                 {
                     t_se_signal_value *data[4];
@@ -546,7 +553,7 @@ static PLI_INT32 external_module_instantiation( PLI_BYTE8 *module_type )
                     }
                     else
                     {
-                        vpi_printf("%s: Can't find this entity\n", vcd_file, cp);
+                        vpi_printf("%s: Can't find entity %s\n", vcd_file, cp);
                     }
                 }
                 free(efree);
