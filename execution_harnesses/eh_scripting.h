@@ -18,9 +18,16 @@
 #else
 #define __INC_SCRIPTING
 
+#ifdef _WIN32
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
+
+
 /*a External function (will be in either scripting_python.cpp or scripting_none.cpp
  */
-extern void scripting_init_module( const char *script_module_name );
+extern DLLEXPORT void scripting_init_module( const char *script_module_name );
 
 /*a Wrapper
  */

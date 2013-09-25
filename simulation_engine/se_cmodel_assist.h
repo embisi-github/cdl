@@ -134,11 +134,11 @@ static inline void se_cmodel_assist_assign_to_bit_range( t_sl_uint64 *vector, in
 
 /*a Function declarations - for functions that are called once per instantiation, or once per error message etc
  */
-extern char *se_cmodel_assist_vsnprintf( char *buffer, int buffer_size, const char *format, int num_args, ... );
-extern void se_cmodel_assist_module_declaration( c_engine *engine, void*engine_handle, void *base, t_se_cma_module_desc *module_desc );
-extern void se_cmodel_assist_instantiation_wire_ports( c_engine *engine, void*engine_handle, void *base, const char *module_name, const char *module_instance_name, void *instance_handle, t_se_cma_instance_port *port_list );
-extern void se_cmodel_assist_check_unconnected_inputs( c_engine *engine, void*engine_handle, void *base, t_se_cma_input_desc *input_descs, const char *module_type );
-extern void se_cmodel_assist_check_unconnected_nets( c_engine *engine, void*engine_handle, void *base, t_se_cma_net_desc *net_descs, const char *module_type );
+extern DLLEXPORT char *se_cmodel_assist_vsnprintf( char *buffer, int buffer_size, const char *format, int num_args, ... );
+extern DLLEXPORT void se_cmodel_assist_module_declaration( c_engine *engine, void*engine_handle, void *base, t_se_cma_module_desc *module_desc );
+extern DLLEXPORT void se_cmodel_assist_instantiation_wire_ports( c_engine *engine, void*engine_handle, void *base, const char *module_name, const char *module_instance_name, void *instance_handle, t_se_cma_instance_port *port_list );
+extern DLLEXPORT void se_cmodel_assist_check_unconnected_inputs( c_engine *engine, void*engine_handle, void *base, t_se_cma_input_desc *input_descs, const char *module_type );
+extern DLLEXPORT void se_cmodel_assist_check_unconnected_nets( c_engine *engine, void*engine_handle, void *base, t_se_cma_net_desc *net_descs, const char *module_type );
 
 /*a Wrapper
  */

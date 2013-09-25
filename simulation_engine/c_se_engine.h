@@ -35,6 +35,11 @@ typedef struct _object PyObject; // To make non-Python builds link
 
 /*a Defines
  */
+#ifdef _WIN32
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
 
 /*a Types
  */
@@ -237,7 +242,7 @@ typedef struct t_engine_text_value_pair
  */
 /*c	c_engine
 */
-class c_engine
+class DLLEXPORT c_engine
 {
 public:
 
@@ -531,9 +536,9 @@ private:
 
 /*a Functions
  */
-extern c_engine *engine_from_name( const char *name );
-extern void se_c_engine_exit( void );
-extern void se_c_engine_init( void );
+extern DLLEXPORT c_engine *engine_from_name( const char *name );
+extern DLLEXPORT void se_c_engine_exit( void );
+extern DLLEXPORT void se_c_engine_init( void );
 
 /*a Wrapper
  */

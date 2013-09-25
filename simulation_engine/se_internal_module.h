@@ -18,18 +18,24 @@
 #else
 #define __INC_INTERNAL_MODULES
 
+#ifdef _WIN32
+    #define DLLEXPORT __declspec(dllexport)
+#else
+    #define DLLEXPORT
+#endif
+
 /*a Includes
  */
 #include "c_se_engine.h"
 
 /*a External functions
  */
-extern t_sl_error_level se_internal_module__logger_instantiate( c_engine *engine, void *engine_handle );
-extern t_sl_error_level se_internal_module__sram_srw_instantiate( c_engine *engine, void *engine_handle );
-extern t_sl_error_level se_internal_module__sram_mrw_instantiate( c_engine *engine, void *engine_handle );
-extern t_sl_error_level se_internal_module__ddr_instantiate( c_engine *engine, void *engine_handle );
-extern t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *engine, void *engine_handle );
-extern void internal_module_register_all( c_engine *engine );
+extern DLLEXPORT t_sl_error_level se_internal_module__logger_instantiate( c_engine *engine, void *engine_handle );
+extern DLLEXPORT t_sl_error_level se_internal_module__sram_srw_instantiate( c_engine *engine, void *engine_handle );
+extern DLLEXPORT t_sl_error_level se_internal_module__sram_mrw_instantiate( c_engine *engine, void *engine_handle );
+extern DLLEXPORT t_sl_error_level se_internal_module__ddr_instantiate( c_engine *engine, void *engine_handle );
+extern DLLEXPORT t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *engine, void *engine_handle );
+extern DLLEXPORT void internal_module_register_all( c_engine *engine );
 
 /*a Wrapper
  */
