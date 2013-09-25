@@ -448,6 +448,7 @@ public:
      void waveform_vcd_file_reset( t_waveform_vcd_file *wvf );
      void waveform_vcd_file_pause( t_waveform_vcd_file *wvf, int pause ); // Pause or unpause a VCD wave file
      void waveform_vcd_file_add( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity ); // Add an entity, and if a module just its ports not submodules
+     void waveform_vcd_file_add_hierarchy( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity, int max_depth ); // Add an entity, and if a module, all its submodules too, to a depth of 'max_depth'
      void waveform_vcd_file_add_hierarchy( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity ); // Add an entity, and if a module, all its submodules too
      int waveform_vcd_file_count_and_fill_signals( struct t_waveform_vcd_file_entity_list *wvfel, int number_so_far, struct t_waveform_vcd_file_signal_entry *signals );
      void waveform_vcd_file_callback( struct t_waveform_vcd_file *wvf );

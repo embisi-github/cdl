@@ -264,13 +264,15 @@ void c_engine::waveform_vcd_file_add( t_waveform_vcd_file *wvf, t_se_interrogati
 
 /*f c_engine::waveform_vcd_file_add_hierarchy
  */
-void c_engine::waveform_vcd_file_add_hierarchy( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity )
+void c_engine::waveform_vcd_file_add_hierarchy( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity, int max_depth )
 {
-     int i;
+    int i;
 
-     SL_DEBUG( sl_debug_level_info, "c_engine::waveform_vcd_file_add_hierarchy", "Adding to file %s entity %s", wvf->name, interrogate_get_entity_clue( entity ) );
+    if (max_depth<=0) return;
 
-     waveform_vcd_file_add( wvf, entity );
+    SL_DEBUG( sl_debug_level_info, "c_engine::waveform_vcd_file_add_hierarchy", "Adding to file %s entity %s", wvf->name, interrogate_get_entity_clue( entity ) );
+
+    waveform_vcd_file_add( wvf, entity );
 
     for (i=0; ; i++)
     {
@@ -278,8 +280,15 @@ void c_engine::waveform_vcd_file_add_hierarchy( t_waveform_vcd_file *wvf, t_se_i
         sub_module = NULL;
         if (!interrogate_enumerate_hierarchy( entity, i, engine_state_desc_type_mask_none, engine_interrogate_include_mask_submodules, &sub_module ))
             break;
-        waveform_vcd_file_add_hierarchy( wvf, sub_module );
+        waveform_vcd_file_add_hierarchy( wvf, sub_module, max_depth-1 );
     }
+}
+
+/*f c_engine::waveform_vcd_file_add_hierarchy
+ */
+void c_engine::waveform_vcd_file_add_hierarchy( t_waveform_vcd_file *wvf, t_se_interrogation_handle entity )
+{
+    waveform_vcd_file_add_hierarchy( wvf, entity, 1<<30 );
 }
 
 /*f c_engine::waveform_vcd_file_count_and_fill_signals
