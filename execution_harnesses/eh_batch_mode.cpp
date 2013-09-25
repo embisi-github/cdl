@@ -1,6 +1,6 @@
 /*a Copyright
   
-  This file 'batch_mode.cpp' copyright Gavin J Stark 2003, 2004
+  This file 'eh_batch_mode.cpp' copyright Gavin J Stark 2003, 2004
   
   This is free software; you can redistribute it and/or modify it however you wish,
   with no obligations
