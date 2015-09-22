@@ -183,16 +183,16 @@ ifeq (${BUILD_ARCH},osx)
 	# Python requires -bundle and a .so, with fred.so containing a function _initfred
 	# We build within the Python framework, which in macports is held in /opt/local/Library/Frameworks
 	ifeq (${BUILD_SUBARCH},snowleopard)
-		CC := ${GCC} -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
-		CXX := ${GCC} -dynamic -fno-strict-aliasing -mno-fused-madd -fno-common -fwrapv
+		CC := ${GCC} -dynamic -fno-strict-aliasing  -fno-common -fwrapv
+		CXX := ${GCC} -dynamic -fno-strict-aliasing -fno-common -fwrapv
 		LINK := ${GCC}
 		LINKASOBJ := ld -r -o
-		LINKASBIN := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -o
-		LINKDYNLIB := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
-		PYTHONLINKLIB := ${GPP} -L/opt/local/lib -bundle -undefined dynamic_lookup -o
+		LINKASBIN := ${GPP} ${LINKFLAGS} -o
+		LINKDYNLIB := ${GPP} ${LINKFLAGS} -dynamiclib -o 
+		PYTHONLINKLIB := ${GPP} -L/opt/local/lib -bundle -undefined dynamic_lookup ${LOCAL_LINKFLAGS} -o
 	else
-		LINKDYNLIB := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -dynamiclib -o 
-		PYTHONLINKLIB := ${GPP} ${LINK_OPTIMIZATION_FLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} -o 
+		LINKDYNLIB := ${GPP} ${LINKFLAGS} -dynamiclib -o 
+		PYTHONLINKLIB := ${GPP} ${LINKFLAGS} -bundle -framework Python  -Wl,-F${FRAMEWORK_PATH} ${LOCAL_LINKFLAGS} -o 
 	endif
 endif
 
