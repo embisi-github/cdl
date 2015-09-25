@@ -143,7 +143,7 @@ LINKDYNLIB := ${LINK} -shared -export-dynamic ${LINKFLAGS} -o
 LINKASBIN := ${LINK} ${LINKFLAGS} -o
 BISON_TAIL := .h
 PYTHON_INCLUDES := ${PYTHON_ROOT}/include/${PYTHON}
-PYTHONLINKLIB := ${LINK} ${LINK_FLAGS} -shared -export-dynamic -o 
+PYTHONLINKLIB := ${LINK} ${LINKFLAGS} -shared -export-dynamic -o 
 VPI_INCLUDES := ${VERILOG_ROOT}/include
 ifeq (${BUILD_ARCH},cygwin)
 	LIBS = -L /usr/lib/${PYTHON}/config -lc
