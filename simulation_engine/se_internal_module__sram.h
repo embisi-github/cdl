@@ -104,6 +104,7 @@ private:
     unsigned int data_size;
     int data_byte_width;
     int data_word_width;
+    int writes_partial_bytes;
     int bits_per_enable;
     int number_of_enables;
     int verbose;

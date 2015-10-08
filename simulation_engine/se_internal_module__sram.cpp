@@ -152,9 +152,14 @@ c_se_internal_module__sram::c_se_internal_module__sram( class c_engine *eng, voi
     }
 
     number_of_enables = 0;
+    writes_partial_bytes = 0;
     if (bits_per_enable>0)
     {
         number_of_enables = data_width / bits_per_enable;
+        if ((bits_per_enable&7)!=0)
+        {
+            writes_partial_bytes = 1;
+        }
     }
     data_byte_width = BITS_TO_BYTES(data_width); // In 64-bit words
     data_word_width = (data_width+8*sizeof(t_sl_uint64)-1)/(sizeof(t_sl_uint64)*8); // In 64-bit words, for the signals
@@ -305,14 +310,38 @@ t_sl_error_level c_se_internal_module__sram::write( unsigned int address, t_sl_u
     if ((address<data_size) && memory)
     {
         int i;
-        for (i=0; i<data_byte_width; i++) // i for each byte
+        if (writes_partial_bytes)
         {
-            int enable_num;
-            enable_num = (i*8)/(bits_per_enable==0?1:bits_per_enable);
-            if ( (number_of_enables==0) || (write_enable==NULL) ||
-                 ((write_enable[0]&(1<<enable_num))) ) // if enable set
+            t_sl_uint64 data_mask;
+            t_sl_uint64 data_to_write;
+            unsigned char *mem_ptr;
+            data_mask = 0;
+            for (i=0; i<number_of_enables; i++)
             {
-                ((unsigned char *)memory)[data_byte_width*address+i] = ((unsigned char *)(data_in))[i];
+                if (write_enable[0] & (1<<i)) // if enable set
+                {
+                    data_mask |= ((1ULL<<bits_per_enable)-1) << (bits_per_enable*i);
+                }
+            }
+            data_to_write = data_in[0] & data_mask;
+            data_mask = ~data_mask;
+            mem_ptr = &(((unsigned char *)memory)[data_byte_width*address]);
+            for (i=0; i<data_byte_width; i++) // i for each byte
+            {
+                mem_ptr[i] = (mem_ptr[i] & (data_mask>>(8*i))) | (data_to_write>>(8*i));
+            }
+        }
+        else
+        {
+            for (i=0; i<data_byte_width; i++) // i for each byte
+            {
+                int enable_num;
+                enable_num = (i*8)/(bits_per_enable==0?1:bits_per_enable);
+                if ( (number_of_enables==0) || (write_enable==NULL) ||
+                     ((write_enable[0]&(1<<enable_num))) ) // if enable set
+                {
+                    ((unsigned char *)memory)[data_byte_width*address+i] = ((unsigned char *)(data_in))[i];
+                }
             }
         }
     }

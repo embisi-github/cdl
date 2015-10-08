@@ -62,8 +62,13 @@ static void write_data( void *handle, t_sl_uint64 address, t_sl_uint64 *data )
     case 4:
         ((t_sl_uint32 *)info->data_ptr)[address*info->bytes_per_item/4] = data[0]>>(info->bit_start);
         break;
-    default:
+    case 8:
         ((t_sl_uint64 *)info->data_ptr)[address*info->bytes_per_item/8] = data[0]>>(info->bit_start);
+        break;
+    default:
+        for (int i=0; i<info->bytes_per_item; i++) {
+            info->data_ptr[address*info->bytes_per_item+i] = data[0]>>(info->bit_start+8*i);
+        }
         break;
     }
     if (info->callback)
