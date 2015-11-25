@@ -944,7 +944,7 @@ int c_cyclicity::internal_string_from_reference( void *base_handle, const void *
 
 /*f c_cyclicity::build_model( t_sl_option_list env_options )
  */
-void c_cyclicity::build_model( t_sl_option_list env_options )
+int c_cyclicity::build_model( t_sl_option_list env_options )
 {
     int i;
     c_co_module *com;
@@ -986,7 +986,9 @@ void c_cyclicity::build_model( t_sl_option_list env_options )
     }
 
     if (error->check_errors_and_reset( stderr, error_level_info, error_level_serious ))
-        exit(4);
+    {
+        return -1;
+    }
 
     /*b Analyze
      */
@@ -994,7 +996,7 @@ void c_cyclicity::build_model( t_sl_option_list env_options )
     model->analyze();
     if (error->check_errors_and_reset( stderr, error_level_info, error_level_serious ))
     {
-        exit(4);
+        return -1;
     }
 
     /* Debug display
@@ -1021,6 +1023,7 @@ void c_cyclicity::build_model( t_sl_option_list env_options )
             }
         }
     }
+    return 0;
 }
 
 /*f c_cyclicity::output_model( t_sl_option_list env_options )

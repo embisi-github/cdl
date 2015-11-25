@@ -138,6 +138,7 @@ extern int main( int argc, char **argv )
      int c, so_far;
      string_list *constant_overrides, *type_remappings, *new_str, *include_dirs, *last_include_dir;
      t_sl_option_list env_options;
+     int build_result;
 
      sl_debug_set_level( sl_debug_level_verbose_info );
      sl_debug_enable( 0 );
@@ -256,9 +257,14 @@ extern int main( int argc, char **argv )
 
      //cyc->type_value_pool->display();
 
-     cyc->build_model( env_options );
+     build_result = cyc->build_model( env_options );
 
      display_errors( cyc, 1 );
+
+     if (build_result<0)
+     {
+         exit(4);
+     }
 
      cyc->output_model( env_options );
 

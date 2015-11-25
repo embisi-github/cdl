@@ -4423,7 +4423,7 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
     PyObject *result;
     result = PyObject_CallMethod( (*file_data_ptr)->py_object, (char *)"exec_init", NULL );
     (*file_data_ptr)->during_init = 0;
-    if (result) Py_DECREF(result);
+    if (result) {Py_DECREF(result);}
     if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
 
     /*b Finish registering state
@@ -4464,8 +4464,6 @@ extern t_sl_error_level sl_exec_file_allocate_from_python_object( c_sl_error *er
  */
 void sl_exec_file_py_kill_subthreads_cb( void *handle, t_sl_pthread_barrier_thread_ptr barrier_thread )
 {
-    t_py_object *py_object = (t_py_object *)handle;
-    py_object = py_object;
     WHERE_I_AM;
 
     sl_pthread_barrier_thread_set_user_state( barrier_thread, py_barrier_thread_user_state_die );
@@ -4553,7 +4551,7 @@ static void sl_exec_file_py_reset( t_sl_exec_file_data *file_data )
         PyObject *result;
         result = PyObject_CallMethod( (PyObject *)py_object, (char *)"exec_reset", NULL );
         if (PyErr_Occurred()) {PyErr_Print();PyErr_Clear();}
-        if (result) Py_DECREF(result);
+        if (result) {Py_DECREF(result);}
         return;
     }
 

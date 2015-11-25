@@ -365,6 +365,7 @@ struct t_md_expression *c_co_expression::build_model( class c_cyclicity *cyclici
                 break;
                 default:
                     fprintf(stderr,"c_co_expression::build_model::NYI Lvar %p %d\n", lvar->non_signal_declaration.cyc_object,  lvar->non_signal_declaration.cyc_object->co_type );
+                    cyclicity->set_parse_error( (c_cyc_object *)this, co_compile_stage_evaluate_constants, "NYI lvar; previous error not caught?" );
                     break;
                 }
             }
@@ -377,6 +378,7 @@ struct t_md_expression *c_co_expression::build_model( class c_cyclicity *cyclici
                 if (!model_expression)
                 {
                     fprintf(stderr, "c_co_expression::build_model:Expected non-null expression here\n");
+                    cyclicity->set_parse_error( (c_cyc_object *)this, co_compile_stage_evaluate_constants, "Expected non-null expresion; previous error not caught?" );
                 }
                 //CO_DEBUG( sl_debug_level_info, "Model_Expression from lvar %p gives %p", lvar, model_expression );
                 break;
@@ -1766,6 +1768,7 @@ struct t_md_statement *c_co_statement::build_model( class c_cyclicity *cyclicity
         if (!model_lvar)
         {
             fprintf(stderr,"Failed to build model_lvar for assignment %p\n",this);
+            cyclicity->set_parse_error( (c_cyc_object *)this, co_compile_stage_build, "Failed to build model_lvar due to some previous error?" );
         }
         statement = type_data.assign_stmt.nested_assignment->build_model_from_statement( cyclicity, model, module, model_lvar, type_data.assign_stmt.clocked, type_data.assign_stmt.wired_or, model_lvar, DOC_STRING(type_data.assign_stmt.documentation), NULL );
         model->lvar_free( module, model_lvar );
@@ -1796,7 +1799,7 @@ struct t_md_statement *c_co_statement::build_model( class c_cyclicity *cyclicity
         CO_DEBUG( sl_debug_level_info, "Output if statement expr %p if_true %p if_false %p", expression, if_true, if_false );
         if (expression && (if_true || if_false))
         {
-            statement = model->statement_create_if_else( module, (void *)module, (void *)this, 0, expression, if_true, if_false, DOC_STRING(type_data.if_stmt.expr_documentation) );
+            statement = model->statement_create_if_else( module, (void *)module, (void *)this, 0, expression, if_true, if_false, DOC_STRING(type_data.if_stmt.expr_documentation), DOC_STRING(type_data.if_stmt.else_documentation) );
         }
         break;
     }

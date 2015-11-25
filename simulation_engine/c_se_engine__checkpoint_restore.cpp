@@ -408,7 +408,7 @@ t_sl_error_level c_engine::checkpoint_initialize_instance_declared_state( t_engi
                 if ( (ref->mem_block.start >= prev_mem_block->start) &&
                      (ref->mem_block.start < (prev_mem_block->start+prev_mem_block->length)) )
                 {
-                    mem_block_num = mem_block_num;
+                    mem_block_num = 1*mem_block_num;
                 }
                 else
                 {
@@ -855,7 +855,7 @@ t_sl_error_level c_engine::checkpoint_restore( const char *name )
                     data_size -= ce->memory_blocks[i].length;
                 }
             }
-            if ((data_size<0) || (data_size>ALIGN_UP(1)))
+            if (data_size>ALIGN_UP(1))
             {
                 fprintf(stderr,"arrgh %d\n",(int)data_size);
                 return error_level_serious;

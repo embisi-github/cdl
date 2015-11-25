@@ -1090,7 +1090,7 @@ c_co_statement::c_co_statement( t_statement_type statement_type, class c_co_expr
 
 /*f c_co_statement::c_co_statement( expression, if_true, if_false, elsif )
  */
-c_co_statement::c_co_statement( class c_co_expression *expression, c_co_statement *if_true, c_co_statement *if_false, c_co_statement *elsif, t_string *expr_documentation )
+c_co_statement::c_co_statement( class c_co_expression *expression, c_co_statement *if_true, c_co_statement *if_false, c_co_statement *elsif, t_string *expr_documentation, t_string *else_documentation )
 {
     this->parent = NULL;
     this->toplevel = NULL;
@@ -1101,6 +1101,7 @@ c_co_statement::c_co_statement( class c_co_expression *expression, c_co_statemen
     this->type_data.if_stmt.if_false = if_false;
     this->type_data.if_stmt.elsif = elsif;
     this->type_data.if_stmt.expr_documentation = expr_documentation;
+    this->type_data.if_stmt.else_documentation = else_documentation;
 
     co_init(co_type_statement, "statement( if statement )");
     co_link(co_compile_stage_parse, (c_cyc_object*)expression, "expression" );

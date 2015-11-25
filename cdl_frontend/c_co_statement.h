@@ -53,7 +53,7 @@ public:
     c_co_statement( class c_co_clock_reset_defn *clock_spec, class c_co_clock_reset_defn *reset_spec, t_string *log_message, class c_co_named_expression *log_values); // log message and arguments
     c_co_statement( c_co_statement *stmt_list ); // statement list
     c_co_statement( t_statement_type statement_type, class c_co_expression *expression, class c_co_case_entry *cases, t_string *expr_documentation ); // switch statement
-    c_co_statement( class c_co_expression *expression, c_co_statement *if_true, c_co_statement *if_false, c_co_statement *elsif, t_string *expr_documentation );
+    c_co_statement( class c_co_expression *expression, c_co_statement *if_true, c_co_statement *if_false, c_co_statement *elsif, t_string *expr_documentation, t_string *else_documentation );
     c_co_statement( c_co_instantiation *instantiation );
     c_co_statement( t_symbol *symbol, class c_co_expression *iterations, class c_co_statement *statement, class c_co_expression *first_value, class c_co_expression *last_value, class c_co_expression *next_value );
     ~c_co_statement();
@@ -104,6 +104,7 @@ public:
         {
             class c_co_expression *expression;         // Expression of the if statement
             t_string *expr_documentation;
+            t_string *else_documentation;
             class c_co_statement *if_true;     // Statements to execute if the expression is true
             class c_co_statement *if_false;        // Statements to execute if the expression is false - NULL if there is an elsif
             class c_co_statement *elsif;       // If statements to follow if the expression is false - NULL if there is an 'else' or 'if_false'

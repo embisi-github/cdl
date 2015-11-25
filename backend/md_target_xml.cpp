@@ -85,26 +85,6 @@ static const char *usage_type[] = { // Note this must match md_usage_type
     "assert use only",
     "cover use only",
 };
-static const char *bit_mask[] = {
-     "0LL", "1LL", "3LL", "7LL",
-     "0xfLL", "0x1fLL", "0x3fLL", "0x7fLL",
-     "0xffLL", "0x1ffLL", "0x3ffLL", "0x7ffLL",
-     "0xfffLL", "0x1fffLL", "0x3fffLL", "0x7fffLL",
-     "((1LL<<16)-1)", "((1LL<<17)-1)", "((1LL<<18)-1)", "((1LL<<19)-1)", 
-     "((1LL<<20)-1)", "((1LL<<21)-1)", "((1LL<<22)-1)", "((1LL<<23)-1)", 
-     "((1LL<<24)-1)", "((1LL<<25)-1)", "((1LL<<26)-1)", "((1LL<<27)-1)", 
-     "((1LL<<28)-1)", "((1LL<<29)-1)", "((1LL<<30)-1)", "((1LL<<31)-1)", 
-     "((1LL<<32)-1)", "((1LL<<33)-1)", "((1LL<<34)-1)", "((1LL<<35)-1)", 
-     "((1LL<<36)-1)", "((1LL<<37)-1)", "((1LL<<38)-1)", "((1LL<<39)-1)", 
-     "((1LL<<40)-1)", "((1LL<<41)-1)", "((1LL<<42)-1)", "((1LL<<43)-1)", 
-     "((1LL<<44)-1)", "((1LL<<45)-1)", "((1LL<<46)-1)", "((1LL<<47)-1)", 
-     "((1LL<<48)-1)", "((1LL<<49)-1)", "((1LL<<50)-1)", "((1LL<<51)-1)", 
-     "((1LL<<52)-1)", "((1LL<<53)-1)", "((1LL<<54)-1)", "((1LL<<55)-1)", 
-     "((1LL<<56)-1)", "((1LL<<57)-1)", "((1LL<<58)-1)", "((1LL<<59)-1)", 
-     "((1LL<<60)-1)", "((1LL<<61)-1)", "((1LL<<62)-1)", "((1LL<<63)-1)", 
-     "(-1LL)"
-};
-static char type_buffer[64];
 
 /*a Forward function declarations
  */
@@ -806,7 +786,6 @@ static void output_simulation_methods_statement_parallel_switch( c_model_descrip
     if (statement->data.switch_stmt.all_static && statement->data.switch_stmt.all_unmasked)
     {
         t_md_switch_item *switem;
-        int defaulted = 0;
 
         output( handle, indent++, "<parallel_switch>\n");
         output( handle, indent++, "<expression>\n");
@@ -851,77 +830,6 @@ static void output_simulation_methods_statement_parallel_switch( c_model_descrip
         }
     }
     output( handle, --indent, "</parallel_switch>\n");
-}
-
-/*f output_simulation_methods_port_net_assignment
- */
-static void output_simulation_methods_port_net_assignment( c_model_descriptor *model, t_md_output_fn output, void *handle, t_md_code_block *code_block, int indent, t_md_module_instance *module_instance, t_md_lvar *lvar, t_md_type_instance *port_instance )
-{
-    switch (lvar->instance->type)
-    {
-    case md_type_instance_type_bit_vector:
-    case md_type_instance_type_array_of_bit_vectors:
-        if (lvar->instance->size<=MD_BITS_PER_UINT64)
-        {
-            //printf("output_simulation_methods_port_net_assignment: %s.%s: type %d lvar %p\n", module_instance->name, port_instance->output_name, lvar->subscript_start.type, lvar );
-            switch (lvar->subscript_start.type)
-            {
-            case md_lvar_data_type_none:
-                output( handle, indent+1, "" );
-                output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                output( handle, -1, " = instance_%s.outputs.%s[0];\n", module_instance->name, port_instance->output_name );
-                break;
-            case md_lvar_data_type_integer:
-                if (lvar->subscript_length.type == md_lvar_data_type_none)
-                {
-                    output( handle, indent+1, "ASSIGN_TO_BIT( &( " );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer );
-                }
-                else
-                {
-                    output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, %d, %d, ", lvar->instance->type_def.data.width, lvar->subscript_start.data.integer, lvar->subscript_length.data.integer );
-                }
-                output( handle, -1, "instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
-                output( handle, -1, ");\n" );
-                break;
-            case md_lvar_data_type_expression:
-                if (lvar->subscript_length.type == md_lvar_data_type_none)
-                {
-                    output( handle, indent+1, "ASSIGN_TO_BIT( &(");
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1 );
-                    output( handle, -1, ", " );
-                }
-                else
-                {
-                    output( handle, indent+1, "ASSIGN_TO_BIT_RANGE( &(" );
-                    output_simulation_methods_lvar( model, output, handle, code_block, lvar, indent, indent+1, 0 );
-                    output( handle, -1, "), %d, ", lvar->instance->type_def.data.width );
-                    output_simulation_methods_expression( model, output, handle, code_block, lvar->subscript_start.data.expression, indent+1 );
-                    output( handle, -1, ", %d,", lvar->subscript_length.data.integer );
-                }
-                output( handle, -1, "instance_%s.outputs.%s[0]", module_instance->name, port_instance->output_name );
-                output( handle, -1, ");\n" );
-                break;
-            }
-        }
-        else
-        {
-            output( handle, indent, "TYPES AND VALUES WIDER THAN 64 NOT IMPLEMENTED YET\n" );
-        }
-        break;
-    case md_type_instance_type_structure:
-        if (lvar->subscript_start.type != md_lvar_data_type_none)
-        {
-            output( handle, indent, "SUBSCRIPT INTO ASSIGNMENT DOES NOT WORK\n" );
-        }
-        output( handle, indent, "STRUCTURE ASSIGNMENT %p NOT IMPLEMENTED YET\n", lvar );
-        break;
-    }
 }
 
 /*f output_simulation_methods_assignment

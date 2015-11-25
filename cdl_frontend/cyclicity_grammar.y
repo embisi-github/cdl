@@ -2036,46 +2036,61 @@ TOKEN_TEXT_FOR '(' TOKEN_USER_ID ';' expression ')' '(' expression ';' expressio
 if_statement:
 TOKEN_TEXT_IF '(' expression ')' '{' statement_list '}'
     {
-        $$=new c_co_statement( $3, $6, NULL, NULL, NULL );
+        $$=new c_co_statement( $3, $6, NULL, NULL, NULL, NULL );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
         $$->co_set_file_bound( $1->file_posn, $7 );
     }
-| TOKEN_TEXT_IF '(' expression ')' '{' statement_list '}' TOKEN_STRING
-    {
-        $$=new c_co_statement( $3, $6, NULL, NULL, $8 );
-        $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
-        $$->co_set_file_bound( $1->file_posn, $8->file_posn );
-    }
 | TOKEN_TEXT_IF '(' expression ')' TOKEN_STRING '{' statement_list '}'
     {
-        $$=new c_co_statement( $3, $7, NULL, NULL, $5 );
+        $$=new c_co_statement( $3, $7, NULL, NULL, $5, NULL );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
         $$->co_set_file_bound( $1->file_posn, $8 );
     }
-| TOKEN_TEXT_IF '(' expression ')' TOKEN_STRING '{' statement_list '}' TOKEN_STRING
-    {
-        $$=new c_co_statement( $3, $7, NULL, NULL, $5 );
-        $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
-        $$->co_set_file_bound( $1->file_posn, $9->file_posn );
-    }
 | TOKEN_TEXT_IF '(' expression ')' '{' statement_list '}' TOKEN_TEXT_ELSE '{' statement_list '}'
     {
-        $$=new c_co_statement( $3, $6, $10, NULL, NULL );
+        $$=new c_co_statement( $3, $6, $10, NULL, NULL, NULL );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, $8, NULL );
         $$->co_set_file_bound( $1->file_posn, $11 );
     }
+| TOKEN_TEXT_IF '(' expression ')' '{' statement_list '}' TOKEN_TEXT_ELSE TOKEN_STRING '{' statement_list '}'
+    {
+        $$=new c_co_statement( $3, $6, $11, NULL, NULL, $9 );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, $8, NULL );
+        $$->co_set_file_bound( $1->file_posn, $12 );
+    }
+| TOKEN_TEXT_IF '(' expression ')' TOKEN_STRING '{' statement_list '}' TOKEN_TEXT_ELSE '{' statement_list '}'
+    {
+        $$=new c_co_statement( $3, $7, $11, NULL, $5, NULL );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, $9, NULL );
+        $$->co_set_file_bound( $1->file_posn, $12 );
+    }
+| TOKEN_TEXT_IF '(' expression ')' TOKEN_STRING '{' statement_list '}' TOKEN_TEXT_ELSE TOKEN_STRING '{' statement_list '}'
+    {
+        $$=new c_co_statement( $3, $7, $12, NULL, $5, $10 );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, $9, NULL );
+        $$->co_set_file_bound( $1->file_posn, $13 );
+    }
 | TOKEN_TEXT_IF '(' expression ')' '{' statement_list '}' elsif_statement
     {
-        $$=new c_co_statement( $3, $6, NULL, $8, NULL );
+        $$=new c_co_statement( $3, $6, NULL, $8, NULL, NULL );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
         if ($8)
         {
             $$->co_set_file_bound( $1->file_posn, $8 );
         }
     }
+| TOKEN_TEXT_IF '(' expression ')' TOKEN_STRING '{' statement_list '}' elsif_statement
+    {
+        $$=new c_co_statement( $3, $7, NULL, $9, $5, NULL );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
+        if ($9)
+        {
+            $$->co_set_file_bound( $1->file_posn, $9 );
+        }
+    }
 | TOKEN_TEXT_IF error
     {
-        yyerror($1->file_posn,"Syntax error: if ( <expression>) { <statements> * } [<documentation>] [elsif { <statements> * }] [else { <statements> * }]");
+        yyerror($1->file_posn,"Syntax error: if ( <expression>) [<documentation>] { <statements> * } [elsif [<documentation>] { <statements> * }] [else [<documentation>] { <statements> * }]");
         $$=NULL;
     }
 ;
@@ -2083,28 +2098,61 @@ TOKEN_TEXT_IF '(' expression ')' '{' statement_list '}'
 elsif_statement:
 TOKEN_TEXT_ELSIF '(' expression ')' '{' statement_list '}'
     {
-        $$=new c_co_statement( $3, $6, NULL, NULL, NULL );
+        $$=new c_co_statement( $3, $6, NULL, NULL, NULL, NULL );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
         $$->co_set_file_bound( $1->file_posn, $7 );
     }
+| TOKEN_TEXT_ELSIF '(' expression ')' TOKEN_STRING '{' statement_list '}'
+    {
+        $$=new c_co_statement( $3, $7, NULL, NULL, $5, NULL );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
+        $$->co_set_file_bound( $1->file_posn, $8 );
+    }
 | TOKEN_TEXT_ELSIF '(' expression ')' '{' statement_list '}' TOKEN_TEXT_ELSE '{' statement_list '}'
     {
-        $$=new c_co_statement( $3, $6, $10, NULL, NULL );
+        $$=new c_co_statement( $3, $6, $10, NULL, NULL, NULL );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, $8, NULL );
         $$->co_set_file_bound( $1->file_posn, $11 );
     }
+| TOKEN_TEXT_ELSIF '(' expression ')' TOKEN_STRING '{' statement_list '}' TOKEN_TEXT_ELSE '{' statement_list '}'
+    {
+        $$=new c_co_statement( $3, $7, $11, NULL, $5, NULL );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, $9, NULL );
+        $$->co_set_file_bound( $1->file_posn, $12 );
+    }
+| TOKEN_TEXT_ELSIF '(' expression ')' '{' statement_list '}' TOKEN_TEXT_ELSE TOKEN_STRING '{' statement_list '}'
+    {
+        $$=new c_co_statement( $3, $6, $11, NULL, NULL, $9 );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, $8, NULL );
+        $$->co_set_file_bound( $1->file_posn, $12 );
+    }
+| TOKEN_TEXT_ELSIF '(' expression ')' TOKEN_STRING '{' statement_list '}' TOKEN_TEXT_ELSE TOKEN_STRING '{' statement_list '}'
+    {
+        $$=new c_co_statement( $3, $7, $12, NULL, $5, $10 );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, $9, NULL );
+        $$->co_set_file_bound( $1->file_posn, $13 );
+    }
 | TOKEN_TEXT_ELSIF '(' expression ')' '{' statement_list '}' elsif_statement
     {
-        $$=new c_co_statement( $3, $6, NULL, $8, NULL );
+        $$=new c_co_statement( $3, $6, NULL, $8, NULL, NULL );
         $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
         if ($8)
         {
             $$->co_set_file_bound( $1->file_posn, $8 );
         }
     }
+| TOKEN_TEXT_ELSIF '(' expression ')' TOKEN_STRING '{' statement_list '}' elsif_statement
+    {
+        $$=new c_co_statement( $3, $7, NULL, $9, $5, NULL );
+        $$->co_link_symbol_list( co_compile_stage_parse, $1, NULL );
+        if ($9)
+        {
+            $$->co_set_file_bound( $1->file_posn, $9 );
+        }
+    }
 | TOKEN_TEXT_ELSIF error
     {
-        yyerror($1->file_posn,"Syntax error: elsif ( <expression>) { <statements> * } [<documentation>] [elsif { <statements> * }] [else { <statements> * }]");
+        yyerror($1->file_posn,"Syntax error: elsif (<expression>) [<documentation>] { <statements> * } [elsif { <statements> * }] [else { <statements> * }]");
         $$=NULL;
     }
 ;

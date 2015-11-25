@@ -2064,6 +2064,7 @@ t_md_lvar *c_model_descriptor::lvar_duplicate( t_md_module *module, t_md_lvar *l
     if (!lvar)
     {
         fprintf(stderr,"c_model_descriptor::lvar_duplicate with lvar of NULL\n" );
+        return NULL;
     }
     parent_lvar = NULL;
     if (lvar->parent_ref)
@@ -3891,7 +3892,6 @@ t_md_expression *c_model_descriptor::expression_chain( t_md_expression *chain, t
 t_md_expression *c_model_descriptor::expression( t_md_module *module, int width, t_md_signal_value *value )
 {
      t_md_expression *expr;
-     module=module;
 
      expr = expression_create( module, md_expr_type_value );
      if (!expr)
@@ -4488,7 +4488,7 @@ t_md_statement *c_model_descriptor::statement_create_combinatorial_assignment( t
 
 /*f c_model_descriptor::statement_create_if_else
  */
-t_md_statement *c_model_descriptor::statement_create_if_else( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_expression *expr, t_md_statement *if_true, t_md_statement *if_false, const char *expr_documentation )
+t_md_statement *c_model_descriptor::statement_create_if_else( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_expression *expr, t_md_statement *if_true, t_md_statement *if_false, const char *expr_documentation, const char *else_documentation )
 {
      t_md_statement *statement;
      t_md_client_reference client_ref;
@@ -4501,6 +4501,7 @@ t_md_statement *c_model_descriptor::statement_create_if_else( t_md_module *modul
 
      statement->data.if_else.expr = expr;
      statement->data.if_else.expr_documentation = expr_documentation ? sl_str_alloc_copy(expr_documentation) : NULL;
+     statement->data.if_else.else_documentation = else_documentation ? sl_str_alloc_copy(else_documentation) : NULL;
      statement->data.if_else.if_true = if_true;
      statement->data.if_else.if_false = if_false;
 

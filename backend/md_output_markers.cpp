@@ -479,7 +479,6 @@ extern void output_markers_mask_clock_edge_dependencies( c_model_descriptor *mod
  */
 extern void output_markers_mask_clock_edge_dependents( c_model_descriptor *model, t_md_module *module, t_md_signal *clock, int edge, int set_mask, int clr_mask )
 {
-    t_md_state *state;
     t_md_reference_iter iter;
     t_md_reference *reference;
     if (clock==NULL)

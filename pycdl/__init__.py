@@ -773,7 +773,6 @@ class _hwexfile(py_engine.exec_file):
         # Say we're in business.
         self._running = True
 
-print "*"*160
 class hw(_clockable):
     """
     The object that represents a piece of hardware.

@@ -166,7 +166,8 @@ void c_cyc_object::co_set_file_bound( c_cyc_object *start_object, c_cyc_object *
     if (start_object)
         this->start_posn = start_object->start_posn;
     if (end_object)
-        this->end_posn = end_object->last_in_list->end_posn;
+        if (end_object->last_in_list)
+            this->end_posn = end_object->last_in_list->end_posn;
 }
 
 /*f c_cyc_object::co_set_file_bound( c_cyc_object, t_lex_file_posn )
@@ -184,7 +185,8 @@ void c_cyc_object::co_set_file_bound( t_lex_file_posn start_lex_file_posn, c_cyc
 {
     this->start_posn = start_lex_file_posn;
     if (end_object)
-        this->end_posn = end_object->last_in_list->end_posn;
+        if (end_object->last_in_list)
+            this->end_posn = end_object->last_in_list->end_posn;
 }
 
 /*f c_cyc_object::co_set_file_bound( t_lex_file_posn, t_lex_file_posn )

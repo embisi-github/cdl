@@ -76,7 +76,7 @@ public:
 
     t_co_union cross_reference_symbol_in_scopes( t_symbol *symbol, t_co_scope *scope ); // Called by numerous submodules - here is the best place
 
-    void build_model( t_sl_option_list env_options );
+    int build_model( t_sl_option_list env_options );
     int internal_string_from_reference( void *base_handle, const void *item_handle, int item_reference, char *buffer, int buffer_size, t_md_client_string_type type );
     void output_model( t_sl_option_list env_options );
 

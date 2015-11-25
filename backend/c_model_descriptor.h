@@ -149,14 +149,14 @@ typedef struct t_md_client_reference
 /*t t_md_reference_type
   An enumeration used for t_md_reference, i.e. for references to either data, signal or state
 */
-typedef enum t_md_reference_type
+typedef enum
 {
     md_reference_type_state,
     md_reference_type_signal,
     md_reference_type_instance,
     md_reference_type_clock_edge,
     md_reference_type_none
-};
+} t_md_reference_type;
 
 /*t t_md_reference
   The structure of a reference - basically an explicitly typed union
@@ -711,6 +711,7 @@ typedef struct t_md_statement
         struct {
             t_md_expression *expr;
             char *expr_documentation;
+            char *else_documentation;
             struct t_md_statement *if_true;
             struct t_md_statement *if_false;
         } if_else;
@@ -1083,7 +1084,7 @@ public:
     t_md_statement *statement_create( t_md_module *module, t_md_client_reference *client_ref, t_md_statement_type type );
     t_md_statement *statement_create_state_assignment( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_lvar *lvar, t_md_expression *expr, const char *documentation );
     t_md_statement *statement_create_combinatorial_assignment( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, int wired_or, t_md_lvar *lvar, t_md_expression *expr, const char *documentation );
-    t_md_statement *statement_create_if_else( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_expression *expr, t_md_statement *if_true, t_md_statement *if_false, const char *expr_documentation );
+    t_md_statement *statement_create_if_else( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, t_md_expression *expr, t_md_statement *if_true, t_md_statement *if_false, const char *expr_documentation, const char *else_documentation );
     t_md_statement *statement_create_static_switch( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, int parallel, int full, t_md_expression *expr, t_md_switch_item *items, const char *expr_documentation );
     t_md_statement *statement_create_assert_cover( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, const char *clock_name, int edge, t_md_usage_type usage_type, t_md_expression *expr, t_md_expression *value_list, t_md_message *message, t_md_statement *stmt );
     t_md_statement *statement_create_log( t_md_module *module, void *client_base_handle, const void *client_item_handle, int client_item_reference, const char *clock_name, int edge, const char *message, t_md_labelled_expression *values );

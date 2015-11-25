@@ -1120,7 +1120,9 @@ static void output_module_rtl_architecture_statement( c_model_descriptor *model,
         output( handle, indent+1, "end //if\n");
         if (statement->data.if_else.if_false)
         {
-            output( handle, indent+1, "else\n");
+            output( handle, indent+1, "else");
+            output_documentation( model, output, handle, indent+1, statement->data.if_else.expr_documentation, 1 );
+            output( handle, indent+1, "\n");
             output( handle, indent+1, "begin\n");
             output_module_rtl_architecture_statement( model, output, handle, code_block, statement->data.if_else.if_false, indent+1, signal, edge, reset, reset_level );
             output( handle, indent+1, "end //else\n");

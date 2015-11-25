@@ -82,6 +82,7 @@ typedef enum
 	 co_compile_stage_evaluate_constants = 4,
 	 co_compile_stage_check_types = 5,
 	 co_compile_stage_high_level_checks = 6,
+	 co_compile_stage_build = 7,
 } t_co_compile_stage;
 
 /*t t_co_link_type

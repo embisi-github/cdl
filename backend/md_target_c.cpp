@@ -3339,6 +3339,8 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                                         else
                                             output( handle, -1, "(nets.%s==%d);\n", signal->name, clk2->data.clock.gate_level);
                                         break;
+                                    default: // clock and possibly others
+                                        break;
                                     }
                                 }
                             }

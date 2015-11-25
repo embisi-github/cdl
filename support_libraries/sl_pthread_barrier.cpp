@@ -29,9 +29,11 @@
 #define WHERE_I_AM_TH_STR(s) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%8ld.%06d:%p:%p:%s:%d:%s\n",tp.tv_sec,(int)tp.tv_usec,(void *)(pthread_self()),this_thread,__func__,__LINE__,s );}
 #undef WHERE_I_AM_TH_STR
 #define WHERE_I_AM_TH_STR(s, other) {struct timeval tp; gettimeofday(&tp,NULL);fprintf(stderr,"%4.4d:%3ld.%06d:%6.6lx:%6.6lx:%s:%.*s:%s\n",__LINE__,tp.tv_sec % 1000,(int)tp.tv_usec,(((long)pthread_self())>>12)&0xFFFFFF,((long)other)&0xFFFFFF,(char*)barrier_sync_callback_handle,(((int)((unsigned long)pthread_self())>>12)+((int)((unsigned long)pthread_self())>>17)) & 31,"                                ",s );}
+#define WHERE_I_AM_TH_NAME(n) const char* barrier_sync_callback_handle = #n;
 #else
 #define WHERE_I_AM_STR(s) {}
 #define WHERE_I_AM_TH_STR(s, other) {}
+#define WHERE_I_AM_TH_NAME(n) {}
 #endif
 
 #if 0
@@ -81,7 +83,7 @@ typedef struct t_sl_pthread_barrier_thread
 extern int sl_pthread_barrier_init( t_sl_pthread_barrier *barrier )
 {
     int rc;
-    const char* barrier_sync_callback_handle = "PtBIni";
+    WHERE_I_AM_TH_NAME(PtBIni);
 
     WHERE_I_AM;
     barrier->threads = NULL;
@@ -103,7 +105,8 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
     t_sl_pthread_barrier_thread *thread;
     thread = (t_sl_pthread_barrier_thread *)malloc(sizeof(t_sl_pthread_barrier_thread)+user_data_size);
     bzero( thread, sizeof(t_sl_pthread_barrier_thread)+user_data_size ); // Zero so that the user data is zero when the mutex is released
-    const char* barrier_sync_callback_handle = "PtBAdd";
+
+    WHERE_I_AM_TH_NAME(PtBAdd);
 
     WHERE_I_AM_TH_STR( "thread+", thread );
     WHERE_I_AM;
@@ -149,7 +152,7 @@ extern t_sl_pthread_barrier_thread_ptr sl_pthread_barrier_thread_add( t_sl_pthre
 extern void sl_pthread_barrier_thread_delete( t_sl_pthread_barrier *barrier, t_sl_pthread_barrier_thread_ptr thread )
 {
     t_sl_pthread_barrier_thread **prev_thread_ptr;
-    const char* barrier_sync_callback_handle = "PtBDel";
+    WHERE_I_AM_TH_NAME(PtBDel);
 
     WHERE_I_AM;
     WHERE_I_AM_STR("thread_delete entry");
@@ -213,7 +216,7 @@ extern void *sl_pthread_barrier_thread_get_user_ptr( t_sl_pthread_barrier_thread
  */
 extern void sl_pthread_barrier_thread_iter( t_sl_pthread_barrier *barrier, t_sl_pthread_barrier_thread_iter_fn iter_fn, void *handle )
 {
-    const char* barrier_sync_callback_handle = "PtBItr";
+    WHERE_I_AM_TH_NAME(PtBItr);
 
     /*b Claim mutex
      */

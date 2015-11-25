@@ -296,10 +296,13 @@ void c_co_nested_assignment::check_types( class c_cyclicity *cyclicity, t_co_sco
  */
 void c_co_port_map::check_types( class c_cyclicity *cyclicity, t_co_scope *types, t_co_scope *variables, t_co_scope *port_scope )
 {
-    if (port_lvar)
+    if (!port_lvar)
     {
-        port_lvar->check_types( cyclicity, types, port_scope );
+        if (type==port_map_type_clock) return;
+        cyclicity->set_parse_error( this, co_compile_stage_check_types, "Result of previous error - port_lvar is NULL)");
+        return;
     }
+    port_lvar->check_types( cyclicity, types, port_scope );
     switch (type)
     {
     case port_map_type_clock:
