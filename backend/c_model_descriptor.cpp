@@ -2372,6 +2372,9 @@ t_md_lvar *c_model_descriptor::lvar_bit_range_select( t_md_module *module, t_md_
     lvar->subscript_length.type = md_lvar_data_type_integer;
     lvar->subscript_length.data.integer = (t_sl_uint64)length;
     SL_DEBUG(sl_debug_level_info, "Built lvar %p", lvar );
+    if (length==0) {
+        fprintf(stderr, "Bug - built zero width subscript\n");
+    }
 
     /*b Return result
      */
@@ -5395,6 +5398,7 @@ int c_model_descriptor::module_instance_add_input( t_md_module *module, const ch
      module_instance->inputs = input_port;
      input_port->port_lvar = port_lvar;
      input_port->expression = expression;
+     // We push indices to subscripts etc for expression in module_instance_analyze
      input_port->module_port_instance = NULL;
      input_port->dependencies = NULL;
 

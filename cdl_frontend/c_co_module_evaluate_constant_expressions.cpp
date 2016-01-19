@@ -318,7 +318,8 @@ void c_co_statement::evaluate_constant_expressions( class c_cyclicity *cyclicity
         {
             if (type_data.instantiation->port_map)
             {
-                type_data.instantiation->port_map->evaluate_constant_expressions( cyclicity, types, variables, reevaluate );
+                //fprintf(stderr,"Port map eval %s %d\n",lex_string_from_terminal(type_data.instantiation->instance_id),reevaluate);
+                type_data.instantiation->port_map->evaluate_constant_expressions( cyclicity, types, variables, reevaluate|1 );
             }
             if (type_data.instantiation->index)
             {

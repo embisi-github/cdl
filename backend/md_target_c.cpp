@@ -1739,6 +1739,9 @@ static void output_simulation_methods_lvar( c_model_descriptor *model, t_md_outp
         if (lvar->subscript_length.type != md_lvar_data_type_none)
         {
             output( handle, -1, "&%s/*%d*/)", bit_mask[lvar->subscript_length.data.integer],lvar->subscript_length.data.integer );
+            if (lvar->subscript_length.data.integer==0) {
+                fprintf(stderr, "Bug\n");
+            }
         }
         else
         {

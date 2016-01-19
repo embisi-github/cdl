@@ -99,6 +99,7 @@ void c_co_instantiation::check_types( class c_cyclicity *cyclicity, t_co_scope *
 /*f c_co_lvar::check_types
   Check the types in an lvar.
   Generally this just involves creating an error message for invalid lvars, and type checking any index expressions
+  This DOES evaluate the length of bit vectors
 */
 void c_co_lvar::check_types( class c_cyclicity *cyclicity, t_co_scope *types, t_co_scope *variables )
 {
@@ -298,11 +299,15 @@ void c_co_port_map::check_types( class c_cyclicity *cyclicity, t_co_scope *types
 {
     if (!port_lvar)
     {
-        if (type==port_map_type_clock) return;
-        cyclicity->set_parse_error( this, co_compile_stage_check_types, "Result of previous error - port_lvar is NULL)");
-        return;
+        if (type!=port_map_type_clock) {
+            cyclicity->set_parse_error( this, co_compile_stage_check_types, "Result of previous error - port_lvar is NULL)");
+            return;
+        }
     }
-    port_lvar->check_types( cyclicity, types, port_scope );
+    if (port_lvar) {
+        port_lvar->check_types( cyclicity, types, port_scope );
+        //fprintf(stderr,"Type check port instance port %s type %d\n",lex_string_from_terminal(port_lvar->symbol),type);
+    }
     switch (type)
     {
     case port_map_type_clock:
@@ -310,6 +315,7 @@ void c_co_port_map::check_types( class c_cyclicity *cyclicity, t_co_scope *types
     case port_map_type_input:
         if (expression)
         {
+            //fprintf(stderr,"Type check expression for port instance port %s\n",lex_string_from_terminal(port_lvar->symbol));
             expression->type_check_within_type_context( cyclicity, types, variables, port_lvar?port_lvar->type:type_value_undefined );
             SL_DEBUG( sl_debug_level_info, "Input port expression in type context %p/%d", port_lvar,port_lvar?port_lvar->type:type_value_undefined );
         }
@@ -499,11 +505,13 @@ void c_co_statement::check_types( class c_cyclicity *cyclicity, t_co_scope *type
         break;
     }
     case statement_type_instantiation:
+    {
         if (type_data.instantiation)
         {
             type_data.instantiation->check_types( cyclicity, types, variables );
         }
         break;
+    }
     }
     if (next_in_list)
     {

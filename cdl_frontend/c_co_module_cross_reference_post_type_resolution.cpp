@@ -408,6 +408,7 @@ void c_co_nested_assignment::cross_reference_within_type_context( class c_cyclic
 int c_co_port_map::cross_reference_post_type_resolution( class c_cyclicity *cyclicity, t_co_scope *types, t_co_scope *variables, t_co_scope *port_scope )
 {
     // port_lvar is the port; lvar is a signal driven by an output port_lvar, expression is a value for an input port_lvar.
+    // port_lvar is apparently NULL for clock signals
     if (port_lvar)
     {
         port_lvar->cross_reference_post_type_resolution_within_type_context( cyclicity, types, port_scope, type_value_undefined );
