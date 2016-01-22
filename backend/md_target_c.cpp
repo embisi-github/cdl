@@ -2952,7 +2952,10 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         output( handle, 1, "{\n");
         output( handle, 2, "t_sl_uint64 **input_ptr      = struct_resolve( t_sl_uint64 **, this, input_desc_%s[i].driver_ofs );\n", module->output_name);
         output( handle, 2, "t_sl_uint64 *input_state_ptr = struct_resolve( t_sl_uint64 *, this, input_desc_%s[i].input_state_ofs );\n", module->output_name);
-        output( handle, 2, "input_state_ptr[0] = *(input_ptr[0]);\n");
+        output( handle, 2, "if (input_desc_%s[i].width<64)\n", module->output_name);
+        output( handle, 3, "input_state_ptr[0] = (*(input_ptr[0])) & ((1LL<<input_desc_%s[i].width)-1);\n", module->output_name);
+        output( handle, 2, "else\n");
+        output( handle, 3, "input_state_ptr[0] = *(input_ptr[0]);\n");
         output( handle, 1, "}\n");
     }
     output( handle, 1, "return error_level_okay;\n");
