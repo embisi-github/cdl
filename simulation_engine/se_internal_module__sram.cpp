@@ -318,7 +318,8 @@ t_sl_error_level c_se_internal_module__sram::write( unsigned int address, t_sl_u
             data_mask = 0;
             for (i=0; i<number_of_enables; i++)
             {
-                if (write_enable[0] & (1<<i)) // if enable set
+                if ((write_enable==NULL) ||
+                    (write_enable[0] & (1<<i))) // if enable set (or called from e.g. message with NULL write_enable)
                 {
                     data_mask |= ((1ULL<<bits_per_enable)-1) << (bits_per_enable*i);
                 }
