@@ -89,6 +89,8 @@ static void output_header( c_model_descriptor *model, t_md_output_fn output, voi
         output( handle, 0, "// Verilog option assertions_ifdef '%s'\n", options.assertions_ifdef );
     if (options.use_always_at_star)
         output( handle, 0, "// Verilog option use_always_at_star %d\n", options.use_always_at_star );
+    if (options.clocks_must_have_enables)
+        output( handle, 0, "// Verilog option clocks_must_have_enables %d\n", options.clocks_must_have_enables );
     output( handle, 0, "\n");
 
 }
@@ -190,6 +192,9 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
         if (!CLOCK_IS_GATED(clk))
         {
             output( handle, 1, "%s,\n", clk->name );
+            if (options.clocks_must_have_enables) {
+                output( handle, 1, "%s__enable,\n", clk->name );
+            }
         }
     }
     output( handle, 0, "\n");
@@ -233,11 +238,17 @@ static void output_module_rtl_architecture_ports( c_model_descriptor *model, t_m
             t_md_signal *clk2;
             output_documentation( model, output, handle, 1, clk->documentation, 0 );
             output( handle, 1, "input %s;\n", clk->name );
+            if (options.clocks_must_have_enables) {
+                output( handle, 1, "input %s__enable;\n", clk->name );
+            }
             for (clk2=module->clocks; clk2; clk2=clk2->next_in_list)
             {
                 if ((clk2!=clk) && (clk2->data.clock.clock_ref==clk))
                 {
                     output( handle, 1, "wire %s; // Gated version of clock '%s' enabled by '%s'\n", clk2->name, clk->name, clk2->data.clock.gate_state?clk2->data.clock.gate_state->name:clk2->data.clock.gate_signal->name );
+                    if (options.clocks_must_have_enables) {
+                        output( handle, 1, "wire %s__enable;\n", clk2->name );
+                    }
                 }
             }
         }
@@ -1385,7 +1396,6 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
     int has_comb, has_sync, has_many_sync;
     t_md_reference_iter iter, iter2;
     t_md_reference *reference, *reference2;
-    int first;
 
     /*b Determine if code block has combinatorial, a single clock/reset, and/or many clock/reset
      */
@@ -1516,7 +1526,6 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                             {
                                 output( handle, 2, "%s[%d]", instance->output_name, i );
                             }
-                            first = 0;
                         }
                         output( handle, 2, "//%s - Xilinx does not want arrays in sensitivity lists\n", instance->output_name );
                     }
@@ -1541,7 +1550,6 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                             output_push_usage_type( model, output, handle, instance->reference.data.state->usage_type );
                         }
                         output( handle, 2, "%s", instance->output_name );
-                        first = 0;
                     }
                 }
             }
@@ -1714,7 +1722,11 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                 }
                 output( handle, 1, "//b %s clock process\n", buffer );
                 output_documentation( model, output, handle, 1, code_block->documentation, 0 );
-                output( handle, 1, "always @( %s %s or %s %s)\n", edge_name[edge], clk->name, edge_name[!reset_level], reset->name );
+                if (CLOCK_IS_GATED(clk) && options.clocks_must_have_enables) {
+                    output( handle, 1, "always @( %s %s or %s %s)\n", edge_name[edge], clk->data.clock.clock_ref->name, edge_name[!reset_level], reset->name );
+                } else {
+                    output( handle, 1, "always @( %s %s or %s %s)\n", edge_name[edge], clk->name, edge_name[!reset_level], reset->name );
+                }
                 output( handle, 1, "begin : %s__code\n", buffer);
                 if (options.vmod_mode)
                 {
@@ -1798,7 +1810,11 @@ static void output_module_rtl_architecture_code_block( c_model_descriptor *model
                 }
                 output_set_usage_type( model, output, handle );
                 output( handle, 2, "end\n");
-                output( handle, 2, "else\n", clk->name, clk->name);
+                if (options.clocks_must_have_enables) {
+                    output( handle, 2, "else if (%s__enable)\n", clk->name);
+                } else {
+                    output( handle, 2, "else\n", clk->name, clk->name);
+                }
                 output( handle, 2, "begin\n", clk->name, clk->name);
                 output_module_rtl_architecture_statement( model, output, handle, code_block, code_block->first_statement, 2, clk, edge, reset, reset_level );
                 output( handle, 2, "end //if\n" );
@@ -1829,8 +1845,17 @@ static void output_module_rtl_architecture_instance( c_model_descriptor *model, 
 
     for (clock_port=module_instance->clocks; clock_port; clock_port=clock_port->next_in_list)
     {
+        t_md_signal *clk=clock_port->local_clock_signal;
         if (need_comma) output( handle, -1, ",\n" );
-        output( handle, 2, ".%s(%s)", clock_port->port_name, clock_port->clock_name );
+        if (CLOCK_IS_GATED(clk) && options.clocks_must_have_enables) {
+            output( handle, 2, ".%s(%s),\n", clock_port->port_name, clk->data.clock.root_clock_ref->name );
+            output( handle, 2, ".%s__enable(%s__enable)", clock_port->port_name, clock_port->clock_name );
+        } else if (options.clocks_must_have_enables) {
+            output( handle, 2, ".%s(%s),\n", clock_port->port_name, clock_port->clock_name );
+            output( handle, 2, ".%s__enable(1'b1)", clock_port->port_name );
+        } else {
+            output( handle, 2, ".%s(%s)", clock_port->port_name, clock_port->clock_name );
+        }
         need_comma = 1;
     }
 
@@ -1977,14 +2002,23 @@ static void output_module_rtl_architecture( c_model_descriptor *model, t_md_outp
         {
             if (CLOCK_IS_GATED(clk))
             {
-                output( handle, 1, "%s %s__gen( .CLK_IN(%s), .ENABLE(%s%s), .CLK_OUT(%s)%s );\n",
-                        options.clock_gate_module_instance_type,
-                        clk->name,
-                        clk->data.clock.clock_ref->name,
-                        clk->data.clock.gate_level?"":"!",
-                        clk->data.clock.gate_state?clk->data.clock.gate_state->name:clk->data.clock.gate_signal->name,
-                        clk->name,
-                        options.clock_gate_module_instance_extra_ports );
+                if (options.clocks_must_have_enables) {
+                    output( handle, 1, "assign %s__enable = (%s__enable && %s%s);\n",
+                            clk->name,
+                            clk->data.clock.clock_ref->name,
+                            clk->data.clock.gate_level?"":"!",
+                            clk->data.clock.gate_state?clk->data.clock.gate_state->name:clk->data.clock.gate_signal->name
+                        );
+                } else {
+                    output( handle, 1, "%s %s__gen( .CLK_IN(%s), .ENABLE(%s%s), .CLK_OUT(%s)%s );\n",
+                            options.clock_gate_module_instance_type,
+                            clk->name,
+                            clk->data.clock.clock_ref->name,
+                            clk->data.clock.gate_level?"":"!",
+                            clk->data.clock.gate_state?clk->data.clock.gate_state->name:clk->data.clock.gate_signal->name,
+                            clk->name,
+                            options.clock_gate_module_instance_extra_ports );
+                }
             }
         }
     }
@@ -2045,6 +2079,7 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
     options.additional_body_include = NULL;
     options.assertions_ifdef = NULL;
     options.use_always_at_star = 0;
+    options.clocks_must_have_enables = 0;
 
     if (options_in)
     {
@@ -2061,6 +2096,7 @@ extern void target_verilog_output( c_model_descriptor *model, t_md_output_fn out
         if (options_in->additional_body_include)                { options.additional_body_include = options_in->additional_body_include; }
         if (options_in->assertions_ifdef)                       { options.assertions_ifdef = options_in->assertions_ifdef; }
         if (options_in->use_always_at_star)                     { options.use_always_at_star = options_in->use_always_at_star; }
+        if (options_in->clocks_must_have_enables)               { options.clocks_must_have_enables = options_in->clocks_must_have_enables; }
     }
 
     current_output_depth = 0;

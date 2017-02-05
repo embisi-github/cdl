@@ -6143,6 +6143,7 @@ void c_model_descriptor::generate_output( t_sl_option_list env_options )
          options.sv_assertions                           = (sl_option_get_string( env_options, "be_v_sv_assertions" )!=NULL);
          options.include_coverage                        = (sl_option_get_string( env_options, "be_coverage" )!=NULL);
          options.use_always_at_star                      = (sl_option_get_string( env_options, "be_v_use_always_at_star" )!=NULL);
+         options.clocks_must_have_enables                = (sl_option_get_string( env_options, "be_v_clks_must_have_enables" )!=NULL);
          f = fopen(filename, "w");
           if (f)
           {
@@ -6227,6 +6228,9 @@ extern int be_handle_getopt( t_sl_option_list *env_options, int c, const char *o
          return 1;
      case option_be_v_clkgate_ports:
          *env_options = sl_option_list( *env_options, "be_v_clkgate_ports", optarg );
+         return 1;
+     case option_be_v_clks_must_have_enables:
+         *env_options = sl_option_list( *env_options, "be_v_clks_must_have_enables", "yes" );
          return 1;
      case option_be_v_assert_delay:
          *env_options = sl_option_list( *env_options, "be_v_assert_delay", optarg );
