@@ -60,27 +60,27 @@ cdl tests/vector vector_sum_2 dc:width=4 model:vector_sum_2__width_4 rmn:vector_
 
 cdl tests/instantiation hierarchy_reg
 cdl tests/instantiation hierarchy_and         rim:hierarchy_and=simple
-cdl tests/instantiation hierarchy_and_complex rmr:hierarchy_and_complex=hierarchy_and rim:hierarchy_and=complex
+#cdl tests/instantiation hierarchy_and_complex rmr:hierarchy_and_complex=hierarchy_and rim:hierarchy_and=complex
 cdl tests/instantiation hierarchy_gated_clock
 cdl_options mul:on
 cdl tests/instantiation hierarchy_comb_and_clocked
 cdl_options mul:off
 cdl tests/instantiation hierarchy_comb_and_clocked2
 cdl tests/instantiation hierarchy_complex             inc:tests/instantiation
-cdl tests/instantiation hierarchy                     inc:tests/instantiation
+#cdl tests/instantiation hierarchy                     inc:tests/instantiation
 cdl tests/instantiation hierarchy_test_harness        inc:tests/instantiation
 cdl tests/instantiation hierarchy_struct              inc:tests/instantiation
 cdl tests/instantiation hierarchy_struct_test_harness inc:tests/instantiation
 cdl tests/instantiation failure_0
 
-cdl tests/bugs missing_reset
-cdl tests/bugs output_cyclic_dependency
-cdl tests/bugs empty_case_statements
-cdl tests/bugs sm_test inc:tests/bugs
-cdl tests/bugs sm_sub inc:tests/bugs
-cdl tests/bugs check_64bits
-cdl tests/bugs bundle_width
-cdl tests/bugs operator_precedence
+#cdl tests/bugs missing_reset
+#cdl tests/bugs output_cyclic_dependency
+#cdl tests/bugs empty_case_statements
+#cdl tests/bugs sm_test inc:tests/bugs
+#cdl tests/bugs sm_sub inc:tests/bugs
+#cdl tests/bugs check_64bits
+#cdl tests/bugs bundle_width
+#cdl tests/bugs operator_precedence
 #cdl tests/bugs single_entry_arrays
 cdl tests/bugs case_expression_lists
 cdl tests/bugs for_case
@@ -98,17 +98,17 @@ cdl tests/cdl_examples clocked_adder
 
 cdl tests/clock_gate gc_simple 
 
-cdl tests/sandbox credit_four_source inc:tests/sandbox
-cdl tests/sandbox credit_four_sink inc:tests/sandbox
-cdl tests/sandbox credit_four_fwd  inc:tests/sandbox
-cdl tests/sandbox credit_four_fwd2 inc:tests/sandbox
-cdl tests/sandbox credit_fifo_extender inc:tests/sandbox rmn:generic_credit_fifo_extender=credit_fifo_extender    rmt:gt_fifo_content=t_data    model:credit_fifo_extender
-#cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd
-cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd2
-cdl tests/sandbox crc16_ansi inc:tests/sandbox
-cdl tests/sandbox crc16_ansi_tb inc:tests/sandbox rit:crc16_ansi_tb.crc16_ansi_th=se_test_harness 
-cdl tests/sandbox rate_limited_selector inc:tests/sandbox
-cdl tests/sandbox rate_limited_selector_tb inc:tests/sandbox rit:rate_limited_selector_tb.rate_limited_selector_th=se_test_harness 
+#cdl tests/sandbox credit_four_source inc:tests/sandbox
+#cdl tests/sandbox credit_four_sink inc:tests/sandbox
+#cdl tests/sandbox credit_four_fwd  inc:tests/sandbox
+#cdl tests/sandbox credit_four_fwd2 inc:tests/sandbox
+#cdl tests/sandbox credit_fifo_extender inc:tests/sandbox rmn:generic_credit_fifo_extender=credit_fifo_extender    rmt:gt_fifo_content=t_data    model:credit_fifo_extender
+##cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd
+#cdl tests/sandbox credit_four_tb inc:tests/sandbox rit:credit_four_tb.credit_four_th=se_test_harness rit:credit_four_tb.credit_four_fwd=credit_four_fwd2
+#cdl tests/sandbox crc16_ansi inc:tests/sandbox
+#cdl tests/sandbox crc16_ansi_tb inc:tests/sandbox rit:crc16_ansi_tb.crc16_ansi_th=se_test_harness 
+#cdl tests/sandbox rate_limited_selector inc:tests/sandbox
+#cdl tests/sandbox rate_limited_selector_tb inc:tests/sandbox rit:rate_limited_selector_tb.rate_limited_selector_th=se_test_harness 
 
 #a Editor preferences and notes
 # Local Variables: ***

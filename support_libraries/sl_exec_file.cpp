@@ -510,7 +510,7 @@ static void sl_exec_file_free_threads( t_sl_exec_file_data *file_data )
  */
 /*f sl_exec_file_create_variable
  */
-static t_sl_exec_file_variable *sl_exec_file_create_variable( t_sl_exec_file_data *file_data, char *name, t_sl_exec_file_variable_type type )
+static t_sl_exec_file_variable *sl_exec_file_create_variable( t_sl_exec_file_data *file_data, const char *name, t_sl_exec_file_variable_type type )
 {
      t_sl_exec_file_variable *var;
 
@@ -562,7 +562,7 @@ static t_sl_exec_file_variable *sl_exec_file_find_variable( t_sl_exec_file_data 
 
 /*f sl_exec_file_set_variable
  */
-extern int sl_exec_file_set_variable( t_sl_exec_file_data *file_data, char *name, t_sl_uint64 *value, double *value_d )
+extern int sl_exec_file_set_variable( t_sl_exec_file_data *file_data, const char *name, t_sl_uint64 *value, double *value_d )
 {
      t_sl_exec_file_variable *var;
 
@@ -592,7 +592,7 @@ extern int sl_exec_file_set_variable( t_sl_exec_file_data *file_data, char *name
 
 /*f sl_exec_file_set_integer_variable
  */
-extern int sl_exec_file_set_integer_variable( t_sl_exec_file_data *file_data, char *name, t_sl_uint64 *value )
+extern int sl_exec_file_set_integer_variable( t_sl_exec_file_data *file_data, const char *name, t_sl_uint64 *value )
 {
      t_sl_exec_file_variable *var;
 

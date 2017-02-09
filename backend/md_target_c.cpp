@@ -611,6 +611,7 @@ static void output_types( c_model_descriptor *model, t_md_module *module, t_md_o
     }
     output( handle, 1, "c_engine *engine;\n");
     output( handle, 1, "int clocks_to_call;\n" );
+    output( handle, 1, "int propagating_in_reset;\n" );
     output( handle, 1, "void *engine_handle;\n");
     output( handle, 1, "int inputs_captured;\n" );
     if (module->number_submodule_clock_calls>0)
@@ -1418,6 +1419,7 @@ static void output_constructors_destructors( c_model_descriptor *model, t_md_mod
         output( handle, 1, "memset(&input_state, 0, sizeof(input_state));\n" ); 
         output( handle, 1, "memset(&combinatorials, 0, sizeof(combinatorials));\n" ); 
         output( handle, 1, "memset(&nets, 0, sizeof(nets));\n" ); 
+        output( handle, 1, "propagating_in_reset=0;\n" ); 
         for (clk=module->clocks; clk; clk=clk->next_in_list)
         {
             for (edge=0; edge<2; edge++)
@@ -2821,16 +2823,6 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
     output( handle, 0, "t_sl_error_level c_%s::reset( int pass )\n", module->output_name );
     output( handle, 0, "{\n");
 
-    for (signal=module->inputs; signal; signal=signal->next_in_list)
-    {
-        for (level=0; level<2; level++)
-        {
-            if (signal->data.input.levels_used_for_reset[level])
-            {
-                output( handle, 1, "reset_%s_%s( );\n", level_name[level], signal->name );
-            }
-        }
-    }
     output( handle, 1, "if (pass==0)\n" );
     output( handle, 1, "{\n" );
     if (module->inputs)
@@ -2842,6 +2834,16 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         output( handle, 2, "se_cmodel_assist_check_unconnected_nets( engine, engine_handle, (void *)&nets, net_desc_%s, \"%s\" );\n", module->output_name, module->output_name );
     }
     output( handle, 1, "}\n" );
+    for (signal=module->inputs; signal; signal=signal->next_in_list)
+    {
+        for (level=0; level<2; level++)
+        {
+            if (signal->data.input.levels_used_for_reset[level])
+            {
+                output( handle, 1, "reset_%s_%s( );\n", level_name[level], signal->name );
+            }
+        }
+    }
     output( handle, 1, "if (pass>0) {capture_inputs(); propagate_all();} // Dont call capture_inputs on first pass as they may be invalid; wait for second pass\n");
     for (module_instance=module->module_instances; module_instance; module_instance=module_instance->next_in_list)
     {
@@ -2931,6 +2933,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
                         }
                     }
                 }
+                output( handle, 1, "propagating_in_reset=1;propagate_all();propagating_in_reset=0;// bit of a hack to get reset to propagate;\n");
                 output( handle, 1, "return error_level_okay;\n");
                 output( handle, 0, "}\n");
                 output( handle, 0, "\n");
@@ -2981,7 +2984,7 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         {
             if (signal->data.input.levels_used_for_reset[level])
             {
-                output( handle, 1, "if (inputs.%s[0]==%d)\n", signal->name, level );
+                output( handle, 1, "if ((inputs.%s[0]==%d) && !propagating_in_reset)\n", signal->name, level );
                 output( handle, 1, "{\n");
                 output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
                 output( handle, 1, "}\n");

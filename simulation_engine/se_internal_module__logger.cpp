@@ -253,6 +253,7 @@ t_sl_error_level c_logger::log_callback( void *eng_handle, int cycle, struct t_e
     }
     if (verbose)
     {
+        fflush(outfile);
         int i;
         printf ("%d:Log event %s:%s:%d\n", cycle, log_cb->module_instance_name, name, log_cb->occurences[event_number] );
         for (i=0; i<num_args; i++)

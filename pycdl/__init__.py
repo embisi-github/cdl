@@ -56,6 +56,7 @@ class _nameable(object):
     """
     An object that should get named when assigned to a namegiver object.
     """
+    def __repr__(self): return self._name
     pass
 
 class _namegiver(object):
@@ -447,6 +448,7 @@ class _instantiable(_clockable):
     A module that can be instantiated -- either a CDL module or a Python
     test harness.
     """
+    _auto_wire_same_name = True
     def _ports_from_ios(self, iolist, cdl_object):
         if not iolist:
             raise WireError("No IOs passed to a module - perhaps the module type could not be found")
@@ -458,6 +460,7 @@ class _instantiable(_clockable):
         for id_type in iolist:
             retdict = {}
             for io in id_type:
+                if len(io[0])==0: continue
                 wirelist = io[0].split("__", 1)
                 if len(wirelist) > 1:
                     if wirelist[0] not in retdict:
@@ -466,10 +469,13 @@ class _instantiable(_clockable):
                 else:
                     retdict[io[0]] = wire(io[1], io[0])
                     thewire = retdict[io[0]]
+                #print len(io),io
+                #print "'%s'"%io[0], cdl_object
                 #print "Creating port wire: %s size %d, result %s" % (io[0], io[1], repr(thewire))
-                if cdl_object and hasattr(cdl_object, io[0]):
+                if cdl_object and hasattr(cdl_object, io[0]) and self._auto_wire_same_name:
                     #print "Connecting CDL signal %s" % repr(getattr(cdl_object, io[0]))
                     thewire._connect_cdl_signal(getattr(cdl_object,io[0]))
+                    pass
                 else:
                     #print "No CDL signal!"
                     pass
