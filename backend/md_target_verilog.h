@@ -32,6 +32,7 @@ typedef struct
     int sv_assertions;
     int include_coverage;
     int use_always_at_star;
+    int clocks_must_have_enables;
 } t_md_verilog_options;
 
 /*a External functions
