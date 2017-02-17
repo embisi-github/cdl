@@ -1517,6 +1517,77 @@ int c_type_value_pool::read_value( char *text, int *ofs, t_type_value_pool_entry
         return 0;
     }
 
+    /*b Check for sized hex
+     */
+    if ( (text[eoi]=='d') || (text[eoi]=='D'))
+    {
+        if ( (size<1) || (size>64) )
+        {
+            *ofs = eoi+1;
+            return 1;
+        }
+        if (entry)
+        {
+            if (is_bit)
+            {
+                entry->data.value_bit.value=0;
+                entry->data.value_bit.mask=0;
+            }
+            else
+            {
+                entry->data.value_bit_array.contents[0] = 0;
+                if (entry->data.value_bit_array.mask_offset>0)
+                {
+                    entry->data.value_bit_array.contents[entry->data.value_bit_array.mask_offset] = 0;
+                }
+            }
+        }
+        eoi++;
+        nbits = 0;
+        mask_zero = 1;
+        t_sl_uint64 value=0;
+        while (1)
+        {
+            int digit;
+            while (text[eoi]=='_')
+            {
+                eoi++;
+            }
+            c = text[eoi];
+            digit = -1;
+            if ( (c>='0') && (c<='9') )
+            {
+                digit = (c-'0');
+            }
+            if (digit>=0)
+            {
+                value = 10*value + digit;
+                if (entry)
+                {
+                    if (is_bit)
+                    {
+                        entry->data.value_bit.value = value;
+                    }
+                    else
+                    {
+                        entry->data.value_bit_array.contents[0] = value;
+                    }
+                }
+                eoi++;
+            }
+            else
+            {
+                break;
+            }
+        }
+        if (entry)
+            SL_DEBUG( sl_debug_level_verbose_info, "read dec value <>h... %llx mask %llx", entry->data.value_bit_array.contents[0], mask_zero?0ll:entry->data.value_bit_array.contents[entry->data.value_bit_array.mask_offset] );
+        *has_mask = 0;
+        *bit_length = size;
+        *ofs = eoi;
+        return 0;
+    }
+
     /*b Check for 0x and 0X
      */
     if ( (text[*ofs]=='0') && (text[1+*ofs]=='x' || text[1+*ofs]=='X') )

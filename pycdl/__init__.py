@@ -24,6 +24,7 @@ code to CDL's py_engine interface.
 # environment variable.
 import sys, os
 import itertools, collections
+import traceback
 from c_python_telnetd import c_python_telnet_server
 
 version_info = (1,4,13,"",0)
@@ -616,7 +617,7 @@ class _thfile(py_engine.exec_file):
         try:
             self._th.run()
         except:
-            self._th.failtest(0, "Exception raised!")
+            self._th.failtest(0, "Exception raised!"+traceback.format_exc())
             raise
 
 class _hwexfile(py_engine.exec_file):
