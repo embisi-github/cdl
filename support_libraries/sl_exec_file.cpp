@@ -1688,7 +1688,6 @@ static void handle_declarative_command( struct t_sl_exec_file_data *file_data, i
              lib = find_command_in_library( file_data, cmd_cb.cmd );
              if (lib && lib->lib_desc.cmd_handler)
              {
-                 t_sl_error_level err;
                  cmd_cb.file_data = file_data;
                  cmd_cb.error = file_data->error;
                  cmd_cb.filename = file_data->filename;
@@ -1698,7 +1697,7 @@ static void handle_declarative_command( struct t_sl_exec_file_data *file_data, i
                  cmd_cb.execution = NULL;
                  cmd_cb.num_args = file_line->num_args;
                  cmd_cb.args = file_line->args;
-                 err = lib->lib_desc.cmd_handler( &cmd_cb, lib->lib_desc.handle );
+                 (void) lib->lib_desc.cmd_handler( &cmd_cb, lib->lib_desc.handle ); // ditch the error
              }
              break;
          }

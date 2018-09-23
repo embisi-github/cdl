@@ -1432,7 +1432,6 @@ static PyObject *py_engine_method_get_module_ios( t_py_engine_PyObject *py_eng, 
      char md[] = "module";
      char *kwdlist[] = { md, NULL };
      const char *module;
-     t_engine_state_desc_type type;
      t_sl_uint64 *dummy;
      int sizes[4];
      int id;
@@ -1466,7 +1465,8 @@ static PyObject *py_engine_method_get_module_ios( t_py_engine_PyObject *py_eng, 
                  {
                      break;
                  }
-                 type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &dummy, sizes );
+                 t_engine_state_desc_type type = py_eng->engine->interrogate_get_data_sizes_and_type( sub_ih, &dummy, sizes );
+                 (void) type;
                  py_eng->engine->interrogation_handle_free( sub_ih );
                  sl_cons_reset_list( &sublist );
                  sl_cons_append( &sublist, sl_cons_item( (char*)tail, 1 ));
@@ -1571,9 +1571,7 @@ static PyObject *py_engine_getattr( PyObject *self, char *name)
  */
 static int py_engine_print( PyObject *self, FILE *f, int unknown )
 {
-    t_py_engine_PyObject *py_eng;
-	py_eng = (t_py_engine_PyObject *)self;
-//	py_eng->engine->print_debug_info();
+    //t_py_engine_PyObject *py_eng = (t_py_engine_PyObject *)self;
 	return 0;
 }
 
@@ -1614,20 +1612,20 @@ static PyObject *py_engine_new( PyObject* self, PyObject* args )
  */
 static PyObject *py_engine_debug( PyObject* self, PyObject* args, PyObject *kwds )
 {
-	 t_py_engine_PyObject *py_eng;
-     char lv[] = "level";
-     char *kwdlist[] = { lv, NULL };
-     int level;
+    t_py_engine_PyObject *py_eng = (t_py_engine_PyObject *)self;
+    char lv[] = "level";
+    char *kwdlist[] = { lv, NULL };
+    int level;
 
-     py_engine_method_enter( py_eng, "debug", args );
-     if (PyArg_ParseTupleAndKeywords( args, kwds, "i", kwdlist, &level ))
-     {
-          sl_debug_set_level( (t_sl_debug_level)level );
-          sl_debug_enable(1);
-          return Py_None;
-     }
-     sl_debug_enable(0);
-     return Py_None;
+    py_engine_method_enter( py_eng, "debug", args );
+    if (PyArg_ParseTupleAndKeywords( args, kwds, "i", kwdlist, &level ))
+    {
+        sl_debug_set_level( (t_sl_debug_level)level );
+        sl_debug_enable(1);
+        return Py_None;
+    }
+    sl_debug_enable(0);
+    return Py_None;
 }
 
 /*f py_engine_dealloc

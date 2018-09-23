@@ -273,7 +273,7 @@ static void debug_output( void *handle, int indent, const char *format, ... )
      if (indent>=0)
      {
           for (i=0; i<indent; i++)
-               fprintf( f, indent_string );
+              fprintf(f, "%s", indent_string );
      }
      vfprintf( f, format, ap );
      fflush(f);

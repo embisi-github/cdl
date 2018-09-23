@@ -41,7 +41,7 @@
  */
 /*t coerce_permitted_to_*
  */
-typedef enum
+enum
 {
     coerce_permitted_to_none,
     coerce_permitted_to_bit_vector,
@@ -111,7 +111,7 @@ static t_sl_uint64 bit_mask[] = {
      ((1LL<<52)-1), ((1LL<<53)-1), ((1LL<<54)-1), ((1LL<<55)-1), 
      ((1LL<<56)-1), ((1LL<<57)-1), ((1LL<<58)-1), ((1LL<<59)-1), 
      ((1LL<<60)-1), ((1LL<<61)-1), ((1LL<<62)-1), ((1ULL<<63)-1), 
-     ((0LL)-1)
+     (0xffffffffffffffffULL)
 };
 
 /*v expr_subtype_strings - must match enum in c_co_expression.h
@@ -452,6 +452,7 @@ static int vector_op( c_cyclicity *cyclicity, c_co_expression *expression, t_exp
         fprintf(stderr,"Unexpectedly here in c_co_expression vector_op (%s)\n",expr_subtype_strings[expr_subtype]);
         return 0;
     }
+    (void) size_mismatch;
     return 1;
 }
 
@@ -907,6 +908,7 @@ int c_co_expression::type_check_within_type_context( class c_cyclicity *cyclicit
                     }
                 }
             }
+            (void) coercion_required;
             { CO_DEBUG( sl_debug_level_verbose_info, "Coercions to bit vector checked - found %d", subentry); }
 
             /*b Okay, if found do coercions, and mark the subentry found too

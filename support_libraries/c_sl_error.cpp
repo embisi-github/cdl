@@ -337,7 +337,6 @@ int c_sl_error::get_error_count( t_sl_error_level error_level )
  */
 void *c_sl_error::get_next_error( void *handle, t_sl_error_level error_level )
 {
-     int i;
      t_error *error;
 
      if (!handle)
@@ -348,7 +347,6 @@ void *c_sl_error::get_next_error( void *handle, t_sl_error_level error_level )
      {
           error = ((t_error *)handle)->next_in_list;
      }
-     i = 0;
      for (; error; error=error->next_in_list)
      {
           if ((int)error->error_level >= (int)error_level)

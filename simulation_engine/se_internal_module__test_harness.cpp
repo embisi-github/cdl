@@ -152,9 +152,8 @@ static t_sl_error_level internal_module_test_harness_clock( t_internal_module_te
  */
 static t_sl_error_level internal_module_test_harness_prepreclock_fn( void *handle )
 {
-    t_internal_module_test_harness_data *data;
-
-    data = (t_internal_module_test_harness_data *)handle;
+    //t_internal_module_test_harness_data *data;
+    //data = (t_internal_module_test_harness_data *)handle;
     return error_level_okay;
 }
 
@@ -218,8 +217,8 @@ static t_sl_error_level internal_module_test_harness_negedge_clock_fn( void *han
  */
 static t_sl_error_level exec_file_cmd_handler( struct t_sl_exec_file_cmd_cb *cmd_cb, void *handle )
 {
-    t_internal_module_test_harness_data *data;
-    data = (t_internal_module_test_harness_data *)handle;
+    //t_internal_module_test_harness_data *data;
+    //data = (t_internal_module_test_harness_data *)handle;
 
     return error_level_serious;
 }

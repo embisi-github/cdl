@@ -708,6 +708,7 @@ static int line_from_file_posn( t_lex_file *lex_file, int char_posn )
   Add a terminal to the lexical structure for a file
   The last one in the file should be terminal_entry_type_termination which does not have a start or end - these are implied from the previous terminal (if any)
  */
+#define PTR_OF_INT(x) ((void *)(long long int)(x))
 static void file_add_terminal_entry( t_lex_file *file, int store, t_terminal_entry_type terminal_entry_type, int start, int end, void *data )
 {
      #if 0
@@ -1018,14 +1019,15 @@ int c_lexical_analyzer::file_break_into_tokens_internal( t_lex_file *file, int s
           if (found>=0)
           {
                file_ofs+=2;
-               file_add_terminal_entry( file, store, terminal_entry_type_char_pair, last_file_ofs, file_ofs, (void *)found );
+               file_add_terminal_entry( file, store, terminal_entry_type_char_pair, last_file_ofs, file_ofs, PTR_OF_INT(found) );
+                                        
                continue;
           }
 
           /*b Any other character is a token by itself
            */
           file_ofs++;
-          file_add_terminal_entry( file, store, terminal_entry_type_char, last_file_ofs, file_ofs, (void *)((int)(c)) );
+          file_add_terminal_entry( file, store, terminal_entry_type_char, last_file_ofs, file_ofs, PTR_OF_INT((int)(c)) );
           continue;
 
           /*b Done

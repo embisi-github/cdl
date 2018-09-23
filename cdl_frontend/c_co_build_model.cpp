@@ -181,10 +181,8 @@ static int traverse_structure( class c_cyclicity *cyclicity,
         t_symbol *element_symbol;
         t_type_value element_type;
         int num_elements, i;
-        t_md_statement *last_statement;
 
         num_elements = cyclicity->type_value_pool->get_structure_element_number( type_context ); // Get number of elements in the structure
-        last_statement = NULL;
         if (expression && !wildcard) // For wildcards, we call the leaves with 'expression' not 'model_expression_lvar'
         {
             model_expression_lvar = expression->build_lvar( cyclicity, model, module, model_lvar_context );
@@ -830,10 +828,6 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
     {
         c_co_signal_declaration *cosd;
         const char *signal_name;
-        int array, array_size;
-
-        array=0;
-        array_size=1;
         cosd = local_signals->co[i].co_signal_declaration;
         signal_name = lex_string_from_terminal(cosd->symbol);
 
@@ -889,6 +883,9 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                     model->signal_document( md_module, signal_name, lex_string_from_terminal(cosd->documentation) );
             }
             break;
+        default:
+            CO_DEBUG( sl_debug_level_info, "Build model - BUG - CASE should not have this value %d", cosd->signal_declaration_type );
+            break;
         }
     }
 
@@ -898,10 +895,6 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
     {
         c_co_signal_declaration *cosd;
         const char *signal_name;
-        int array, array_size;
-
-        array=0;
-        array_size=1;
         cosd = local_signals->co[i].co_signal_declaration;
         signal_name = lex_string_from_terminal(cosd->symbol);
 
@@ -972,6 +965,9 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
                 }
             }
             break;
+        default:
+            CO_DEBUG( sl_debug_level_info, "Build model - BUG - CASE should not have this value %d", cosd->signal_declaration_type );
+            break;
         }
     }
 
@@ -981,10 +977,6 @@ void c_co_module::build_model( c_cyclicity *cyclicity, c_model_descriptor *model
     {
         c_co_signal_declaration *cosd;
         const char *signal_name;
-        int array, array_size;
-
-        array=0;
-        array_size=1;
         cosd = local_signals->co[i].co_signal_declaration;
         signal_name = lex_string_from_terminal(cosd->symbol);
 
@@ -1274,7 +1266,6 @@ static struct t_md_statement *build_model_structure_assignment( class c_cyclicit
  */
 struct t_md_statement *c_co_nested_assignment::build_model_from_statement( class c_cyclicity *cyclicity, class c_model_descriptor *model, struct t_md_module *module, struct t_md_lvar *model_lvar, int clocked, int wired_or, struct t_md_lvar *model_lvar_context, const char *documentation, struct t_md_statement *first_statement )
 {
-    t_md_statement *statement;
     t_md_lvar *model_lvar_copy;
 
     /*b Handle an 'lvar = expression' or 'lvar = *=expression'
@@ -1392,7 +1383,7 @@ void c_co_nested_assignment::build_model_reset_wildcarded( class c_cyclicity *cy
     }
     else if (cyclicity->type_value_pool->derefs_to_array( nested_type_context ))
     {
-        CO_DEBUG( sl_debug_level_info, "Building reset array model_lvar %p", model_lvar_copy );
+        CO_DEBUG( sl_debug_level_info, "Building reset array model_lvar %p", model_lvar );
         // We have an array. The model_lvar, of course, is never an array of structures - the arrayness is pushed to the bottom
         size = cyclicity->type_value_pool->array_size( nested_type_context );
         for (i=0; i<size; i++)
@@ -1435,7 +1426,7 @@ void c_co_nested_assignment::build_model_reset( class c_cyclicity *cyclicity, cl
         if (wildcard)
         {
             build_model_reset_wildcarded( cyclicity, model, module, model_lvar, model_lvar_context, type_context );
-            CO_DEBUG( sl_debug_level_info, "Built reset with model_lvar %p model_expression %p", model_lvar_copy, model_expression );
+            CO_DEBUG( sl_debug_level_info, "Built reset with model_lvar %p", model_lvar );
         }
         else if (cyclicity->type_value_pool->derefs_to_bit_vector( type_context ))
         {
@@ -1455,7 +1446,7 @@ void c_co_nested_assignment::build_model_reset( class c_cyclicity *cyclicity, cl
     }
     else if (cyclicity->type_value_pool->derefs_to_array( type_context ))
     {
-        CO_DEBUG( sl_debug_level_info, "Building reset array model_lvar %p", model_lvar_copy );
+        CO_DEBUG( sl_debug_level_info, "Building reset array model_lvar %p", model_lvar );
         // We have an array. The model_lvar, of course, is never an array of structures - the arrayness is pushed to the bottom
         size = cyclicity->type_value_pool->array_size( type_context );
         for (i=0; i<size; i++)

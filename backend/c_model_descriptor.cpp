@@ -401,18 +401,18 @@ void c_model_descriptor::module_analyze_dependents( t_md_reference_set **depende
      t_md_reference *reference;
      t_md_reference_type type;
      t_md_signal *signal;
-     t_md_state *state;
      int add_to_base_dependencies;
      int add_dependents;
 
      reference_set_iterate_start( dependents_ptr, &iter );
      while ((reference = reference_set_iterate(&iter))!=NULL)
      {
+         
          if (reference->type != md_reference_type_instance) // If the signal has a clock edge that is a dependent, as the signal is used by an input to a submodule clocked on this clock edge
              continue;
           type = reference->data.instance->reference.type;
           signal = reference->data.instance->reference.data.signal; // Only one of the two will be correct - it depends on the type
-          state = reference->data.instance->reference.data.state;
+          // t_md_state *state = reference->data.instance->reference.data.state;  // For debug
           add_to_base_dependencies = 0;
           add_dependents = 0;
           //printf( "mad:type %d signal name %s\n", type, (type==md_reference_type_state)?signal->name:state->name);
@@ -4053,6 +4053,7 @@ t_md_expression *c_model_descriptor::expression( t_md_module *module, t_md_expr_
           expr->data.fn.args[1] = args_1;
      if (argc>=3)
           expr->data.fn.args[2] = args_2;
+     (void) width;
      SL_DEBUG( sl_debug_level_info, "expression %p has width not known until push_possible_indices_to_subscripts %d (arg 0 %p / %d)", expr, expr->width, args_0, args_0->width );
      return expr;
 }

@@ -274,7 +274,7 @@ struct t_engine_log_parser *c_engine::log_parse_create( void *engine_handle, int
 struct t_engine_log_event_array *c_engine::log_event_register( void *engine_handle, const char *event_name, t_se_signal_value *value_base, ... )
 {
     const char *value_name;
-    int value_offset;
+    
     int i;
     int num_args;
     t_engine_log_event_array *event_array;
@@ -285,7 +285,8 @@ struct t_engine_log_event_array *c_engine::log_event_register( void *engine_hand
     value_name = va_arg( ap, const char * );
     while (value_name)
     {
-        value_offset = va_arg( ap, int );
+        int value_offset = va_arg( ap, int );
+        (void) value_offset;
         num_args++;
         value_name = va_arg( ap, const char * );
     }

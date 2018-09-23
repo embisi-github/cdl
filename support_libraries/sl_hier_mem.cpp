@@ -223,7 +223,7 @@ extern t_sl_hier_mem *sl_hier_mem_create( t_sl_uint64 total_size, int *log2_page
         if ((((t_sl_uint64) 1)<<log2_page_sizes[j]) > n) // Last one?
         {
             reversed_log2_page_sizes[i] = log2_page_sizes[j];
-            while ((((t_sl_uint64) 1)<<(reversed_log2_page_sizes[i])-1) > n) // Now reduce last page size by 1 bit till we just fit n
+            while (((((t_sl_uint64) 1)<<(reversed_log2_page_sizes[i]))-1) > n) // Now reduce last page size by 1 bit till we just fit n
                 reversed_log2_page_sizes[i]--;
             break;
         }

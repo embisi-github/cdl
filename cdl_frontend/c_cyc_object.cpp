@@ -90,7 +90,8 @@ void c_cyc_object::co_init( t_co_type co_type, const char *string )
  */
 c_cyc_object *object_from_handle( char *buffer )
 {
-    int i, value, chk;
+    int i, chk;
+    long long int value;
     c_cyc_object *co;
 
     if (strncmp(buffer, "obj", 3))
@@ -106,7 +107,7 @@ c_cyc_object *object_from_handle( char *buffer )
     {
         if ((buffer[3+i]<48) || (buffer[3+i]>111))
             return NULL;
-        value |= (buffer[3+i]-48)<<(6*i);
+        value |= ((long long int)(buffer[3+i]-48))<<(6*i);
         chk += buffer[3+i];
     }
     if ((chk&0x3f)!=(buffer[9]-48))
@@ -135,12 +136,12 @@ c_cyc_object *object_from_handle( char *buffer )
 void c_cyc_object::get_handle( char *buffer )
 {
     unsigned int i, chk;
-    long int value;
+    long long int value;
 
     strcpy( buffer, "obj" );
-    value = (long int)this;
+    value = (long long int)this;
     chk = 0;
-    for (i=0; i<(sizeof(long int)*8+5)/6; i++)
+    for (i=0; i<(sizeof(long long int)*8+5)/6; i++)
     {
         buffer[3+i]=48+(value&0x3f);
         chk += buffer[3+i];

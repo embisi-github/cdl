@@ -339,6 +339,7 @@ extern int main( int argc, char **argv )
             }
         }
     }
+    (void) cycle_count;
     if (optind>=argc)
     {
         usage();

@@ -727,12 +727,12 @@ int c_engine::simulation_add_exec_file_enhancements( struct t_sl_exec_file_data 
  */
 static void monitor_event_callback( void *handle, void *handle_b )
 {
-     t_sl_exec_file_data *file_data;
-     t_sl_ef_lib_event_ptr event;
+     
+     
 
      WHERE_I_AM;
-     file_data = (t_sl_exec_file_data *)handle;
-     event = (t_sl_ef_lib_event_ptr) handle_b;
+     //t_sl_exec_file_data *file_data = (t_sl_exec_file_data *)handle;
+     t_sl_ef_lib_event_ptr event = (t_sl_ef_lib_event_ptr) handle_b;
      sl_ef_lib_event_fire( event );
 }
 

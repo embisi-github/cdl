@@ -378,7 +378,7 @@ t_sl_error_level c_engine::checkpoint_initialize_instance_declared_state( t_engi
             {
                 t_mem_block *mem_block;
                 mem_block = GROWING_ARRAY_BLOCK(mem_block_array, t_mem_block, i );
-                //printf("Mem block %d: %p->%p, %d\n", i, mem_block->start, mem_block->start+mem_block->length, mem_block->length);
+                printf("Mem block %d: %p->%p, %d\n", i, mem_block->start, mem_block->start+mem_block->length, mem_block->length);
             }
         }
     }

@@ -178,7 +178,6 @@ void c_co_lvar::check_types( class c_cyclicity *cyclicity, t_co_scope *types, t_
 */
 void c_co_module::check_types( class c_cyclicity *cyclicity, t_co_scope *modules, t_co_scope *types )
 {
-    c_co_module_body_entry *combe;
     int i;
 
     SL_DEBUG( sl_debug_level_verbose_info, "Module '%s'", lex_string_from_terminal( symbol ));
@@ -207,11 +206,13 @@ void c_co_module::check_types( class c_cyclicity *cyclicity, t_co_scope *modules
         {
             if (!cyclicity->type_value_pool->is_bit( cosd->data.clocked.reset_spec->signal_declaration->type_specifier->type_value ))
             {
-                cyclicity->set_parse_error( (c_cyc_object *)combe->data.default_reset_defn, co_compile_stage_cross_reference, "Use of a non-single bit input '%s' as a reset for signal '%s' in module '%s'", lex_string_from_terminal( cosd->data.clocked.reset_spec->symbol ), lex_string_from_terminal( cosd->symbol ), lex_string_from_terminal( this->symbol ));
+//                cyclicity->set_parse_error( (c_cyc_object *)combe->data.default_reset_defn, co_compile_stage_cross_reference, "Use of a non-single bit input '%s' as a reset for signal '%s' in module '%s'", lex_string_from_terminal( cosd->data.clocked.reset_spec->symbol ), lex_string_from_terminal( cosd->symbol ), lex_string_from_terminal( this->symbol ));
+                cyclicity->set_parse_error( cosd, co_compile_stage_cross_reference, "Use of a non-single bit input '%s' as a reset for signal '%s' in module '%s'", lex_string_from_terminal( cosd->data.clocked.reset_spec->symbol ), lex_string_from_terminal( cosd->symbol ), lex_string_from_terminal( this->symbol ));
             }
         }
     }
 
+    c_co_module_body_entry *combe;
     for (combe = body; combe; combe=(c_co_module_body_entry *)combe->next_in_list)
     {
         switch (combe->type)
