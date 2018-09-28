@@ -2984,7 +2984,8 @@ static void output_simulation_methods( c_model_descriptor *model, t_md_module *m
         {
             if (signal->data.input.levels_used_for_reset[level])
             {
-                output( handle, 1, "if ((inputs.%s[0]==%d) && !propagating_in_reset)\n", signal->name, level );
+                // Note that if propagating_in_reset is set then inputs are NOT valid
+                output( handle, 1, "if (!propagating_in_reset && (inputs.%s[0]==%d))\n", signal->name, level );
                 output( handle, 1, "{\n");
                 output( handle, 2, "reset_%s_%s();\n", level_name[level], signal->name );
                 output( handle, 1, "}\n");
