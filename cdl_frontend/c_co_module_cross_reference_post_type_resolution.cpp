@@ -104,7 +104,7 @@ int c_co_instantiation::cross_reference_post_type_resolution( class c_cyclicity 
     int i;
     c_co_module *com;
     c_co_module_prototype *comp;
-    t_co_scope *port_scope;
+    t_co_scope *port_scope = NULL;
 
     refers_to.cyc_object = NULL;
 
@@ -141,7 +141,11 @@ int c_co_instantiation::cross_reference_post_type_resolution( class c_cyclicity 
     }
     if (port_map)
     {
-        port_map->cross_reference_post_type_resolution( cyclicity, types, variables, port_scope );
+        if (port_scope) {
+            port_map->cross_reference_post_type_resolution( cyclicity, types, variables, port_scope );
+        } else {
+            cyclicity->set_parse_error((c_cyc_object *)this, co_compile_stage_cross_reference, "Cannot cross reference module instantiation (probably had failed toto find module) '%s'", lex_string_from_terminal(instance_of_id));
+        }
     }
     if (index)
     {

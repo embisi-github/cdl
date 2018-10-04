@@ -1180,7 +1180,7 @@ static int parse_variable_or_function( t_sl_exec_file_data *file_data, int line_
 {
     int i, bra, ket;
     t_sl_exec_file_fn *fn;
-    t_sl_exec_file_lib_chain *lib;
+    t_sl_exec_file_lib_chain *lib = NULL;
     t_sl_exec_file_method *method;
     t_sl_exec_file_object_chain *object;
     t_sl_exec_file_variable *var;
@@ -3900,7 +3900,7 @@ static PyObject *py_exec_file_library_getattro( PyObject *py_ef_lib_obj, PyObjec
     t_py_object_exec_file_library *py_ef_lib = (t_py_object_exec_file_library *)py_ef_lib_obj;
     t_sl_exec_file_lib_desc *lib_desc;
     int call_type; // 0 for function
-    int fn_or_cmd;
+    int fn_or_cmd=0;
 
     WHERE_I_AM;
     WHERE_I_AM_TH_STR2(name, pthread_self(), NULL, "PyLbGa");
@@ -4265,7 +4265,11 @@ extern int sl_exec_file_python_add_class_object( PyObject *module )
     if (PyType_Ready(&py_class_object__exec_file) < 0)
         return error_level_fatal;
 
-    Py_INCREF(&py_class_object__exec_file);
+    // Python's object model breaks aliasing; here we have to incref a type object which is
+    // not a python object and gcc warns (as we do not want to compile with -fno-strict-aliasing)
+    // So we hack around it as we 'know what we are doing'.
+    PyObject *pyobj_ef_alias = (PyObject *)((void *)&py_class_object__exec_file);
+    Py_INCREF(pyobj_ef_alias);
     PyModule_AddObject(module, "exec_file", (PyObject *)&py_class_object__exec_file);
     return error_level_okay;
 }
