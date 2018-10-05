@@ -6185,6 +6185,7 @@ extern void be_getopt_usage( void )
      printf( "\t--v_assert_delay\t\tTextual string inserted to verilog prior to testing for an assertion - this might be '#1', for example\n");
      printf( "\t--v_clkgate_type\t\tVerilog module which implements a clock gate (must have CLK_IN, ENABLE, CLK)OUT)\n");
      printf( "\t--v_clkgate_ports\t\tExtra ports for a clock gate module\n");
+     printf( "\t--v_clks_must_have_enables\t\tChanges clock ports from just <clock> to two ports, <clock> and <clock__enable>, and does not instantiate clock gate modules; use for FPGA builds\n");
      printf( "\t--v_comb_suffix\t\tTextual suffix for verilog 'reg' signals for combinatorials\n");
      printf( "\t--v_additional_port_include <filename>\t\tForces insertion of 'include \"filename\" before the ');' of every verilog module header\n");
      printf( "\t--v_additional_body_include <filename>\t\tForces insertion of 'include \"filename\" before the 'endmodule' of every verilog module body\n");

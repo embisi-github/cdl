@@ -11,5 +11,5 @@ OS_LINKFLAGS := -fPIC
 # Buld the VPI stuff if you want to incorporate simulation models in Verilog simulations through the VPI
 BUILD_PYTHON := yes
 BUILD_VPI := no
-DEBUG_BUILD := yes
+DEBUG_BUILD := no
 BISON_VERSION:=2.5

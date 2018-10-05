@@ -39,7 +39,8 @@ endif
 
 ALL2: ALL
 
-include models.make
+include $(MODELS_MAKE)
+#models.make
 
 ALL: $(CMDLINE_PROG) ${PYTHON_LIB} ${VPI_LIB}
 
@@ -55,7 +56,8 @@ ${VPI_LIB}: ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_COMMAND
 	@echo "Building VPI library for verilog simulation ${VPI_LIB}"
 	${Q}${LINKDYNLIB} $@  ${C_MODEL_OBJS} $(TARGET_DIR)/derived_model_list.o ${SUPPORT_VPI_OBJS} ${MODEL_LIBS} ${LOCAL_LINKLIBS} ${CYCLICITY_LIBS}
 
-$(TARGET_DIR)/derived_model_list.o: Makefile models.make
+# models.make
+$(TARGET_DIR)/derived_model_list.o: Makefile ${MODELS_MAKE}
 	@echo "Creating derived_mode_list source"
 	@echo "#include <stdlib.h>" > ${TARGET_DIR}/derived_model_list.cpp
 	@echo "#include <stdio.h>" >> ${TARGET_DIR}/derived_model_list.cpp
@@ -72,7 +74,7 @@ $(TARGET_DIR)/derived_model_list.o: Makefile models.make
 	$(Q)$(CC) $(CXXFLAGS) -c -o ${TARGET_DIR}/derived_model_list.o ${TARGET_DIR}/derived_model_list.cpp
 	$(Q)rm ${TARGET_DIR}/derived_model_list.cpp
 
-models.make: ${CREATE_MAKE} ${MODEL_LIST}
+${MODELS_MAKE}: ${CREATE_MAKE} ${MODEL_LIST}
 	@echo "Creating models.make"
 	$(Q)${CREATE_MAKE} ${EXTRA_CDLFLAGS} -f ${MODEL_LIST} -m ${MODELS_MAKE}
 
