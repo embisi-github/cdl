@@ -1852,7 +1852,7 @@ static void output_module_rtl_architecture_instance( c_model_descriptor *model, 
             output( handle, 2, ".%s__enable(%s__enable)", clock_port->port_name, clock_port->clock_name );
         } else if (options.clocks_must_have_enables) {
             output( handle, 2, ".%s(%s),\n", clock_port->port_name, clock_port->clock_name );
-            output( handle, 2, ".%s__enable(1'b1)", clock_port->port_name );
+            output( handle, 2, ".%s__enable(%s__enable)", clock_port->port_name, clock_port->clock_name );
         } else {
             output( handle, 2, ".%s(%s)", clock_port->port_name, clock_port->clock_name );
         }

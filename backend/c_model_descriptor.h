@@ -388,8 +388,8 @@ typedef struct t_md_signal
     t_md_client_reference client_ref;
     char *documentation; // always freed if not null
 
-    t_md_signal_type type;
-    t_md_usage_type usage_type;
+    t_md_signal_type type; // clock, input, output, comb, net
+    t_md_usage_type usage_type; // rtl, assert, cover
 
     t_md_type_instance *instance;
     t_md_type_instance_iter *instance_iter;
