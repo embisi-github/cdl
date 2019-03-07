@@ -276,8 +276,10 @@ extern t_sl_error_level se_internal_module__test_harness_instantiate( c_engine *
     data->posedge = posedge;
     data->exec_file_data = NULL;
 
-    engine->register_prepreclock_fn( engine_handle, (void *)data, internal_module_test_harness_prepreclock_fn );
-    engine->register_clock_fns( engine_handle, (void *)data, clock, internal_module_test_harness_posedge_preclock_fn, internal_module_test_harness_posedge_clock_fn, internal_module_test_harness_negedge_preclock_fn, internal_module_test_harness_negedge_clock_fn );
+    if (data->clock[0]) {
+        engine->register_prepreclock_fn( engine_handle, (void *)data, internal_module_test_harness_prepreclock_fn );
+        engine->register_clock_fns( engine_handle, (void *)data, clock, internal_module_test_harness_posedge_preclock_fn, internal_module_test_harness_posedge_clock_fn, internal_module_test_harness_negedge_preclock_fn, internal_module_test_harness_negedge_clock_fn );
+    }
 
     engine->register_reset_function( engine_handle, (void *)data, internal_module_test_harness_reset );
     engine->register_delete_function( engine_handle, (void *)data, internal_module_test_harness_delete_data );

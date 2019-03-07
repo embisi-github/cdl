@@ -25,7 +25,7 @@
 #  rmn:<mapping> - add --remap-module-name <mapping> to the CDL run, so that the module name and CPP class names may be remapped
 #  rmr:<mapping> - add --remap-registered-name <mapping> to the CDL run, so that a module registered name (as can be used in SIM) may be remapped
 #  rim:<mapping> - add --remap-implementation-name <mapping> to the CDL run, so that a module may declare a particular implementation name
-#  rit:<mapping> - add --remap-instance-type <mapping> to the CDL run, so that submodules may be remapped
+#  rit:<mapping> - add --remap-instance-type <foo.bar=banana> to the CDL run, so that submodules may be remapped
 #  inc:<path> - add include path, relative to the source root
 #  dc:<constant setting> - define a constant override for the CDL run (adds --constant <constant setting> to the CDL command line)
 #
